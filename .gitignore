@@ -1,0 +1,9 @@
+/build*
+tmp
+*.pyc
+.##*
+compile_commands.json
+.clangd
+.cache
+*.swp
+old

@@ -1,0 +1,33 @@
+[submodule "3rdparty/doctest"]
+	path = 3rdparty/doctest
+	url = https://github.com/onqtam/doctest
+[submodule "3rdparty/filesystem"]
+	path = 3rdparty/filesystem
+	url = https://github.com/gulrak/filesystem.git
+[submodule "3rdparty/spdlog"]
+	path = 3rdparty/spdlog
+	url = https://github.com/gabime/spdlog
+[submodule "3rdparty/fmt"]
+	path = 3rdparty/fmt
+	url = https://github.com/fmtlib/fmt
+[submodule "3rdparty/tomlplusplus"]
+	path = 3rdparty/tomlplusplus
+	url = https://github.com/marzer/tomlplusplus.git
+[submodule "3rdparty/pathfind"]
+	path = 3rdparty/pathfind
+	url = https://github.com/bkloppenborg/pathfind
+[submodule "3rdparty/replxx"]
+	path = 3rdparty/replxx
+	url = https://github.com/AmokHuginnsson/replxx.git
+[submodule "3rdparty/stduuid"]
+	path = 3rdparty/stduuid
+	url = https://github.com/mariusbancila/stduuid
+[submodule "3rdparty/pfs"]
+	path = 3rdparty/pfs
+	url = https://github.com/dtrugman/pfs
+[submodule "3rdparty/reproc"]
+	path = 3rdparty/reproc
+	url = https://github.com/DaanDeMeyer/reproc
+[submodule "3rdparty/json"]
+	path = 3rdparty/json
+	url = https://github.com/nlohmann/json

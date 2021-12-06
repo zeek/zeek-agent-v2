@@ -1,0 +1,11 @@
+# Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+
+target_sources(zeek-agent PRIVATE sockets.test.cc)
+
+if ( HAVE_DARWIN )
+    target_sources(zeek-agent PRIVATE sockets.darwin.cc)
+endif ()
+
+if ( HAVE_LINUX )
+    target_sources(zeek-agent PRIVATE sockets.linux.cc)
+endif ()

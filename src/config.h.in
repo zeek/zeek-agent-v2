@@ -1,0 +1,15 @@
+// Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+
+#pragma once
+
+#cmakedefine HAVE_POSIX
+#cmakedefine HAVE_DARWIN
+#cmakedefine HAVE_LINUX
+
+namespace zeek::agent {
+inline const auto Version = "${ZEEK_AGENT_VERSION}";
+inline const auto VersionLong = "${ZEEK_AGENT_VERSION_LONG}";
+inline const auto VersionNumber = ${ZEEK_AGENT_VERSION_NUMBER}l;
+inline const auto InstallLibDir = "${CMAKE_INSTALL_LIBDIR}";
+inline const auto InstallPrefix = "${CMAKE_INSTALL_PREFIX}";
+}
