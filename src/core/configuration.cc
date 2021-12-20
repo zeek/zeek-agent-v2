@@ -188,7 +188,15 @@ std::vector<char*> Configuration::Implementation::preprocessArgv(bool include_do
 
 Result<Options> Configuration::Implementation::addArgv(Options options) {
     auto argv = preprocessArgv(false);
-    optind = 1; // https://stackoverflow.com/a/60484617
+
+    // Restart getopt(). See https://stackoverflow.com/a/60484617 &&
+    // https://github.com/dnsdb/dnsdbq/commit/efa68c0499c3b5b4a1238318345e5e466a7fd99f
+#ifdef HAVE_LINUX
+    optind = 0;
+#else
+    optind = 1;
+    optreset = 1;
+#endif
 
     while ( true ) {
         int c = getopt_long(argv.size(), argv.data(), "L:MTc:e:hiv", long_driver_options, nullptr);
