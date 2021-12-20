@@ -13,6 +13,7 @@ option(USE_CCACHE "" "no")
 option(USE_SANITIZERS "" "")
 option(USE_WERROR "" "no")
 option(USE_DOCTEST "" "yes")
+option(USE_STATIC_LINKING "" "no")
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -45,6 +46,10 @@ if ( USE_CCACHE )
         set(USE_CCACHE "no (error: could not find ccache)")
     endif()
 endif ()
+
+if ( USE_STATIC_LINKING )
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+endif()
 
 enable_testing()
 
@@ -108,6 +113,7 @@ message(
     "\nBuild with tests:      ${USE_DOCTEST}"
     "\nUse ccache:            ${USE_CCACHE}"
     "\nUse sanitizers:        ${USE_SANITIZERS_DISPLAY}"
+    "\nLink statically:       ${USE_STATIC_LINKING}"
     "\n"
     "\nWarnings are errors:   ${USE_WERROR}"
     "\n"
