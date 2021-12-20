@@ -119,7 +119,7 @@ TEST_SUITE("Helpers") {
     }
 
 
-    TEST_CASE("time") { CHECK_EQ(to_string(42_time), "1970-01-01-01-00-42"); }
+    TEST_CASE("time") { CHECK_EQ(to_string(42_time), "1970-01-01-00-00-42"); }
 
     TEST_CASE("interval") {
         auto x = Interval(42s);
