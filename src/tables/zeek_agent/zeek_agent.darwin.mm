@@ -24,29 +24,39 @@ public:
 
 database::RegisterTable<ZeekAgentDarwin> _;
 
-static std::string primaryAddress() {
-    std::string ipv4, ipv6;
-
+static Value primaryAddress() {
     // Adapted from: SCDynamicStoreRef storeRef = SCDynamicStoreCreate(NULL, (CFStringRef)@"FindCurrentInterfaceIpMac",
     // NULL, NULL);
     SCDynamicStoreRef storeRef = SCDynamicStoreCreate(NULL, (CFStringRef) @"FindCurrentInterfaceIpMac", NULL, NULL);
-    CFPropertyListRef global = SCDynamicStoreCopyValue(storeRef, CFSTR("State:/Network/Global/IPv4"));
-    NSString* primaryInterface = [(__bridge NSDictionary*)global valueForKey:@"PrimaryInterface"];
+    if ( ! storeRef )
+        return {};
 
-    NSString* interfaceState = [NSString stringWithFormat:@"State:/Network/Interface/%@/IPv4", primaryInterface];
-    if ( interfaceState ) {
-        CFPropertyListRef state = SCDynamicStoreCopyValue(storeRef, (CFStringRef)interfaceState);
-        NSString* ip = [(__bridge NSDictionary*)state valueForKey:@"Addresses"][0];
-        ipv4 = [ip UTF8String];
-        CFRelease(state);
+    CFPropertyListRef global = SCDynamicStoreCopyValue(storeRef, CFSTR("State:/Network/Global/IPv4"));
+    if ( ! global )
+        return {};
+
+    NSString* primaryInterface = [(__bridge NSDictionary*)global valueForKey:@"PrimaryInterface"];
+    if ( ! primaryInterface )
+        return {};
+
+    std::string ipv4, ipv6;
+
+    if ( auto interfaceState = [NSString stringWithFormat:@"State:/Network/Interface/%@/IPv4", primaryInterface] ) {
+        if ( CFPropertyListRef state = SCDynamicStoreCopyValue(storeRef, (CFStringRef)interfaceState) ) {
+            if ( NSString* ip = [(__bridge NSDictionary*)state valueForKey:@"Addresses"][0] )
+                ipv4 = [ip UTF8String];
+
+            CFRelease(state);
+        }
     }
 
-    interfaceState = [NSString stringWithFormat:@"State:/Network/Interface/%@/IPv6", primaryInterface];
-    if ( interfaceState ) {
-        CFPropertyListRef state = SCDynamicStoreCopyValue(storeRef, (CFStringRef)interfaceState);
-        NSString* ip = [(__bridge NSDictionary*)state valueForKey:@"Addresses"][0];
-        ipv6 = [ip UTF8String];
-        CFRelease(state);
+    if ( auto interfaceState = [NSString stringWithFormat:@"State:/Network/Interface/%@/IPv6", primaryInterface] ) {
+        if ( CFPropertyListRef state = SCDynamicStoreCopyValue(storeRef, (CFStringRef)interfaceState) ) {
+            if ( NSString* ip = [(__bridge NSDictionary*)state valueForKey:@"Addresses"][0] )
+                ipv4 = [ip UTF8String];
+
+            CFRelease(state);
+        }
     }
 
     CFRelease(storeRef);
