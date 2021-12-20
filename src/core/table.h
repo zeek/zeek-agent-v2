@@ -196,6 +196,8 @@ public:
      * When this method executes, `options()` may already be used to access
      * global configuration options.
      *
+     * This hook will not be called when mock data has been enabled for the table.
+     *
      * @result false to completely disable the table at this point, so that it
      * will not be available for queries.
      */
@@ -208,6 +210,8 @@ public:
      * remained active anymore, but then a new query comes in. (It's guaranteed
      * that `activate()` will not be called again before `deactivate()` execute.)
      *
+     * This hook will not be called when mock data has been enabled for the table.
+     *
      * Derived classes may implement this method to start, or restart, data
      * collection. The default implementation does nothing.
      */
@@ -217,6 +221,8 @@ public:
      * Hook that will be called when all active queries against this table
      * completed or got otherwise removed.
      *
+     * This hook will not be called when mock data has been enabled for the table.
+     *
      * Derived classes may implement this method to stop data collection. The
      * default implementation does nothing.
      */
@@ -225,6 +231,8 @@ public:
     /**
      * Hook that will be called in regular, but not further defined, intervals
      * during the agent's main processing loop while the table is active.
+     *
+     * This hook will not be called when mock data has been enabled for the table.
      *
      * Derived classes may implement this method to perform regular tasks, such
      * as collecting outstanding data from their sources. The default
@@ -238,6 +246,8 @@ public:
      *
      * Derived classes may implement this method to clear out state that's no
      * longer needed.
+     *
+     * This hook will not be called when mock data has been enabled for the table.
      *
      * @param t any state associated with times strictly older than this
      * can be cleared out

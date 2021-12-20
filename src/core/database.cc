@@ -68,7 +68,7 @@ std::map<std::string, std::unique_ptr<Table>> Database::Implementation::_registe
 
 void Database::Implementation::done() {
     for ( auto&& i : _tables ) {
-        if ( i.second->isActive() )
+        if ( i.second->isActive() && ! i.second->usesMockData() )
             i.second->deactivate();
     }
 
@@ -126,14 +126,18 @@ void Database::Implementation::expire() {
         if ( auto i = expire_times.find(n); i != expire_times.end() )
             expire_until = i->second;
 
-        ZEEK_AGENT_DEBUG("database", "[{}] expiring state until t={}", n, to_string(expire_until));
-        t->expire(expire_until);
+        if ( ! t->usesMockData() ) {
+            ZEEK_AGENT_DEBUG("database", "[{}] expiring state until t={}", n, to_string(expire_until));
+            t->expire(expire_until);
+        }
     }
 }
 
 void Database::Implementation::poll() {
-    for ( auto&& i : _tables )
-        i.second->poll();
+    for ( auto&& i : _tables ) {
+        if ( ! i.second->usesMockData() )
+            i.second->poll();
+    }
 }
 
 void Database::Implementation::addTable(Table* t) {
@@ -329,10 +333,12 @@ void Database::addTable(Table* t) {
     if ( configuration().options().use_mock_data )
         t->enableMockData();
 
-    if ( ! t->init() ) {
-        ZEEK_AGENT_DEBUG("database", "not adding table {} to database because it's disabled", t->name());
-        t->setDatabase(nullptr);
-        return;
+    if ( ! t->usesMockData() ) {
+        if ( ! t->init() ) {
+            ZEEK_AGENT_DEBUG("database", "not adding table {} to database because it's disabled", t->name());
+            t->setDatabase(nullptr);
+            return;
+        }
     }
 
     ZEEK_AGENT_DEBUG("database", "adding table {} to database", t->name());
@@ -373,7 +379,10 @@ TEST_SUITE("Database") {
         }
 
         std::vector<std::vector<Value>> rows(Time since, const std::vector<table::Where>& wheres) override {
-            CHECK(initialized);
+            if ( ! usesMockData() ) {
+                CHECK(initialized);
+            }
+
             ++counter;
             return {{counter}, {counter + 1}, {counter + 2}};
         }
@@ -754,5 +763,39 @@ TEST_SUITE("Database") {
             tmgr.advance(3_time);
             CHECK_EQ(num_callback_executions, 2);
         }
+    }
+
+    TEST_CASE("virtual methods with mock data") {
+        // Check that some of our virtual methods aren't called when using mock data.
+        class MockedTestTable : public TestTable {
+            bool init() override {
+                CHECK(false);
+                cannot_be_reached();
+            }
+            void activate() override { CHECK(false); }
+            void deactivate() override { CHECK(false); }
+            void poll() override { CHECK(false); }
+            void expire(Time t) override { CHECK(false); }
+        };
+
+        MockedTestTable t;
+        t.enableMockData();
+        Configuration cfg;
+        Scheduler tmgr;
+        Database db(&cfg, &tmgr);
+        db.addTable(&t);
+
+        auto callback = [&](query::ID id, const query::Result& result) { CHECK_EQ(result.columns.size(), 1); };
+
+        auto query = Query{.sql_stmt = "SELECT * from test_table",
+                           .subscription = {},
+                           .schedule = 0s,
+                           .cookie = "",
+                           .callback = std::move(callback)};
+
+        auto query_id = db.query(std::move(query));
+        REQUIRE(query_id);
+
+        tmgr.advance(1000_time);
     }
 }

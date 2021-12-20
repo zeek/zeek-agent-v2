@@ -103,7 +103,9 @@ std::vector<Value> Table::generateMockRow(int i) {
 void Table::sqliteTrackStatement() {
     if ( ++_current_connections == 1 ) {
         ZEEK_AGENT_DEBUG("table", "activating table {}", name());
-        activate();
+
+        if ( ! _use_mock_data )
+            activate();
     }
 }
 
@@ -111,7 +113,9 @@ void Table::sqliteUntrackStatement() {
     assert(_current_connections > 0);
     if ( --_current_connections == 0 ) {
         ZEEK_AGENT_DEBUG("table", "deactivating table {}", name());
-        deactivate();
+
+        if ( ! _use_mock_data )
+            deactivate();
     }
 }
 

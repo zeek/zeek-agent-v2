@@ -8,8 +8,8 @@
 using namespace zeek::agent;
 
 TEST_CASE_FIXTURE(test::TableFixture, "system_logs_events" * doctest::test_suite("Tables")) {
-    useTable("system_logs_events");
     enableMockDataForTable("system_logs_events");
+    useTable("system_logs_events");
 
     // Can use mock data only here.
     auto result = query("SELECT message from system_logs_events WHERE time == 200");
