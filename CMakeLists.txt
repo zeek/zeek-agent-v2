@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.15.0)
 
-project(spicy LANGUAGES C CXX)
+project(ZeekAgent LANGUAGES C CXX)
 
 set(macos_minimum_version "19.0.0") # macOS 10.15.0 (Catalina)
 
@@ -53,19 +53,6 @@ endif()
 
 enable_testing()
 
-### Platform-specific code.
-
-set(HAVE_POSIX $<bool:${UNIX}>)
-
-if ( CMAKE_SYSTEM_NAME STREQUAL "Darwin" )
-    require_version("maccOS" True ${CMAKE_SYSTEM_VERSION} "${macos_minimum_version}" true)
-    set(HAVE_DARWIN true)
-elseif ( CMAKE_SYSTEM_NAME STREQUAL "Linux" )
-    set(HAVE_LINUX true)
-else ()
-    message(FATAL_ERROR "unknown platform, supporting only Linux and macOS currently")
-endif()
-
 ### Determine version information
 
 file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/VERSION ZEEK_AGENT_VERSION LIMIT_COUNT 1)
@@ -86,12 +73,31 @@ else ()
 endif ()
 
 string(REGEX MATCH "([0-9]*)\.([0-9]*)\.([0-9]*).*" _ ${ZEEK_AGENT_VERSION})
-math(EXPR ZEEK_AGENT_VERSION_NUMBER "${CMAKE_MATCH_1} * 10000 + ${CMAKE_MATCH_2} * 100 + ${CMAKE_MATCH_3}")
+set(ZEEK_AGENT_VERSION_MAJOR "${CMAKE_MATCH_1}")
+set(ZEEK_AGENT_VERSION_MINOR "${CMAKE_MATCH_2}")
+set(ZEEK_AGENT_VERSION_PATCH "${CMAKE_MATCH_3}")
+math(EXPR ZEEK_AGENT_VERSION_NUMBER "${ZEEK_AGENT_VERSION_MAJOR} * 10000 + ${ZEEK_AGENT_VERSION_MINOR} * 100 + ${ZEEK_AGENT_VERSION_PATCH}")
+#set(ZEEK_AGENT_VERSION_STRICT "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
+
+### Platform-specific code.
+
+set(HAVE_POSIX $<bool:${UNIX}>)
+
+if ( CMAKE_SYSTEM_NAME STREQUAL "Darwin" )
+    require_version("maccOS" True ${CMAKE_SYSTEM_VERSION} "${macos_minimum_version}" true)
+    set(HAVE_DARWIN true)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+elseif ( CMAKE_SYSTEM_NAME STREQUAL "Linux" )
+    set(HAVE_LINUX true)
+else ()
+    message(FATAL_ERROR "unknown platform, supporting only Linux and macOS currently")
+endif()
 
 ### Add subdirectories.
 
 add_subdirectory(3rdparty)
 add_subdirectory(src)
+add_subdirectory(packaging)
 
 ### Emit configuration summary.
 

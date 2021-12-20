@@ -1,0 +1,129 @@
+name: build-and-test
+
+on: push
+
+jobs:
+  debug_ubuntu_latest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Prepare
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get install -y ninja-build ccache
+          sudo pip3 install --no-cache-dir btest pre-commit
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1
+
+      - name: Build
+        run: |
+          ./configure --prefix=/tmp/zeek-agent --enable-debug --enable-sanitizer --enable-ccache --enable-werror --generator=Ninja
+          cd build && ninja
+
+      - name: Test
+        run: |
+          cd build && CTEST_OUTPUT_ON_FAILURE=1 ninja test
+
+      - name: Check code
+        run: |
+          pre-commit run -a --show-diff-on-failure
+
+  release_alpine_3_15_static:
+    runs-on: ubuntu-latest
+
+    container:
+      image: alpine:3.15
+
+    steps:
+      - name: Prepare
+        run: |
+          apk update
+          apk add linux-headers ccache cmake g++ gcc git ninja tar
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1
+
+      - name: Build
+        run: |
+          ./configure --prefix=/tmp/zeek-agent --enable-ccache --enable-werror --enable-static --generator=Ninja
+          cd build && ninja
+
+      - name: Test
+        run: |
+          cd build && CTEST_OUTPUT_ON_FAILURE=1 ninja test
+          ldd bin/zeek-agent 2>&1 | grep -q "Not a valid dynamic program"
+
+      - name: Install
+        run: |
+          cd build && ninja install
+          find /tmp/zeek-agent -exec ls -ald '{}' ';'
+
+      - name: Package
+        run: |
+          cd build && ninja package
+          cd dist
+          echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.ZA_TGZ}}
+          path: build/dist/${{env.ZA_TGZ}}
+
+  release_macos_11:
+    runs-on: macos-11
+
+    steps:
+      - name: Prepare
+        run: |
+          brew install ninja ccache
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1
+
+      - name: Build
+        run: |
+          ./configure --prefix=${{runner.temp}}/zeek-agent --enable-ccache --enable-werror --generator=Ninja
+          cd build && ninja
+
+      - name: Test
+        run: |
+          cd build && CTEST_OUTPUT_ON_FAILURE=1 ninja test
+          file bin/zeek-agent | grep -q "universal binary with 2 architectures"
+
+      - name: Install
+        run: |
+          cd build && ninja install
+          find ${{runner.temp}}/zeek-agent -exec ls -ald '{}' ';'
+
+      - name: Package
+        run: |
+          cd build && ninja package
+          cd dist
+          echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV
+          echo "ZA_DMG=$(echo *.dmg)" >>$GITHUB_ENV
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.ZA_TGZ}}
+          path: build/dist/${{env.ZA_TGZ}}
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.ZA_DMG}}
+          path: build/dist/${{env.ZA_DMG}}

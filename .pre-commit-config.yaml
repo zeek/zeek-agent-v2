@@ -2,11 +2,17 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
 
+- repo: https://github.com/pre-commit/mirrors-clang-format
+  rev: 'v13.0.0'
+  hooks:
+  - id: clang-format
+
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v4.0.1
   hooks:
   - id: trailing-whitespace
   - id: end-of-file-fixer
+  - id: check-yaml
   - id: check-added-large-files
 
 - repo: https://gitlab.com/daverona/pre-commit/cpp
@@ -14,8 +20,10 @@ repos:
   hooks:
   - id: cpplint
     args: ["--quiet"]
-  - id: cppcheck
-  - id: clang-format
-    args: []
 
-exclude: 3rdparty/
+- repo: https://github.com/jorisroovers/gitlint
+  rev:  v0.17.0
+  hooks:
+  - id: gitlint
+
+exclude: 3rdparty/|/Baseline/

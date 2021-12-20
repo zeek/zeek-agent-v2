@@ -59,6 +59,8 @@ target_link_libraries(zeek-agent PRIVATE reproc++)
 target_link_libraries(zeek-agent PRIVATE nlohmann_json)
 target_link_libraries(zeek-agent PRIVATE ${CMAKE_DL_LIBS})
 
+install(TARGETS zeek-agent)
+
 configure_file(config.h.in "${CMAKE_BINARY_DIR}/include/autogen/config.h")
 
 # Create a test with a dependency on zeek-agent.

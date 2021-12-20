@@ -6,8 +6,8 @@
 
 #include "autogen/config.h"
 #include "core/configuration.h"
-#include "core/logger.h"
 #include "core/database.h"
+#include "core/logger.h"
 #include "core/table.h"
 #include "util/fmt.h"
 
