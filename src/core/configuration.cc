@@ -164,6 +164,7 @@ void Configuration::Implementation::apply(Options options) {
             logger()->set_level(spdlog::level::off);
 
         auto argv = preprocessArgv(true);
+        setenv("TZ", "GMT", 1);
         doctest::Context context(argv.size(), argv.data());
         exit(context.run());
 #else
