@@ -15,6 +15,8 @@ cmake_use_doctest="yes"
 cmake_use_sanitizers=""
 cmake_use_werror="no"
 cmake_use_static_linking="no"
+cmake_openssl_root=""
+cmake_osx_architectures=""
 
 display_cmake=0
 cache_entries=""
@@ -47,11 +49,13 @@ Usage: $0 [OPTION]... [VAR=VALUE]...
     --disable-tests                    Do not include unit tests into build.
     --enable-ccache                    Build using the compiler cache cache if in PATH [default: ${cmake_use_ccache}]
     --enable-debug                     Compile debug version (same as --build-type=Debug) [default: off]
+    --enable-osx-universal             Build universal x86/arm64 binary on macOS (will need universal deps too)
     --enable-sanitizer[=<names>]       Enable sanitizer(s), default if not further specified is \"address\"
     --enable-static                    Link agent binary staticallly (where supported by platform)
     --enable-werror                    Treat compiler warnings as errors [default: ${cmake_use_werror}]
     --generator=<generator>            CMake generator to use (see cmake --help)
     --prefix=PATH                      Installation prefix [default: ${cmake_install_prefix}]
+    --with-openssl=DIR                 Path to OpenSSL installation root
 
     --display-cmake                    Don't create build configuration, just output final CMake invocation
 "
@@ -93,12 +97,13 @@ while [ $# -ne 0 ]; do
         --disable-tests)                   cmake_use_doctest="no";;
         --enable-ccache)                   cmake_use_ccache="yes";;
         --enable-debug)                    cmake_build_type="Debug";;
+        --enable-osx-universal)            cmake_osx_architectures="arm64;x86_64";;
         --enable-sanitizer)                cmake_use_sanitizers="address";;
         --enable-sanitizer=*)              cmake_use_sanitizers="${optargs}";;
         --enable-static)                   cmake_use_static_linking="yes";;
         --enable-werror)                   cmake_use_werror="yes";;
         --generator=*)                     cmake_generator="${optarg}";;
-        --prefix=*)                        cmake_install_prefix="${optarg}";;
+        --with-openssl=*)                  cmake_openssl_root="${optarg}";;
 
         --display-cmake) display_cmake=1;;
 
@@ -111,11 +116,13 @@ done
 # Set CMake cache options.
 append_cache_entry CMAKE_BUILD_TYPE             STRING "${cmake_build_type}"
 append_cache_entry CMAKE_INSTALL_PREFIX         PATH   "${cmake_install_prefix}"
+append_cache_entry CMAKE_OSX_ARCHITECTURES      STRING "${cmake_osx_architectures}"
 append_cache_entry USE_CCACHE                   BOOL   "${cmake_use_ccache}"
 append_cache_entry USE_SANITIZERS               STRING "${cmake_use_sanitizers}"
 append_cache_entry USE_WERROR                   BOOL   "${cmake_use_werror}"
 append_cache_entry USE_DOCTEST                  BOOL   "${cmake_use_doctest}"
 append_cache_entry USE_STATIC_LINKING           BOOL   "${cmake_use_static_linking}"
+append_cache_entry OPENSSL_ROOT_DIR             PATH   "${cmake_openssl_root}"
 
 if [ -n "${cmake_generator}" ]; then
     cmake="${cmake_exe} -G '${cmake_generator}' ${cmake_cache_entries} ${source_dir}"
