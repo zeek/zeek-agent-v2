@@ -211,7 +211,18 @@ public:
      */
     static const std::map<std::string, std::unique_ptr<Table>>& registeredTables();
 
+    /**
+     * Looks up a table registered globally with the runtime system by its name.
+     *
+     * @param name table name to look up.
+     */
     static Table* findRegisteredTable(const std::string& name);
+
+    /**
+     * Returns JSON with the schema of all tables registered globally with the
+     * runtime system.
+     */
+    static std::string documentRegisteredTables();
 };
 
 namespace database {

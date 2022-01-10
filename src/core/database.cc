@@ -15,6 +15,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include <nlohmann/json.hpp>
+
 using namespace zeek::agent;
 
 // State for a currently active query.
@@ -370,6 +372,33 @@ Table* Database::findRegisteredTable(const std::string& name) {
     }
 
     return nullptr;
+}
+
+std::string Database::documentRegisteredTables() {
+    nlohmann::json tables;
+
+    for ( const auto& t : registeredTables() ) {
+        auto schema = t.second->schema();
+        nlohmann::json columns;
+
+        for ( const auto& c : schema.columns ) {
+            nlohmann::json column;
+            column["type"] = to_string(c.type);
+            column["description"] = c.description;
+            column["mandatory_constraint"] = c.mandatory_constraint;
+            columns[c.name] = std::move(column);
+        }
+
+        nlohmann::json table;
+        table["description"] = schema.description;
+        table["columns"] = std::move(columns);
+
+        tables[schema.name] = std::move(table);
+    }
+
+    nlohmann::json all;
+    all["tables"] = std::move(tables);
+    return all.dump(4);
 }
 
 TEST_SUITE("Database") {
@@ -831,5 +860,13 @@ TEST_SUITE("Database") {
         REQUIRE(query_id);
 
         tmgr.advance(1000_time);
+    }
+
+    TEST_CASE("JSON schema") {
+        auto schema = nlohmann::json::parse(Database::documentRegisteredTables());
+        auto zeek_agent = schema["tables"]["zeek_agent"];
+
+        // Just a basic check that we it looks right.
+        CHECK_EQ(zeek_agent["columns"].size(), 12);
     }
 }

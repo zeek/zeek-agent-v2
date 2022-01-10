@@ -45,6 +45,7 @@ static struct option long_driver_options[] = {
     {"help", no_argument, nullptr, 'h'},
     {"interactive", no_argument, nullptr, 'i'},
     {"log-level", required_argument, nullptr, 'L'},
+    {"autodoc", no_argument, nullptr, 'D'},
     {"test", no_argument, nullptr, 'T'},
     {"use-mock-data", no_argument, nullptr, 'M'},
     {"zeek", required_argument, nullptr, 'z'},
@@ -58,6 +59,7 @@ static void usage(const filesystem::path& name) {
     std::cerr << "\nUsage: " << name.filename().native() << format(
         " [options]\n"
         "\n"
+        "  -D | --autodoc              Output JSON documentating table schemas and exit.\n"
         "  -L | --log-level <LEVEL>    Set logging level (" LOG_LEVEL_HELP ") [default: warning]\n"
         "  -M | --use-mock-data        Let tables return only fake mock data for testing\n"
         "  -T | --test                 Run unit tests and exit\n"
@@ -72,7 +74,20 @@ static void usage(const filesystem::path& name) {
     // clang-format on
 }
 
+namespace zeek::agent::options {
+static std::string to_string(options::Mode mode) {
+    switch ( mode ) {
+        case options::Mode::Standard: return "standard";
+        case options::Mode::Test: return "test";
+        case options::Mode::AutoDoc: return "autodoc";
+    }
+
+    cannot_be_reached();
+}
+} // namespace zeek::agent::options
+
 void Options::debugDump() {
+    ZEEK_AGENT_DEBUG("configuration", "[option] mode: {}", to_string(mode));
     ZEEK_AGENT_DEBUG("configuration", "[option] agent-id: {}", agent_id);
     ZEEK_AGENT_DEBUG("configuration", "[option] instance-id: {}", instance_id);
     ZEEK_AGENT_DEBUG("configuration", "[option] config-file: {}",
@@ -80,7 +95,6 @@ void Options::debugDump() {
     ZEEK_AGENT_DEBUG("configuration", "[option] interactive: {}", (interactive ? "true" : "false"));
     ZEEK_AGENT_DEBUG("configuration", "[option] log-level: {}",
                      (log_level ? spdlog::level::to_short_c_str(*log_level) : "<not set>"));
-    ZEEK_AGENT_DEBUG("configuration", "[option] run-tests: {}", run_tests);
     ZEEK_AGENT_DEBUG("configuration", "[option] use-mock-data: {}", use_mock_data);
     ZEEK_AGENT_DEBUG("configuration", "[option] terminate_on_disconnect: {}", terminate_on_disconnect);
     ZEEK_AGENT_DEBUG("configuration", "[option] zeeks: {}", join(zeeks, ", "));
@@ -167,7 +181,7 @@ void Configuration::Implementation::apply(Options options) {
     else
         logger()->set_level(options::default_log_level);
 
-    if ( options.run_tests ) {
+    if ( options.mode == options::Mode::Test ) {
 #ifndef DOCTEST_CONFIG_DISABLE
         if ( ! options.log_level )
             logger()->set_level(spdlog::level::off);
@@ -209,7 +223,7 @@ Result<Options> Configuration::Implementation::addArgv(Options options) {
 #endif
 
     while ( true ) {
-        int c = getopt_long(argv.size(), argv.data(), "L:MNTc:e:hivz:", long_driver_options, nullptr);
+        int c = getopt_long(argv.size(), argv.data(), "DL:MNTc:e:hivz:", long_driver_options, nullptr);
         if ( c < 0 )
             return options;
 
@@ -227,9 +241,10 @@ Result<Options> Configuration::Implementation::addArgv(Options options) {
                 break;
             }
 
+            case 'D': options.mode = options::Mode::AutoDoc; break;
             case 'M': options.use_mock_data = true; break;
             case 'N': options.terminate_on_disconnect = true; break;
-            case 'T': options.run_tests = true; break;
+            case 'T': options.mode = options::Mode::Test; break;
             case 'c': options.config_file = optarg; break;
             case 'e': options.execute = optarg; break;
             case 'i': options.interactive = true; break;
@@ -487,7 +502,7 @@ TEST_SUITE("Configuration") {
         }
     }
 
-    TEST_CASE("set 'zeek' options") {
+    TEST_CASE("set Zeek options") {
         Configuration cfg;
 
         SUBCASE("config") {

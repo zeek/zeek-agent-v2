@@ -18,6 +18,17 @@ namespace zeek::agent {
 namespace options {
 // Default log level for new configuration objects.
 extern spdlog::level::level_enum default_log_level;
+
+/**
+ * Defines the mode of operation for the Zeek Agent process. This captures a
+ * couple of special modes beyond normal operation.
+ **/
+enum class Mode {
+    Standard, /**< normal operation */
+    Test,     /**< run unit tests and exit */
+    AutoDoc   /**< print out JSON describing table schemas and exit */
+};
+
 } // namespace options
 
 /**
@@ -25,6 +36,9 @@ extern spdlog::level::level_enum default_log_level;
  * means.
  */
 struct Options {
+    /** Mode of operation for the current process. */
+    options::Mode mode = options::Mode::Standard;
+
     /**
      * The agent's unique ID. This is generated randomly at first, then
      * persistent across runs.
@@ -75,11 +89,6 @@ struct Options {
 
     /** Interval to broadcast "hello" pings. */
     Interval zeek_hello_interval = 60s;
-
-    /// The remaining options are used for testing only.
-
-    /** True to run unit tests instead of normal operation. */
-    bool run_tests = false;
 
     /** True to have any tables only report mock data for testing. */
     bool use_mock_data = false;

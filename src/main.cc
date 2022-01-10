@@ -6,6 +6,7 @@
 #include "core/logger.h"
 #include "core/scheduler.h"
 #include "core/signal.h"
+#include "core/table.h"
 #include "io/console.h"
 #include "io/zeek.h"
 #include "util/fmt.h"
@@ -28,6 +29,12 @@ int main(int argc, char** argv) {
         if ( ! rc ) {
             std::cerr << rc.error() << std::endl;
             return 0;
+        }
+
+        if ( cfg.options().mode == options::Mode::AutoDoc ) {
+            std::cout << Database::documentRegisteredTables() << std::endl;
+            ;
+            exit(0);
         }
 
         logger()->info(format("Zeek Agent {} starting up", VersionLong));
