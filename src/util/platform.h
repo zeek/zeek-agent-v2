@@ -5,9 +5,13 @@
 #include "filesystem.h"
 
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace zeek::agent::platform {
+
+/** Returns a name for the current platform. */
+extern std::string name();
 
 /** Returns the path to the default configuration file. */
 extern filesystem::path configurationFile();

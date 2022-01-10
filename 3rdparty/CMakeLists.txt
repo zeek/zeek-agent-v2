@@ -11,6 +11,14 @@ add_subdirectory(spdlog EXCLUDE_FROM_ALL)
 add_subdirectory(stduuid EXCLUDE_FROM_ALL)
 add_subdirectory(tomlplusplus EXCLUDE_FROM_ALL)
 
+# Build a mininmal, static version of libroker.
+set(BROKER_DISABLE_DOCS ON)
+set(BROKER_DISABLE_TESTS ON)
+set(DISABLE_PYTHON_BINDINGS ON)
+set(ENABLE_STATIC_ONLY ON)
+set(OPENSSL_USE_STATIC_LIBS on)
+add_subdirectory(broker EXCLUDE_FROM_ALL)
+
 # pathfind's cmake config is too old and not really usable. Set it up ourselves.
 add_library(pathfind STATIC pathfind/src/pathfind.cpp)
 target_include_directories(pathfind PUBLIC pathfind/src)

@@ -77,7 +77,15 @@ template<typename T>
  * @param id the querie's unique ID
  * @param result the query's freshly computed result
  */
-using Callback = std::function<void(ID id, const Result& results)>;
+using CallbackResult = std::function<void(ID id, const Result& results)>;
+
+/**
+ * Callback executed when a query terminates.
+ *
+ * @param id the querie's unique ID
+ * @param canceled true if explicitly cancelyed, false for regular no-longer-scheduled
+ */
+using CallbackDone = std::function<void(ID id, bool cancelled)>;
 
 /** For repeating queries, the type for follow up results. */
 enum class SubscriptionType {
@@ -93,11 +101,13 @@ enum class SubscriptionType {
 struct Query {
     std::string sql_stmt;                                /**< SQL statement to execute */
     std::optional<query::SubscriptionType> subscription; /**< enable subscription to updates of given type */
-    Interval schedule = 0s;   /**< for subscriptions, reschedule in such intervals until canceled */
-    bool terminate = false;   /**< if true, terminate the Zeek Agent after this query's callback has executed */
-    std::string cookie;       /**< arbitrary user-chosen string that will be copied into the result */
-    query::Callback callback; /**< Callback to execute when result is available; will execute inside the thread driving
-                                 the database's scheduler */
+    Interval schedule = 0s; /**< for subscriptions, reschedule in such intervals until canceled */
+    bool terminate = false; /**< if true, terminate the Zeek Agent after this query's callback has executed */
+    std::string cookie;     /**< arbitrary user-chosen string that will be copied into the result */
+    std::optional<query::CallbackResult> callback_result; /**< Callback to execute when result is available; will
+                                 execute inside the thread driving the database's scheduler */
+    std::optional<query::CallbackDone> callback_done;     /**< Callback to execute when query has fully finished; will
+                                     execute inside the thread driving the database's scheduler */
 };
 
 class Table;
@@ -200,6 +210,8 @@ public:
      * The map is indexed by the names of the tables.
      */
     static const std::map<std::string, std::unique_ptr<Table>>& registeredTables();
+
+    static Table* findRegisteredTable(const std::string& name);
 };
 
 namespace database {

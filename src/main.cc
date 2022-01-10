@@ -7,7 +7,9 @@
 #include "core/scheduler.h"
 #include "core/signal.h"
 #include "io/console.h"
+#include "io/zeek.h"
 #include "util/fmt.h"
+#include "util/helpers.h"
 #include "util/threading.h"
 
 #include <iostream>
@@ -53,6 +55,12 @@ int main(int argc, char** argv) {
             console->start();
         }
 
+        std::unique_ptr<Zeek> zeek;
+        if ( ! cfg.options().zeeks.empty() ) {
+            zeek = std::make_unique<Zeek>(&db, &scheduler);
+            zeek->start(cfg.options().zeeks);
+        }
+
         ZEEK_AGENT_DEBUG("main", "looping until terminated");
 
         scheduler.registerUpdateCallback([&main_loop]() { main_loop.notify(); });
@@ -60,7 +68,17 @@ int main(int argc, char** argv) {
         while ( ! scheduler.terminating() ) {
             db.poll();
 
-            if ( auto t = scheduler.nextTimer() - std::chrono::system_clock().now(); t > 0s ) {
+            if ( zeek )
+                zeek->poll();
+
+            if ( auto next_timer = scheduler.nextTimer(); next_timer == 0_time ) {
+                // TODO: make timeout configurable
+                auto t = Interval(15s);
+                ZEEK_AGENT_DEBUG("main", "completely idle, sleeping with timeout={}", to_string(t));
+                main_loop.wait(t);
+            }
+
+            else if ( auto t = next_timer - std::chrono::system_clock().now(); t > 0s ) {
                 ZEEK_AGENT_DEBUG("main", "sleeping with timeout={}", to_string(t));
                 main_loop.wait(t);
             }

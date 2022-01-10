@@ -221,7 +221,7 @@ void Console::Implementation::query(const std::string stmt, std::optional<query:
                    .schedule = 2s,
                    .terminate = terminate,
                    .cookie = "",
-                   .callback = [&](query::ID id, query::Result result) {
+                   .callback_result = [&](query::ID id, query::Result result) {
                        printResult(result, subscription && *subscription != query::SubscriptionType::Snapshots);
 
                        if ( subscription && *subscription == query::SubscriptionType::Snapshots )

@@ -47,6 +47,7 @@ static struct option long_driver_options[] = {
     {"log-level", required_argument, nullptr, 'L'},
     {"test", no_argument, nullptr, 'T'},
     {"use-mock-data", no_argument, nullptr, 'M'},
+    {"zeek", required_argument, nullptr, 'z'},
     {"version", no_argument, nullptr, 'v'},
     {nullptr, 0, nullptr, 0}
     // clang-format on
@@ -65,6 +66,7 @@ static void usage(const filesystem::path& name) {
         "  -h | --help                 Show usage information\n"
         "  -i | --interactive          Spawn interactive console\n"
         "  -v | --version              Print version information\n"
+        "  -z | --zeek <host>[:port]   Connect to Zeek at given address\n"
         "\n",
         platform::configurationFile().native());
     // clang-format on
@@ -72,6 +74,7 @@ static void usage(const filesystem::path& name) {
 
 void Options::debugDump() {
     ZEEK_AGENT_DEBUG("configuration", "[option] agent-id: {}", agent_id);
+    ZEEK_AGENT_DEBUG("configuration", "[option] instance-id: {}", instance_id);
     ZEEK_AGENT_DEBUG("configuration", "[option] config-file: {}",
                      (config_file ? *config_file : filesystem::path()).native());
     ZEEK_AGENT_DEBUG("configuration", "[option] interactive: {}", (interactive ? "true" : "false"));
@@ -79,6 +82,8 @@ void Options::debugDump() {
                      (log_level ? spdlog::level::to_short_c_str(*log_level) : "<not set>"));
     ZEEK_AGENT_DEBUG("configuration", "[option] run-tests: {}", run_tests);
     ZEEK_AGENT_DEBUG("configuration", "[option] use-mock-data: {}", use_mock_data);
+    ZEEK_AGENT_DEBUG("configuration", "[option] terminate_on_disconnect: {}", terminate_on_disconnect);
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeeks: {}", join(zeeks, ", "));
 }
 
 template<>
@@ -112,6 +117,15 @@ struct Pimpl<Configuration>::Implementation {
     static Options default_();
 };
 
+static std::string random_uuid() {
+    std::random_device rd;
+    auto seed_data = std::array<int, std::mt19937::state_size>{};
+    std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
+    std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
+    std::mt19937 generator(seq);
+    return uuids::to_string(uuids::uuid_random_generator(generator)());
+}
+
 Options Configuration::Implementation::default_() {
     Options options;
 
@@ -128,20 +142,15 @@ Options Configuration::Implementation::default_() {
     }
 
     if ( options.agent_id.empty() ) {
-        std::random_device rd;
-        auto seed_data = std::array<int, std::mt19937::state_size>{};
-        std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
-        std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
-        std::mt19937 generator(seq);
-        auto uuid = uuids::uuid_random_generator(generator)();
-
         // Generate a fresh UUID as our agent's ID.
-        options.agent_id = uuids::to_string(uuid);
+        options.agent_id = random_uuid();
 
         // Cache it.
         std::ofstream out(uuid_path, std::ios::out | std::ios::trunc);
         out << options.agent_id << "\n";
     }
+
+    options.instance_id = split(random_uuid(), "-")[0]; // 1st part is "unique enough"
 
     auto path = platform::configurationFile();
     if ( filesystem::is_regular_file(path) )
@@ -200,7 +209,7 @@ Result<Options> Configuration::Implementation::addArgv(Options options) {
 #endif
 
     while ( true ) {
-        int c = getopt_long(argv.size(), argv.data(), "L:MTc:e:hiv", long_driver_options, nullptr);
+        int c = getopt_long(argv.size(), argv.data(), "L:MNTc:e:hivz:", long_driver_options, nullptr);
         if ( c < 0 )
             return options;
 
@@ -219,10 +228,12 @@ Result<Options> Configuration::Implementation::addArgv(Options options) {
             }
 
             case 'M': options.use_mock_data = true; break;
+            case 'N': options.terminate_on_disconnect = true; break;
             case 'T': options.run_tests = true; break;
             case 'c': options.config_file = optarg; break;
             case 'e': options.execute = optarg; break;
             case 'i': options.interactive = true; break;
+            case 'z': options.zeeks.emplace_back(optarg); break;
 
             case 'v': std::cerr << "Zeek Agent v" << VersionLong << std::endl; exit(0);
             case 'h': usage(argv[0]); exit(0);
@@ -264,6 +275,19 @@ Result<T> tomlSafeGet(const toml::table& tbl, std::string key) {
         return result::Error(format("cannot parse value for configuration option '{}'", key));
 }
 
+// Also allows a single element not enclosed in brackets,
+template<typename T>
+Result<toml::array> tomlSafeGetArray(const toml::table& tbl, std::string key) {
+    if ( auto x = tbl.get_as<toml::array>(key) )
+        return *x;
+    else {
+        if ( auto x = tomlSafeGet<T>(tbl, key) )
+            return toml::array{*x};
+        else
+            return x.error();
+    }
+}
+
 Result<Nothing> Configuration::Implementation::read(std::istream& in, const filesystem::path& path) {
     auto options = default_();
     options.config_file = path;
@@ -293,6 +317,48 @@ Result<Nothing> Configuration::Implementation::read(std::istream& in, const file
             return result::Error("unknown log level");
 
         options.log_level = level;
+    }
+
+    if ( tbl.contains("zeek") ) {
+        auto x = tomlSafeGetArray<std::string>(tbl, "zeek");
+        if ( ! x )
+            return x.error();
+
+        for ( const auto& z : *x )
+            options.zeeks.emplace_back(*z.value<std::string>());
+    }
+
+    if ( tbl.contains("zeek_groups") ) {
+        auto x = tomlSafeGetArray<std::string>(tbl, "zeek_groups");
+        if ( ! x )
+            return x.error();
+
+        for ( const auto& z : *x )
+            options.zeek_groups.emplace_back(*z.value<std::string>());
+    }
+
+    if ( tbl.contains("zeek_reconnect_interval") ) {
+        auto x = tomlSafeGet<double>(tbl, "zeek_reconnect_interval");
+        if ( x )
+            options.zeek_reconnect_interval = to_interval(*x);
+        else
+            return x.error();
+    }
+
+    if ( tbl.contains("zeek_timeout") ) {
+        auto x = tomlSafeGet<double>(tbl, "zeek_timeout");
+        if ( x )
+            options.zeek_timeout = to_interval(*x);
+        else
+            return x.error();
+    }
+
+    if ( tbl.contains("zeek_hello_interval") ) {
+        auto x = tomlSafeGet<double>(tbl, "zeek_hello_interval");
+        if ( x )
+            options.zeek_hello_interval = to_interval(*x);
+        else
+            return x.error();
     }
 
     auto rc = addArgv(options);
@@ -393,6 +459,50 @@ TEST_SUITE("Configuration") {
         }
 
         options::default_log_level = old_default_log_level;
+    }
+
+    TEST_CASE("set 'zeek'") {
+        Configuration cfg;
+
+        SUBCASE("cli") {
+            const char* argv[] = {"<prog>", "-z", "host1", "-z", "host2:1234"};
+            cfg.initFromArgv(5, argv);
+            CHECK_EQ(cfg.options().zeeks, std::vector<std::string>{"host1", "host2:1234"});
+        }
+
+        SUBCASE("config") {
+            std::stringstream s;
+            s << "zeek = ['host1', 'host2:1234']\n";
+            auto rc = cfg.read(s, "<test>");
+            CHECK_EQ(cfg.options().zeeks, std::vector<std::string>{"host1", "host2:1234"});
+        }
+
+        SUBCASE("aggregate") {
+            const char* argv[] = {"<prog>", "-z", "host1"};
+            cfg.initFromArgv(3, argv);
+            std::stringstream s;
+            s << "zeek = 'host2:1234'\n";
+            auto rc = cfg.read(s, "<test>");
+            CHECK_EQ(cfg.options().zeeks, std::vector<std::string>{"host2:1234", "host1"});
+        }
+    }
+
+    TEST_CASE("set 'zeek' options") {
+        Configuration cfg;
+
+        SUBCASE("config") {
+            std::stringstream s;
+            s << "zeek_groups = ['group1', 'group2']\n";
+            s << "zeek_reconnect_interval = 1.0\n";
+            s << "zeek_timeout = 2\n";
+            s << "zeek_hello_interval = 3.5\n";
+
+            auto rc = cfg.read(s, "<test>");
+            CHECK_EQ(cfg.options().zeek_groups, std::vector<std::string>{"group1", "group2"});
+            CHECK_EQ(cfg.options().zeek_reconnect_interval, 1s);
+            CHECK_EQ(cfg.options().zeek_timeout, 2s);
+            CHECK_EQ(cfg.options().zeek_hello_interval, 3.5s);
+        }
     }
 
     TEST_CASE("command line overrides config") {

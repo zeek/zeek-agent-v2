@@ -59,7 +59,7 @@ public:
         Query q = {.sql_stmt = stmt,
                    .subscription = {},
                    .cookie = "",
-                   .callback = [&](query::ID id, query::Result result_) {
+                   .callback_result = [&](query::ID id, query::Result result_) {
                        result = std::move(result_);
                        cv.notify();
                    }};

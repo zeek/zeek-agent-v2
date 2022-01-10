@@ -4,6 +4,7 @@
 
 #include "autogen/config.h"
 #include "core/database.h"
+#include "util/platform.h"
 
 #include <chrono>
 
@@ -72,9 +73,10 @@ std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<tabl
     auto version = [[NSProcessInfo processInfo] operatingSystemVersionString];
 
     Value id = options().agent_id;
+    Value instance = options().instance_id;
     Value hostname = hostname_buffer.data();
     Value address = primaryAddress();
-    Value platform = "Darwin";
+    Value platform = platform::name();
     Value os_name = std::string("macOS ") + std::string([version UTF8String]);
     Value agent = VersionNumber;
     Value broker = {}; // TODO
@@ -89,7 +91,7 @@ std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<tabl
         kernel_arch = uname_info.machine;
     }
 
-    return {
-        {id, hostname, address, platform, os_name, kernel_name, kernel_release, kernel_arch, agent, broker, uptime}};
+    return {{id, instance, hostname, address, platform, os_name, kernel_name, kernel_release, kernel_arch, agent,
+             broker, uptime}};
 }
 } // namespace

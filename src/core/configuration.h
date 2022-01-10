@@ -32,6 +32,13 @@ struct Options {
     std::string agent_id;
 
     /**
+     * ID for the current agent process. This ID is unique relative to the
+     * agent ID and changes with each restart of the agent. This is
+     * automatically determined and not user-changeable.
+     */
+    std::string instance_id;
+
+    /**
      * Configuration file to load at startup (which will update options in
      * turn).
      */
@@ -46,11 +53,39 @@ struct Options {
     /** The agent's level of logging. Default is `warn` and worse. */
     std::optional<spdlog::level::level_enum> log_level;
 
+    /** Zeek instances to connect to */
+    std::vector<std::string> zeeks;
+
+    /**
+     * Set of groups that the agent is part of. In addition, all agengs are
+     * implicitly part of the groups `all` and `<os>`.
+     */
+    std::vector<std::string> zeek_groups;
+
+    /**
+     * Interval to attempt reconnecting after a Zeek connection went down.
+     */
+    Interval zeek_reconnect_interval = 30s;
+
+    /**
+     * Interval to expire any state (incl. queries) for a connected Zeek
+     * instance if no activity has been seen from it.
+     */
+    Interval zeek_timeout = 60s;
+
+    /** Interval to broadcast "hello" pings. */
+    Interval zeek_hello_interval = 60s;
+
+    /// The remaining options are used for testing only.
+
     /** True to run unit tests instead of normal operation. */
     bool run_tests = false;
 
     /** True to have any tables only report mock data for testing. */
     bool use_mock_data = false;
+
+    /** Terminate when a Zeek connections goes down (instead of retrying). */
+    bool terminate_on_disconnect = false;
 
     /** Logs a summary of the current settings to the debug log stream. */
     void debugDump();

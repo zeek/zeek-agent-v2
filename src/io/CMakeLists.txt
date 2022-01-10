@@ -3,4 +3,5 @@
 target_sources(zeek-agent
     PRIVATE
         console.cc
+        zeek.cc
 )

@@ -2,6 +2,7 @@
 
 #include "database.h"
 
+#include "core/table.h"
 #include "logger.h"
 #include "sqlite.h"
 #include "util/helpers.h"
@@ -97,6 +98,9 @@ void Database::Implementation::cancel(query::ID id) {
     _scheduler->cancel(id);
 
     if ( auto i = _queries_by_id.find(id); i != _queries_by_id.end() ) {
+        if ( i->second->query.callback_done )
+            (*i->second->query.callback_done)(id, true);
+
         _queries.erase(i->second);
         _queries_by_id.erase(i);
     }
@@ -219,7 +223,9 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
                                           .cookie = i->query.cookie,
                                           .initial_result = ! i->previous_rows.has_value()};
 
-        i->query.callback(id, std::move(query_result));
+        if ( i->query.callback_result )
+            (*i->query.callback_result)(id, std::move(query_result));
+
         i->previous_execution = _scheduler->currentTime();
 
         if ( schedule > 0s )
@@ -234,6 +240,9 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
     if ( schedule == 0s ) {
         // Don't call cancel here for removing the ID's state, that would deadlock.
         if ( auto i = _queries_by_id.find(id); i != _queries_by_id.end() ) {
+            if ( i->second->query.callback_done )
+                (*i->second->query.callback_done)(id, false);
+
             _queries.erase(i->second);
             _queries_by_id.erase(i);
         }
@@ -354,6 +363,15 @@ const std::map<std::string, std::unique_ptr<Table>>& Database::registeredTables(
     return Database::Implementation::_registered_tables;
 }
 
+Table* Database::findRegisteredTable(const std::string& name) {
+    for ( const auto& i : Database::Implementation::_registered_tables ) {
+        if ( i.first == name )
+            return i.second.get();
+    }
+
+    return nullptr;
+}
+
 TEST_SUITE("Database") {
     template<typename T>
     inline std::string str(const T& t) {
@@ -458,7 +476,7 @@ TEST_SUITE("Database") {
                                .subscription = {},
                                .schedule = 0s,
                                .cookie = "",
-                               .callback = [&](query::ID id, const query::Result& result) {}};
+                               .callback_result = [&](query::ID id, const query::Result& result) {}};
 
             db.query(query);
 
@@ -475,13 +493,13 @@ TEST_SUITE("Database") {
                                 .subscription = query::SubscriptionType::Snapshots,
                                 .schedule = 3s,
                                 .cookie = "",
-                                .callback = [&](query::ID id, const query::Result& result) {}};
+                                .callback_result = [&](query::ID id, const query::Result& result) {}};
 
             auto query2 = Query{.sql_stmt = "SELECT x from test_table",
                                 .subscription = query::SubscriptionType::Snapshots,
                                 .schedule = 5s,
                                 .cookie = "",
-                                .callback = [&](query::ID id, const query::Result& result) {}};
+                                .callback_result = [&](query::ID id, const query::Result& result) {}};
 
             db.query(query1);
             db.query(query2);
@@ -514,13 +532,13 @@ TEST_SUITE("Database") {
                                 .subscription = query::SubscriptionType::Snapshots,
                                 .schedule = 3s,
                                 .cookie = "",
-                                .callback = [&](query::ID id, const query::Result& result) {}};
+                                .callback_result = [&](query::ID id, const query::Result& result) {}};
 
             auto query2 = Query{.sql_stmt = "SELECT * from test_table2",
                                 .subscription = query::SubscriptionType::Snapshots,
                                 .schedule = 5s,
                                 .cookie = "",
-                                .callback = [&](query::ID id, const query::Result& result) {}};
+                                .callback_result = [&](query::ID id, const query::Result& result) {}};
 
             db.query(query1);
             db.query(query2);
@@ -576,8 +594,9 @@ TEST_SUITE("Database") {
         SUBCASE("single-shot") {
             Result<query::ID> query_id;
             int num_callback_executions = 0;
+            int num_done_executions = 0;
 
-            auto callback = [&](query::ID id, const query::Result& result) {
+            auto callback_result = [&](query::ID id, const query::Result& result) {
                 ++num_callback_executions;
                 CHECK_EQ(id, *query_id);
 
@@ -595,11 +614,17 @@ TEST_SUITE("Database") {
                 CHECK_EQ(result.cookie, "Leibniz");
             };
 
+            auto callback_done = [&](query::ID id, bool cancelled) {
+                CHECK(! cancelled);
+                ++num_done_executions;
+            };
+
             auto query = Query{.sql_stmt = "SELECT * from test_table",
                                .subscription = {},
                                .schedule = 2s, // this should be ignored
                                .cookie = "Leibniz",
-                               .callback = std::move(callback)};
+                               .callback_result = std::move(callback_result),
+                               .callback_done = std::move(callback_done)};
 
             query_id = db.query(std::move(query));
             REQUIRE(query_id);
@@ -612,13 +637,15 @@ TEST_SUITE("Database") {
             CHECK_EQ(num_callback_executions, 1);
 
             CHECK_EQ(db.numberQueries(), 0);
+            CHECK_EQ(num_done_executions, 1);
         }
 
         SUBCASE("subscription - snapshots") {
             Result<query::ID> query_id;
             int num_callback_executions = 0;
+            int num_done_executions = 0;
 
-            auto callback = [&](query::ID id, const query::Result& result) {
+            auto callback_result = [&](query::ID id, const query::Result& result) {
                 ++num_callback_executions;
                 CHECK_EQ(id, *query_id);
 
@@ -636,11 +663,17 @@ TEST_SUITE("Database") {
                 CHECK_EQ(result.cookie, "Leibniz");
             };
 
+            auto callback_done = [&](query::ID id, bool cancelled) {
+                CHECK(cancelled);
+                ++num_done_executions;
+            };
+
             auto query = Query{.sql_stmt = "SELECT * from test_table",
                                .subscription = query::SubscriptionType::Snapshots,
                                .schedule = 2s,
                                .cookie = "Leibniz",
-                               .callback = std::move(callback)};
+                               .callback_result = std::move(callback_result),
+                               .callback_done = std::move(callback_done)};
 
             query_id = db.query(std::move(query));
             REQUIRE(query_id);
@@ -654,6 +687,7 @@ TEST_SUITE("Database") {
             db.cancel(*query_id);
             tmgr.advance(5_time);
             CHECK_EQ(num_callback_executions, 2);
+            CHECK_EQ(num_done_executions, 1);
         }
 
         SUBCASE("subscription - differences") {
@@ -700,7 +734,7 @@ TEST_SUITE("Database") {
                                .subscription = query::SubscriptionType::Differences,
                                .schedule = 2s,
                                .cookie = "Leibniz",
-                               .callback = std::move(callback)};
+                               .callback_result = std::move(callback)};
 
             query_id = db.query(std::move(query));
             REQUIRE(query_id);
@@ -752,7 +786,7 @@ TEST_SUITE("Database") {
                                .subscription = query::SubscriptionType::Events,
                                .schedule = 2s,
                                .cookie = "Leibniz",
-                               .callback = std::move(callback)};
+                               .callback_result = std::move(callback)};
 
             query_id = db.query(std::move(query));
             REQUIRE(query_id);
@@ -791,7 +825,7 @@ TEST_SUITE("Database") {
                            .subscription = {},
                            .schedule = 0s,
                            .cookie = "",
-                           .callback = std::move(callback)};
+                           .callback_result = std::move(callback)};
 
         auto query_id = db.query(std::move(query));
         REQUIRE(query_id);

@@ -26,6 +26,18 @@ std::optional<std::string> zeek::agent::getenv(const std::string& name) {
 
 void zeek::agent::cannot_be_reached() { throw InternalError("code is executing that should not be reachable"); }
 
+std::string zeek::agent::tolower(const std::string& s) {
+    std::string t = s;
+    std::transform(t.begin(), t.end(), t.begin(), ::tolower);
+    return t;
+}
+
+std::string zeek::agent::toupper(const std::string& s) {
+    std::string t = s;
+    std::transform(t.begin(), t.end(), t.begin(), ::toupper);
+    return t;
+}
+
 std::vector<std::string> zeek::agent::split(std::string s, std::string delim) {
     if ( delim.empty() )
         return {std::string(s)};
@@ -143,6 +155,10 @@ TEST_SUITE("Helpers") {
         CHECK_EQ(transform(std::set<int>(), [](auto&& x) { return x + x; }), std::set<int>());
         CHECK_EQ(transform(std::set({1, 2, 3}), [](auto&& x) { return x + x; }), std::set({2, 4, 6}));
     }
+
+    TEST_CASE("tolower") { CHECK_EQ(tolower("AbCd"), "abcd"); }
+
+    TEST_CASE("tolower") { CHECK_EQ(toupper("AbCd"), "ABCD"); }
 
     TEST_CASE("trim") {
         CHECK_EQ(trim("", ""), "");

@@ -40,6 +40,8 @@ std::vector<filesystem::path> platform::glob(const std::vector<filesystem::path>
 
 #ifdef HAVE_DARWIN
 
+std::string platform::name() { return "Darwin"; }
+
 filesystem::path platform::configurationFile() {
     // TODO: These paths aren't necessarily right yet.
     if ( auto home = getenv("HOME") )
@@ -70,6 +72,8 @@ filesystem::path platform::dataDirectory() {
 #endif
 
 #ifdef HAVE_LINUX
+
+std::string platform::name() { return "Linux"; }
 
 filesystem::path platform::configurationFile() {
     // TODO: These paths aren't necessarily right yet.

@@ -59,6 +59,11 @@ using Interval = Time::duration;
 /** Converts an seconds-since-epoch timestamp into our time type. */
 constexpr Time to_time(uint64_t t) { return std::chrono::system_clock::time_point(std::chrono::seconds(t)); }
 
+/** Converts an seconds value into our interval type. */
+constexpr Interval to_interval(double t) {
+    return std::chrono::duration_cast<Interval>(std::chrono::duration<double>(t));
+};
+
 /** Converts an seconds-since-epoch timestamp into our time type. */
 constexpr Time operator"" _time(unsigned long long int t) { return to_time(t); }
 
@@ -138,6 +143,12 @@ auto transform(const C& x, F f) {
 
     return y;
 }
+
+/** Returns a lower-case version of a string. */
+extern std::string tolower(const std::string& s);
+
+/** Returns a upper-case version of a string. */
+extern std::string toupper(const std::string& s);
 
 /**
  * Returns a string view with all trailing characters of a given set removed.

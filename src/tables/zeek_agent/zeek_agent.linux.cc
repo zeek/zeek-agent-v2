@@ -4,6 +4,7 @@
 
 #include "autogen/config.h"
 #include "core/database.h"
+#include "util/platform.h"
 
 #include <chrono>
 
@@ -132,9 +133,10 @@ std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table
     hostname_buffer.push_back(0);
 
     Value id = options().agent_id;
+    Value instance = options().instance_id;
     Value hostname = hostname_buffer.data();
     Value address = primaryAddress();
-    Value platform = "Linux";
+    Value platform = platform::name();
     Value os_name = distribution();
     Value agent = VersionNumber;
     Value broker = {}; // TODO
@@ -149,7 +151,7 @@ std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table
         kernel_arch = uname_info.machine;
     }
 
-    return {
-        {id, hostname, address, platform, os_name, kernel_name, kernel_release, kernel_arch, agent, broker, uptime}};
+    return {{id, instance, hostname, address, platform, os_name, kernel_name, kernel_release, kernel_arch, agent,
+             broker, uptime}};
 }
 } // namespace

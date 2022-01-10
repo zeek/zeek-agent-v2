@@ -46,18 +46,22 @@ add_subdirectory(io)
 add_subdirectory(tables)
 add_subdirectory(util)
 
+# Ensure that we include the our Broker version even if existing includes may lead us elswhere.
+target_include_directories(zeek-agent PRIVATE $<TARGET_PROPERTY:broker_static,INCLUDE_DIRECTORIES>)
+
+target_link_libraries(zeek-agent PRIVATE ${CMAKE_DL_LIBS})
+target_link_libraries(zeek-agent PRIVATE broker_static)
 target_link_libraries(zeek-agent PRIVATE doctest::doctest)
 target_link_libraries(zeek-agent PRIVATE fmt::fmt)
 target_link_libraries(zeek-agent PRIVATE ghcFilesystem::ghc_filesystem)
+target_link_libraries(zeek-agent PRIVATE nlohmann_json)
 target_link_libraries(zeek-agent PRIVATE pathfind::pathfind)
 target_link_libraries(zeek-agent PRIVATE replxx::replxx)
+target_link_libraries(zeek-agent PRIVATE reproc++)
 target_link_libraries(zeek-agent PRIVATE spdlog::spdlog)
 target_link_libraries(zeek-agent PRIVATE sqlite::sqlite)
 target_link_libraries(zeek-agent PRIVATE stduuid)
 target_link_libraries(zeek-agent PRIVATE tomlplusplus::tomlplusplus)
-target_link_libraries(zeek-agent PRIVATE reproc++)
-target_link_libraries(zeek-agent PRIVATE nlohmann_json)
-target_link_libraries(zeek-agent PRIVATE ${CMAKE_DL_LIBS})
 
 install(TARGETS zeek-agent)
 

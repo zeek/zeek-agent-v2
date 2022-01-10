@@ -28,7 +28,7 @@ jobs:
 
       - name: Test
         run: |
-          cd build && CTEST_OUTPUT_ON_FAILURE=1 ninja test
+          make -C tests test
 
       - name: Check code
         run: |
@@ -44,7 +44,7 @@ jobs:
       - name: Prepare
         run: |
           apk update
-          apk add linux-headers ccache cmake g++ gcc git ninja tar
+          apk add linux-headers ccache cmake g++ gcc git ninja tar openssl3-libs-static
 
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -61,7 +61,7 @@ jobs:
 
       - name: Test
         run: |
-          cd build && CTEST_OUTPUT_ON_FAILURE=1 ninja test
+          make -C tests test
           ldd bin/zeek-agent 2>&1 | grep -q "Not a valid dynamic program"
 
       - name: Install
@@ -84,6 +84,7 @@ jobs:
     runs-on: macos-11
 
     steps:
+      # TODO: Build a universal version of OpenSSL per https://gist.github.com/tmiz/1441111
       - name: Prepare
         run: |
           brew install ninja ccache
@@ -98,12 +99,12 @@ jobs:
 
       - name: Build
         run: |
-          ./configure --prefix=${{runner.temp}}/zeek-agent --enable-ccache --enable-werror --generator=Ninja
+          ./configure --prefix=${{runner.temp}}/zeek-agent --enable-ccache --enable-werror --enable-osx-universal --generator=Ninja
           cd build && ninja
 
       - name: Test
         run: |
-          cd build && CTEST_OUTPUT_ON_FAILURE=1 ninja test
+          make -C tests test
           file bin/zeek-agent | grep -q "universal binary with 2 architectures"
 
       - name: Install

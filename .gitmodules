@@ -31,3 +31,6 @@
 [submodule "3rdparty/json"]
 	path = 3rdparty/json
 	url = https://github.com/nlohmann/json
+[submodule "3rdparty/broker"]
+	path = 3rdparty/broker
+	url = ssh://git@github.com/zeek/broker
