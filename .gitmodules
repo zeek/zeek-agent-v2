@@ -33,4 +33,7 @@
 	url = https://github.com/nlohmann/json
 [submodule "3rdparty/broker"]
 	path = 3rdparty/broker
-	url = ssh://git@github.com/zeek/broker
+	url = https://github.com/zeek/broker.git
+[submodule "zeek-agent"]
+	path = zeek-agent
+	url = https://github.com/zeek-packages/zeek-agent-v2

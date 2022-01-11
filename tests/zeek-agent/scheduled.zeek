@@ -1,4 +1,4 @@
-# @TEST - DOC : Test a repeatedly scheduled query with cancel.
+# @TEST-DOC: Test a repeatedly scheduled query with cancel.
 #
 # @TEST-PORT: ZEEK_PORT
 #
