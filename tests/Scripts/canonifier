@@ -1,0 +1,13 @@
+#! /usr/bin/env bash
+
+base=$(cd $(dirname $0) && pwd)
+
+# Get us "modern" regexps with sed.
+if [ `uname` == "Linux" ]; then
+   sed="sed -r"
+else
+   sed="sed -E"
+fi
+
+${base}/diff-remove-timestamps |
+   sed 's/........-....-....-....-............/<uuid>/g'

@@ -20,6 +20,10 @@ if ( HAVE_CLANG )
     add_compile_options(-Wno-vla-extension)
 endif ()
 
+if ( HAVE_GCC )
+    add_compile_options(-Wno-missing-field-initializers)
+endif ()
+
 if ( NOT "${USE_DOCTEST}" )
     add_compile_definitions(DOCTEST_CONFIG_DISABLE)
 endif ()

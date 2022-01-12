@@ -97,12 +97,13 @@ while [ $# -ne 0 ]; do
         --disable-tests)                   cmake_use_doctest="no";;
         --enable-ccache)                   cmake_use_ccache="yes";;
         --enable-debug)                    cmake_build_type="Debug";;
-        --enable-osx-universal)            cmake_osx_architectures="arm64;x86_64";;
+        --enable-osx-universal)            cmake_osx_architectures="'arm64;x86_64'";;
         --enable-sanitizer)                cmake_use_sanitizers="address";;
         --enable-sanitizer=*)              cmake_use_sanitizers="${optargs}";;
         --enable-static)                   cmake_use_static_linking="yes";;
         --enable-werror)                   cmake_use_werror="yes";;
         --generator=*)                     cmake_generator="${optarg}";;
+        --prefix=*)                        cmake_install_prefix="${optarg}";;
         --with-openssl=*)                  cmake_openssl_root="${optarg}";;
 
         --display-cmake) display_cmake=1;;

@@ -160,6 +160,7 @@ TEST_SUITE("Signal manager") {
         }
 
         SUBCASE("stacked handlers") {
+            CHECK_EQ(count1, 0);
             signal::Handler h1(&mgr, SIGUSR1, [&]() {
                 ++count1;
                 cv1.notify();

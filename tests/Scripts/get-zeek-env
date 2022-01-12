@@ -19,8 +19,8 @@ if [ -n "${zeek_dist}" ]; then
 else
     # Use Zeek installation for testing. In this case zeek-config must be in PATH.
     if ! which zeek-config >/dev/null 2>&1; then
-        echo "zeek-config not found" >&2
-        exit 1
+        # We don't treat this as an error because we want to run tests without Zeek too.
+        exit 0
     fi
 
     if [ "$1" = "zeekpath" ]; then

@@ -2,6 +2,10 @@ name: build-and-test
 
 on: push
 
+env:
+  ZEEK_LTS: -lts
+  ZEEK_VERSION: 4.0.4-0
+
 jobs:
   debug_ubuntu_latest:
     runs-on: ubuntu-latest
@@ -10,8 +14,14 @@ jobs:
       - name: Prepare
         run: |
           export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get install -y ninja-build ccache
-          sudo pip3 install --no-cache-dir btest pre-commit
+          sudo apt-get install -y ninja-build ccache curl ca-certificates
+          sudo pip3 install btest zkg pre-commit
+
+      - name: Install Zeek
+        run: |
+          (cd /tmp && curl -L -O https://download.zeek.org/binary-packages/xUbuntu_20.04/amd64/zeek${ZEEK_LTS}-core_${ZEEK_VERSION}_amd64.deb)
+          sudo apt install -y /tmp/zeek${ZEEK_LTS}-core_${ZEEK_VERSION}_amd64.deb
+          echo "/opt/zeek/bin:$PATH" >> $GITHUB_PATH
 
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -34,6 +44,7 @@ jobs:
         run: |
           pre-commit run -a --show-diff-on-failure
 
+  # TODO: Install Zeek and run Zeek tests.
   release_alpine_3_15_static:
     runs-on: ubuntu-latest
 
@@ -44,7 +55,8 @@ jobs:
       - name: Prepare
         run: |
           apk update
-          apk add linux-headers ccache cmake g++ gcc git ninja tar openssl3-libs-static
+          apk add linux-headers ccache cmake g++ gcc git make ninja tar openssl3-libs-static openssl-dev python3 py3-pip
+          pip3 install btest zkg
 
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -56,13 +68,13 @@ jobs:
 
       - name: Build
         run: |
-          ./configure --prefix=/tmp/zeek-agent --enable-ccache --enable-werror --enable-static --generator=Ninja
+          ./configure --prefix=/tmp/zeek-agent --enable-ccache --enable-werror --enable-static --generator=Ninja --with-openssl=
           cd build && ninja
 
       - name: Test
         run: |
-          make -C tests test
-          ldd bin/zeek-agent 2>&1 | grep -q "Not a valid dynamic program"
+          ldd build/bin/zeek-agent 2>&1 | grep -q "Not a valid dynamic program"
+          make -C tests test-no-zeek
 
       - name: Install
         run: |
@@ -80,14 +92,15 @@ jobs:
           name: ${{env.ZA_TGZ}}
           path: build/dist/${{env.ZA_TGZ}}
 
+  # TODO: Install Zeek and run Zeek tests.
   release_macos_11:
     runs-on: macos-11
 
     steps:
-      # TODO: Build a universal version of OpenSSL per https://gist.github.com/tmiz/1441111
       - name: Prepare
         run: |
           brew install ninja ccache
+          pip3 install btest zkg
 
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -97,15 +110,30 @@ jobs:
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1
 
+      - name: Build universal arch OpenSSL
+        env:
+            OPENSSL_VERSION: 1.1.1m
+        run: |
+            curl -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
+            tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_x86_64
+            tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_arm64
+            (cd openssl_x86_64 && CC="ccache cc" ./Configure darwin64-x86_64-cc no-shared no-tests && make -j)
+            (cd openssl_arm64 && CC="ccache cc" ./Configure darwin64-arm64-cc no-shared no-tests && make -j)
+            mkdir -p /tmp/openssl/lib /tmp/openssl/include
+            lipo -create openssl_arm64/libcrypto.a openssl_x86_64/libcrypto.a -output /tmp/openssl/lib/libcrypto.a
+            lipo -create openssl_arm64/libssl.a openssl_x86_64/libssl.a -output /tmp/openssl/lib/libssl.a
+            cp -r openssl_x86_64/include/openssl /tmp/openssl/include/
+            rm -rf openssl-${OPENSSL_VERSION}*
+
       - name: Build
         run: |
-          ./configure --prefix=${{runner.temp}}/zeek-agent --enable-ccache --enable-werror --enable-osx-universal --generator=Ninja
+          ./configure --prefix=${{runner.temp}}/zeek-agent --enable-ccache --enable-werror --enable-osx-universal --generator=Ninja --with-openssl=/tmp/openssl
           cd build && ninja
 
       - name: Test
         run: |
-          make -C tests test
-          file bin/zeek-agent | grep -q "universal binary with 2 architectures"
+          file build/bin/zeek-agent | grep -q "universal binary with 2 architectures"
+          make -C tests test-no-zeek
 
       - name: Install
         run: |
