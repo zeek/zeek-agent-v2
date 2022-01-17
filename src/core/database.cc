@@ -379,14 +379,15 @@ std::string Database::documentRegisteredTables() {
 
     for ( const auto& t : registeredTables() ) {
         auto schema = t.second->schema();
-        nlohmann::json columns;
+        nlohmann::ordered_json columns; // preserve column order
 
         for ( const auto& c : schema.columns ) {
             nlohmann::json column;
+            column["name"] = c.name;
             column["type"] = to_string(c.type);
             column["description"] = c.description;
             column["mandatory_constraint"] = c.mandatory_constraint;
-            columns[c.name] = std::move(column);
+            columns.emplace_back(std::move(column));
         }
 
         nlohmann::json table;
