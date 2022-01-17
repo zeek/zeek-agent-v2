@@ -131,15 +131,6 @@ struct Pimpl<Configuration>::Implementation {
     static Options default_();
 };
 
-static std::string random_uuid() {
-    std::random_device rd;
-    auto seed_data = std::array<int, std::mt19937::state_size>{};
-    std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
-    std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
-    std::mt19937 generator(seq);
-    return uuids::to_string(uuids::uuid_random_generator(generator)());
-}
-
 Options Configuration::Implementation::default_() {
     Options options;
 
@@ -157,14 +148,15 @@ Options Configuration::Implementation::default_() {
 
     if ( options.agent_id.empty() ) {
         // Generate a fresh UUID as our agent's ID.
-        options.agent_id = random_uuid();
+        options.agent_id = format("H{}", randomUUID());
+        ;
 
         // Cache it.
         std::ofstream out(uuid_path, std::ios::out | std::ios::trunc);
         out << options.agent_id << "\n";
     }
 
-    options.instance_id = split(random_uuid(), "-")[0]; // 1st part is "unique enough"
+    options.instance_id = format("I{}", randomUUID());
 
     auto path = platform::configurationFile();
     if ( filesystem::is_regular_file(path) )

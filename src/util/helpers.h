@@ -265,6 +265,11 @@ std::string replace(std::string s, std::string o, std::string n);
 inline bool startsWith(const std::string& s, const std::string& prefix) { return s.find(prefix) == 0; }
 } // namespace zeek::agent
 
+/** Renders an integer in base62 ASCII. */
+std::string base62_encode(uint64_t i);
+
+/** Creates a new random UUID, encoded in base62 ASCII. */
+std::string randomUUID();
 
 namespace std::chrono {
 

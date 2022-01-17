@@ -7,6 +7,8 @@
 
 #include <chrono>
 
+#include <uuid.h>
+
 #ifdef HAVE_POSIX
 #include <unistd.h>
 
@@ -121,6 +123,19 @@ std::string base62_encode(uint64_t i) {
     } while (i > 0);
 
     return x;
+}
+
+std::string randomUUID() {
+    std::random_device rd;
+    auto seed_data = std::array<int, std::mt19937::state_size>{};
+    std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
+    std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
+    std::mt19937 generator(seq);
+    auto uuid = uuids::uuid_random_generator(generator)();
+
+    // We represent the UUID in base62 for compactness.
+    auto* p = reinterpret_cast<const uint64_t*>(uuid.as_bytes().data());
+    return format("{}{}", base62_encode(p[0]), base62_encode(p[1]));
 }
 
 TEST_SUITE("Helpers") {

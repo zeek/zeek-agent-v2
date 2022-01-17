@@ -79,10 +79,11 @@ private:
     void processStatus(const broker::status& status);
 
     void transmitResult(const std::string& zeek_id, const query::Result& result);
-    void transmitError(const std::string& zeek_id, const std::string& msg, std::optional<std::string> cookie);
+    void transmitError(const std::string& zeek_instance, const std::string& msg,
+                       const std::optional<std::string>& zeek_id, const std::optional<std::string>& cookie);
     void transmitEvent(std::string event_name, broker::vector args,
                        const std::optional<std::string>& zeek_instance = {},
-                       const std::optional<std::string>& cookie = {},
+                       const std::optional<std::string>& zeek_id = {}, const std::optional<std::string>& cookie = {},
                        const std::optional<query::result::ChangeType>& change = {});
 
     void unexpectedEventArguments(const std::string& zeek_agent, broker::zeek::Event& ev);
@@ -249,7 +250,8 @@ void BrokerConnection::installQuery(ZeekQuery zquery) {
     }
     else if ( zquery.zeek_instance )
         // We don't log this as an error locally, but send it back to Zeek.
-        transmitError(*zquery.zeek_instance, format("could not compile query ({})", rc.error()), zquery.zeek_cookie);
+        transmitError(*zquery.zeek_instance, format("could not compile query ({})", rc.error()), zquery.zeek_id,
+                      zquery.zeek_cookie);
 }
 
 void BrokerConnection::cancelQuery(const std::string& zeek_id) {
@@ -439,7 +441,7 @@ void BrokerConnection::processStatus(const broker::status& status) {
     switch ( status.code() ) {
         case broker::sc::peer_added: {
             // Schedule repeated query sending agent hello.
-            ZeekQuery hello = {.zeek_id = "__zeek_agent_hello__",
+            ZeekQuery hello = {.zeek_id = "agent_hello_" + randomUUID(), // unique ID for each query
                                .event_name = "ZeekAgentAPI::agent_hello_v1",
                                .query = Query{.sql_stmt = "SELECT * from zeek_agent",
                                               .subscription = query::SubscriptionType::Snapshots,
@@ -489,18 +491,21 @@ void BrokerConnection::transmitResult(const std::string& zeek_id, const query::R
             columns.push_back(std::move(value));
         }
 
-        transmitEvent(zquery->event_name, {{std::move(columns)}}, zquery->zeek_instance, zquery->zeek_cookie, row.type);
+        transmitEvent(zquery->event_name, {{std::move(columns)}}, zquery->zeek_instance, zquery->zeek_id,
+                      zquery->zeek_cookie, row.type);
     }
 }
 
 void BrokerConnection::transmitError(const std::string& zeek_instance, const std::string& msg,
-                                     std::optional<std::string> cookie) {
+                                     const std::optional<std::string>& zeek_id,
+                                     const std::optional<std::string>& cookie) {
     ZEEK_INSTANCE_DEBUG(zeek_instance, format("error: {}", msg));
-    transmitEvent("ZeekAgentAPI::agent_error_v1", {msg}, zeek_instance, std::move(cookie));
+    transmitEvent("ZeekAgentAPI::agent_error_v1", {msg}, zeek_instance, zeek_id, std::move(cookie));
 }
 
 void BrokerConnection::transmitEvent(std::string event_name, broker::vector args,
                                      const std::optional<std::string>& zeek_instance,
+                                     const std::optional<std::string>& zeek_id,
                                      const std::optional<std::string>& cookie,
                                      const std::optional<query::result::ChangeType>& change) {
     assert(! zeek_instance.has_value() || ! zeek_instance->empty());
@@ -517,6 +522,7 @@ void BrokerConnection::transmitEvent(std::string event_name, broker::vector args
     std::vector<broker::data> context;
     context.emplace_back(options().agent_id);
     context.emplace_back(static_cast<broker::timestamp>(std::chrono::system_clock().now()));
+    context.emplace_back(zeek_id ? broker::data(*zeek_id) : broker::data());
     context.emplace_back(std::move(change_data));
     context.emplace_back(cookie ? broker::data(*cookie) : broker::data());
 
@@ -569,10 +575,7 @@ void Zeek::Implementation::start(const std::vector<std::string>& zeeks) {
     }
 }
 
-void Zeek::Implementation::stop() {
-    _connections.clear();
-    _stopped = true;
-}
+void Zeek::Implementation::stop() { _connections.clear(); }
 
 void Zeek::Implementation::poll() {
     for ( const auto& c : _connections )
@@ -603,7 +606,7 @@ void Zeek::stop() {
 }
 
 void Zeek::poll() {
-    ZEEK_IO_DEBUG("stopping");
+    ZEEK_IO_DEBUG("polling");
     Synchronize _(this);
     pimpl()->poll();
 }
@@ -634,7 +637,7 @@ TEST_SUITE("Zeek") {
         int64_t counter = 0;
     };
 
-    TEST_CASE("connect/hello/disconnect") {
+    TEST_CASE("connect/hello/disconnect/reconnect") {
         TestTable t;
         Configuration cfg;
         Scheduler tmgr;
@@ -642,6 +645,10 @@ TEST_SUITE("Zeek") {
         auto agent_table = Database::findRegisteredTable("zeek_agent");
         db.addTable(agent_table);
         Zeek zeek(&db, &tmgr);
+
+        // Shorten reconnect interval.
+        std::stringstream options{"zeek_reconnect_interval = 1"};
+        cfg.read(options, "-");
 
         broker::endpoint receiver;
         auto subscriber = receiver.make_subscriber({"/zeek-agent/response/"});
@@ -651,33 +658,59 @@ TEST_SUITE("Zeek") {
         // Initiate connection.
         zeek.start({format("localhost:{}", port)});
 
-        // Wait for agent connecting.
-        auto x = status_subscriber.get();
-        auto status = broker::get_if<broker::status>(x);
-        CHECK_EQ(status->code(), broker::sc::peer_added);
+        auto wait_for_connect_and_hello = [&]() {
+            // Wait for agent connecting.
+            auto x = status_subscriber.get();
+            auto status = broker::get_if<broker::status>(x);
+            CHECK_EQ(status->code(), broker::sc::peer_added);
 
-        // Wait for agent hello to arrive.
-        auto time_ = 0_time;
-        while ( ! subscriber.available() ) {
-            time_ += 10s;
-            tmgr.advance(time_);
-            std::this_thread::sleep_for(0.1s);
-        }
+            broker::zeek::Event hello{{}};
+            do {
+                // Wait for agent hello to arrive.
+                auto time_ = 0_time;
+                while ( ! subscriber.available() ) {
+                    time_ += 10s;
+                    tmgr.advance(time_);
+                    std::this_thread::sleep_for(0.1s);
+                }
 
-        auto msg = subscriber.get();
-        broker::zeek::Event hello(broker::move_data(msg));
+                auto msg = subscriber.get();
+                CHECK_EQ(get_topic(msg), broker::topic(format("/zeek-agent/response/all/{}", cfg.options().agent_id)));
 
-        CHECK_EQ(get_topic(msg), broker::topic(format("/zeek-agent/response/all/{}", cfg.options().agent_id)));
-        CHECK_EQ(hello.name(), "ZeekAgentAPI::agent_hello_v1");
-        CHECK_EQ(hello.args().size(), 2);                                  // context plus columns record
-        CHECK_EQ(broker::get<broker::vector>(hello.args()[1]).size(), 12); // zeek_agent table has 12 columns
+                hello = broker::zeek::Event(broker::move_data(msg));
+            } while ( hello.name() == "ZeekAgentAPI::agent_shutdown_v1" ); // ignore shutdown event
+
+            CHECK_EQ(hello.name(), "ZeekAgentAPI::agent_hello_v1");
+            CHECK_EQ(hello.args().size(), 2);                                  // context plus columns record
+            CHECK_EQ(broker::get<broker::vector>(hello.args()[1]).size(), 12); // zeek_agent table has 12 columns
+
+            return hello;
+        };
+
+        auto wait_for_disconnect = [&]() {
+            // Wait for disconnect.
+            auto x = status_subscriber.get();
+            auto status = broker::get_if<broker::status>(x);
+
+            bool is_disconnect =
+                (status->code() == broker::sc::peer_lost) || (status->code() == broker::sc::peer_removed);
+            CHECK(is_disconnect);
+        };
+
+        auto hello = wait_for_connect_and_hello();
+
+        // Kill connection.
+        for ( auto p : receiver.peers() )
+            receiver.unpeer(p.peer.network->address, p.peer.network->port);
+
+        wait_for_disconnect();
+
+        auto hello2 = wait_for_connect_and_hello();
+        CHECK_NE(broker::get<broker::vector>(hello.args()[0]).at(2),
+                 broker::get<broker::vector>(hello2.args()[0]).at(2)); // must have different query ID
 
         // Tear connection down.
         zeek.stop();
-
-        // Wait for disconnect.
-        x = status_subscriber.get();
-        status = broker::get_if<broker::status>(x);
-        CHECK_EQ(status->code(), broker::sc::peer_lost);
+        wait_for_disconnect();
     }
 }

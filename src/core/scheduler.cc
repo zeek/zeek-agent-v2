@@ -59,7 +59,7 @@ timer::ID Scheduler::Implementation::schedule(timer::ID id, Time t, timer::Callb
 
 void Scheduler::Implementation::cancel(timer::ID id) {
     if ( auto t = _timers_by_id.find(id); t != _timers_by_id.end() )
-        // mark as canceled, expiritation will eventually delete it
+        // mark as canceled, expiration will eventually delete it
         t->second.canceled = true;
 }
 

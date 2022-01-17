@@ -221,7 +221,9 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
     SynchronizedBase::Synchronize _(_synchronized);
 
     auto i = _queries_by_id[id];
-    assert(! i->query.cancelled);
+    if ( i->query.cancelled )
+        // will be cleaned up shortly
+        return 0s;
 
     auto stype = i->query.subscription;
     auto schedule = (stype ? i->query.schedule : 0s);
