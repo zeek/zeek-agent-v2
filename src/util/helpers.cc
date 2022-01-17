@@ -110,6 +110,19 @@ std::pair<std::string, std::string> zeek::agent::rsplit1(std::string s, const st
     return std::make_pair("", std::move(s));
 }
 
+std::string base62_encode(uint64_t i) {
+    static const char* alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    std::string x;
+
+    do {
+        x.insert(0, std::string(1, alphabet[i % 62]));
+        i /= 62;
+    } while (i > 0);
+
+    return x;
+}
+
 TEST_SUITE("Helpers") {
     TEST_CASE("scope guard") {
         int i = 0;

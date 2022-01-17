@@ -103,6 +103,7 @@ struct Query {
     std::optional<query::SubscriptionType> subscription; /**< enable subscription to updates of given type */
     Interval schedule = 0s; /**< for subscriptions, reschedule in such intervals until canceled */
     bool terminate = false; /**< if true, terminate the Zeek Agent after this query's callback has executed */
+    bool cancelled = false; /**< if true, cancelled and scheduled to be removed */
     std::string cookie;     /**< arbitrary user-chosen string that will be copied into the result */
     std::optional<query::CallbackResult> callback_result; /**< Callback to execute when result is available; will
                                  execute inside the thread driving the database's scheduler */

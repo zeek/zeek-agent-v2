@@ -34,6 +34,14 @@ public:
     /** Returns the internal mutex for testing purposes. */
     auto& mutex() const { return _mutex; };
 
+    /** Executes a callable with the mutex unlocked, and then reaquired. */
+    template<typename Body>
+    auto unlockWhile(Body f) {
+        _mutex.unlock();
+        ScopeGuard _([&]() { _mutex.lock(); });
+        return f();
+    }
+
 private:
     mutable std::mutex _mutex;
 };

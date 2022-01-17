@@ -10,4 +10,4 @@ else
 fi
 
 ${base}/diff-remove-timestamps |
-   sed 's/........-....-....-....-............/<uuid>/g'
+   sed 's/H[a-zA-Z0-9]\{21,22\}\([^a-zA-Z0-9]\)/<uuid>\1/g'

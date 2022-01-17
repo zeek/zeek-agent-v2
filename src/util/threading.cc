@@ -14,6 +14,11 @@ TEST_SUITE("Threading") {
         {
             SynchronizedBase::Synchronize _(&sync);
             CHECK_FALSE(sync.mutex().try_lock());
+
+            sync.unlockWhile([&]() {
+                CHECK(sync.mutex().try_lock());
+                sync.mutex().unlock();
+            });
         }
         CHECK(sync.mutex().try_lock());
     }

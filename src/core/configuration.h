@@ -83,9 +83,10 @@ struct Options {
 
     /**
      * Interval to expire any state (incl. queries) for a connected Zeek
-     * instance if no activity has been seen from it.
+     * instance if no activity has been seen from it. (Note that this should be
+     * longer than the Zeek-side hello interval.)
      */
-    Interval zeek_timeout = 60s;
+    Interval zeek_timeout = 120s;
 
     /** Interval to broadcast "hello" pings. */
     Interval zeek_hello_interval = 60s;

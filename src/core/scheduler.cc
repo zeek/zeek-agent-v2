@@ -37,12 +37,13 @@ struct Pimpl<Scheduler>::Implementation {
     // Advances the current time, fireing all timers now expired.
     bool advance(Time now);
 
-    // Runs all update hooks. This must be called without the scheduler's lock
-    // being acquired.
+    // Runs all update hooks.
     void updated();
 
-    timer::ID _next_id = 1;                                                    // counter for creating timer IDs
-    Time _now = 0_time;                                                        // current time
+    SynchronizedBase* _synchronized =
+        nullptr;            // scheduler's synchronizer, so that we can release it for callback execution
+    timer::ID _next_id = 1; // counter for creating timer IDs
+    Time _now = 0_time;     // current time
     std::unordered_map<timer::ID, Timer> _timers_by_id;                        // maps IDs to their timers
     std::priority_queue<Timer*, std::vector<Timer*>, TimerComparator> _timers; // timers sorted by time
     std::vector<std::function<void()>> _update_callbacks;                      // registered update callbacks
@@ -77,7 +78,8 @@ bool Scheduler::Implementation::advance(Time now) {
         _timers_by_id.erase(t.id);
 
         if ( ! t.canceled ) {
-            if ( auto reschedule = t.callback(t.id); reschedule > 0s ) {
+            // Release lock before running callback, so that that can access the scheduler.
+            if ( auto reschedule = _synchronized->unlockWhile([&]() { return t.callback(t.id); }); reschedule > 0s ) {
                 auto due = _now + reschedule;
                 ZEEK_AGENT_DEBUG("scheduler", "rescheduling timer {} for t={}", t.id, to_string(due));
                 schedule(t.id, due, t.callback);
@@ -89,52 +91,38 @@ bool Scheduler::Implementation::advance(Time now) {
 }
 
 void Scheduler::Implementation::updated() {
-    // This will be called with the scheduler's lock acquired, so that
-    // callbacks can call back into the scheduler. That technicallly makes the
-    // the method not thread-safe. However, this would only cause trouble if a
-    // new callback gets installed from inside a existing callback, which isn't
-    // really something to expect.
-    for ( const auto& cb : _update_callbacks )
-        cb();
+    _synchronized->unlockWhile([&]() {
+        for ( const auto& cb : _update_callbacks )
+            cb();
+    });
 }
 
-Scheduler::Scheduler() { ZEEK_AGENT_DEBUG("scheduler", "creating instance"); }
+Scheduler::Scheduler() {
+    ZEEK_AGENT_DEBUG("scheduler", "creating instance");
+    pimpl()->_synchronized = this;
+}
 
 Scheduler::~Scheduler() { ZEEK_AGENT_DEBUG("scheduler", "destroying instance"); }
 
 timer::ID Scheduler::schedule(Time t, timer::Callback cb) {
-    timer::ID id;
-
-    {
-        Synchronize _(this);
-        id = pimpl()->schedule(pimpl()->_next_id++, t, std::move(cb));
-        ZEEK_AGENT_DEBUG("scheduler", "scheduled timer {} for t={}", id, to_string(t));
-    }
-
+    Synchronize _(this);
+    auto id = pimpl()->schedule(pimpl()->_next_id++, t, std::move(cb));
+    ZEEK_AGENT_DEBUG("scheduler", "scheduled timer {} for t={}", id, to_string(t));
     pimpl()->updated();
     return id;
 }
 
 void Scheduler::cancel(timer::ID id) {
-    {
-        Synchronize _(this);
-        ZEEK_AGENT_DEBUG("scheduler", "canceling timer {}", id);
-        pimpl()->cancel(id);
-    }
-
+    Synchronize _(this);
+    ZEEK_AGENT_DEBUG("scheduler", "canceling timer {}", id);
+    pimpl()->cancel(id);
     pimpl()->updated();
 }
 
 void Scheduler::advance(Time t) {
-    bool have_advanced = false;
-
-    {
-        Synchronize _(this);
-        ZEEK_AGENT_DEBUG("scheduler", "advancing time to t={}", to_string(t));
-        have_advanced = pimpl()->advance(t);
-    }
-
-    if ( have_advanced )
+    Synchronize _(this);
+    ZEEK_AGENT_DEBUG("scheduler", "advancing time to t={}", to_string(t));
+    if ( pimpl()->advance(t) )
         pimpl()->updated();
 }
 
@@ -144,7 +132,7 @@ void Scheduler::registerUpdateCallback(std::function<void()> cb) {
 }
 
 void Scheduler::terminate() {
-    // No lock, to avoid deadlocks.
+    Synchronize _(this);
     ZEEK_AGENT_DEBUG("scheduler", "got request to terminate");
     pimpl()->_terminating = true;
     pimpl()->updated();
@@ -156,8 +144,7 @@ bool Scheduler::terminating() const {
 }
 
 Time Scheduler::currentTime() const {
-    // No lock, to always allow access to current time.
-    // TODO: Make atomic
+    Synchronize _(this);
     return pimpl()->_now;
 }
 

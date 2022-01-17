@@ -50,7 +50,7 @@ struct ZeekQuery {
 // more than one Zeek instance may be visible on this connection. The class
 // handles that correctly by tracking which Zeek instances it has seen (through
 // their instance IDs that the Zeek-side agent framework creates)
-class BrokerConnection {
+class BrokerConnection : SynchronizedBase {
 public:
     BrokerConnection(Database* db, Scheduler* scheduler) : _db(db), _scheduler(scheduler) {}
     ~BrokerConnection() { disconnect(); }
@@ -111,6 +111,8 @@ private:
 };
 
 Result<Nothing> BrokerConnection::connect(const std::string& destination) {
+    Synchronize _(this);
+
     // Parse "host[:port]".
     std::string address;
     unsigned long port = 9999;
@@ -153,17 +155,21 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
         topics, [](caf::unit_t&) { /* nop */ },
         [this](caf::unit_t&, const broker::data_message& msg) {
             if ( broker::get_topic(msg) == broker::topic::statuses_str ) {
+                Synchronize _(this);
                 auto x = broker::to<broker::status>(broker::get_data(msg));
                 assert(x);
                 processStatus(*x);
             }
             else if ( broker::get_topic(msg) == broker::topic::errors_str ) {
+                Synchronize _(this);
                 auto x = broker::to<broker::error>(broker::get_data(msg));
                 assert(x);
                 processError(*x);
             }
-            else
+            else {
+                Synchronize _(this);
                 processEvent(msg);
+            }
         },                                                  //
         [](caf::unit_t&, const caf::error&) { /* nop */ }); //
 
@@ -183,6 +189,8 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
 }
 
 void BrokerConnection::disconnect() {
+    Synchronize _(this);
+
     if ( ! _destination )
         return;
 
@@ -203,6 +211,8 @@ void BrokerConnection::disconnect() {
 }
 
 void BrokerConnection::poll() {
+    Synchronize _(this);
+
     // Expire any state from Zeek instances we haven't seen in a while.
     std::vector<std::string> to_remove;
     for ( const auto& z : _zeek_instances ) {
@@ -223,10 +233,12 @@ void BrokerConnection::installQuery(ZeekQuery zquery) {
         return;
 
     zquery.query.callback_result = [this, zeek_id](query::ID /* query_id */, query::Result result) {
+        Synchronize _(this);
         transmitResult(zeek_id, result);
     };
 
     zquery.query.callback_done = [this, zeek_id](query::ID /* query_id */, bool /* cancelled */) {
+        Synchronize _(this);
         ZEEK_CONN_DEBUG(format("database done with query {}, removing", zeek_id));
         _zeek_queries.erase(zeek_id);
     };
@@ -380,6 +392,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
                                               .cookie = *cookie,
                                               .callback_result = [zeek_id, this](query::ID /* not used */,
                                                                                  const query::Result& result) {
+                                                  Synchronize _(this);
                                                   transmitResult(zeek_id, result);
                                               }}};
         } catch ( const std::exception& e ) {
@@ -542,9 +555,8 @@ struct Pimpl<Zeek>::Implementation {
     Scheduler* _scheduler = nullptr; // as passed into constructor
 
     std::vector<std::unique_ptr<BrokerConnection>>
-        _connections;                     // one connection per desintation passed into constructor
-    std::unique_ptr<std::thread> _thread; // thread for polling
-    bool _stopped = false;                // true once stop() can been executed
+        _connections;      // one connection per desintation passed into constructor
+    bool _stopped = false; // true once stop() can been executed
 };
 
 void Zeek::Implementation::start(const std::vector<std::string>& zeeks) {
@@ -576,9 +588,6 @@ Zeek::Zeek(Database* db, Scheduler* scheduler) {
 Zeek::~Zeek() {
     ZEEK_IO_DEBUG("destroying instance");
     stop();
-
-    if ( pimpl()->_thread )
-        pimpl()->_thread->join();
 }
 
 void Zeek::start(const std::vector<std::string>& zeeks) {

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <list>
 #include <map>
+#include <set>
 #include <unordered_map>
 #include <utility>
 
@@ -40,7 +41,7 @@ struct Pimpl<Database>::Implementation {
     Result<query::ID> query(Query q);
 
     // Cancel query.
-    void cancel(query::ID id);
+    void cancel(query::ID id, bool regular_termination);
 
     // Expire old state.
     void expire();
@@ -63,6 +64,7 @@ struct Pimpl<Database>::Implementation {
     std::map<std::string, Table*> _tables; // registered tables indexed by name
     std::list<ScheduledQuery> _queries;    // outstanding queries; list so that iterators remain valid on changes
     std::map<query::ID, std::list<ScheduledQuery>::iterator> _queries_by_id; // outstanding queries indexed by their ID
+    std::set<std::pair<query::ID, bool>> _cancelled_queries; // track cancelled, but not removed, queries
 
     static std::map<std::string, std::unique_ptr<Table>> _registered_tables; // tables registered globally
 };
@@ -96,22 +98,42 @@ Result<query::ID> Database::Implementation::query(Query query) {
     return id;
 }
 
-void Database::Implementation::cancel(query::ID id) {
+void Database::Implementation::cancel(query::ID id, bool regular_shutdown) {
     _scheduler->cancel(id);
 
     if ( auto i = _queries_by_id.find(id); i != _queries_by_id.end() ) {
-        if ( i->second->query.callback_done )
-            (*i->second->query.callback_done)(id, true);
-
-        _queries.erase(i->second);
-        _queries_by_id.erase(i);
+        // Just mark as cancelled here. We'll remove it later once we can call
+        // the callback without trouble for the caller.
+        i->second->query.cancelled = true;
+        _cancelled_queries.emplace(id, regular_shutdown);
     }
 }
 
 void Database::Implementation::expire() {
+    // Cleanup cancelled queries. We split this into two loops in case a
+    // callback modifies the set of queries.
+    for ( const auto& [id, regular_shutdown] : _cancelled_queries ) {
+        auto i = _queries_by_id.find(id);
+        assert(i != _queries_by_id.end());
+
+        if ( i->second->query.callback_done )
+            _synchronized->unlockWhile([&, id = id, regular_shutdown = regular_shutdown]() {
+                (*i->second->query.callback_done)(id, ! regular_shutdown);
+            });
+    }
+
+    for ( const auto& [id, regular_shutdown] : _cancelled_queries ) {
+        auto i = _queries_by_id.find(id);
+        assert(i != _queries_by_id.end());
+
+        _queries.erase(i->second);
+        _queries_by_id.erase(i);
+    }
+
+    _cancelled_queries.clear();
+
     // We go through all pending queries, and determine the oldest timestamp
     // per table that any of them might still need.
-
     std::unordered_map<std::string, Time> expire_times;
 
     for ( const auto& q : _queries ) {
@@ -199,6 +221,8 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
     SynchronizedBase::Synchronize _(_synchronized);
 
     auto i = _queries_by_id[id];
+    assert(! i->query.cancelled);
+
     auto stype = i->query.subscription;
     auto schedule = (stype ? i->query.schedule : 0s);
 
@@ -220,13 +244,19 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
         else
             cannot_be_reached();
 
-        auto query_result = query::Result{.columns = std::move(sql_result->columns),
-                                          .rows = std::move(rows),
-                                          .cookie = i->query.cookie,
-                                          .initial_result = ! i->previous_rows.has_value()};
+        if ( i->query.callback_result ) {
+            _synchronized->unlockWhile([&]() {
+                auto query_result = query::Result{.columns = std::move(sql_result->columns),
+                                                  .rows = std::move(rows),
+                                                  .cookie = i->query.cookie,
+                                                  .initial_result = ! i->previous_rows.has_value()};
 
-        if ( i->query.callback_result )
-            (*i->query.callback_result)(id, std::move(query_result));
+                (*i->query.callback_result)(id, std::move(query_result));
+            });
+
+            // repeat search in case map was modified by callback
+            i = _queries_by_id[id];
+        }
 
         i->previous_execution = _scheduler->currentTime();
 
@@ -239,16 +269,8 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
     if ( i->query.terminate )
         _scheduler->terminate();
 
-    if ( schedule == 0s ) {
-        // Don't call cancel here for removing the ID's state, that would deadlock.
-        if ( auto i = _queries_by_id.find(id); i != _queries_by_id.end() ) {
-            if ( i->second->query.callback_done )
-                (*i->second->query.callback_done)(id, false);
-
-            _queries.erase(i->second);
-            _queries_by_id.erase(i);
-        }
-    }
+    if ( schedule == 0s )
+        cancel(id, true);
 
     return schedule;
 }
@@ -320,7 +342,7 @@ Result<query::ID> Database::query(Query q) {
 void Database::cancel(query::ID id) {
     ZEEK_AGENT_DEBUG("database", "canceling query {}", id);
     Synchronize _(this);
-    return pimpl()->cancel(id);
+    return pimpl()->cancel(id, false);
 }
 
 void Database::poll() {
@@ -620,7 +642,6 @@ TEST_SUITE("Database") {
         Database db(&cfg, &tmgr);
         db.addTable(&t);
 
-
         SUBCASE("single-shot") {
             Result<query::ID> query_id;
             int num_callback_executions = 0;
@@ -666,6 +687,7 @@ TEST_SUITE("Database") {
             tmgr.advance(3_time);
             CHECK_EQ(num_callback_executions, 1);
 
+            db.expire();
             CHECK_EQ(db.numberQueries(), 0);
             CHECK_EQ(num_done_executions, 1);
         }
@@ -716,6 +738,7 @@ TEST_SUITE("Database") {
 
             db.cancel(*query_id);
             tmgr.advance(5_time);
+            db.expire();
             CHECK_EQ(num_callback_executions, 2);
             CHECK_EQ(num_done_executions, 1);
         }
