@@ -1,0 +1,70 @@
+#! /usr/bin/env python3
+#
+# Generates a Zeek record definition from the agent's --autodoc output, which
+# must be piped in on stdin.ä
+
+import json
+import os
+import os.path
+import sys
+import textwrap
+
+def fatalError(message: str):
+    print(message, file=sys.stderr)
+    sys.exit(1)
+
+def snakeToCamel(x):
+    return ''.join(x.title() for x in x.split("_"))
+
+def fmtComment(txt, prefix, single_line=False):
+    txt = txt.strip()
+    if not txt:
+        return ""
+
+    prefix += " "
+
+    if single_line:
+        return "{} {}".format(prefix, txt)
+    else:
+        return textwrap.fill(txt, initial_indent=prefix, subsequent_indent=prefix)
+
+### Main
+
+if len(sys.argv) != 2:
+    fatalError("usage: {} <table name>".format(os.path.basename(sys.argv[0])))
+    sys.exit(1)
+
+try:
+    data = json.load(sys.stdin)
+except ValueError as e:
+    fatalError("cannot parse input: {}".format(e))
+
+table_name = sys.argv[1]
+
+try:
+    table = data["tables"][table_name]
+except Exception:
+    fatalError("no such table")
+
+print("{}\ntype {}: record {{".format(fmtComment(table["description"], "##"), snakeToCamel(table_name)))
+
+for column in table["columns"]:
+    name = column["name"]
+    comment = column["description"]
+    type = column["type"]
+
+    if type == "int":
+        type = "int"
+    elif type == "text" or type == "blob":
+        type = "string"
+    elif type == "real":
+        type = "double"
+    elif type == "null":
+        # ignore
+        continue
+    else:
+        fatalError("unknown column type '{}'".format(type))
+
+    print("\t{}: {} &optional &log;{}".format(name, type, fmtComment(comment, "\t##<")))
+
+print("};")
