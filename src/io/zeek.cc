@@ -53,7 +53,7 @@ struct ZeekQuery {
 class BrokerConnection : SynchronizedBase {
 public:
     BrokerConnection(Database* db, Scheduler* scheduler) : _db(db), _scheduler(scheduler) {}
-    ~BrokerConnection() { disconnect(); }
+    ~BrokerConnection() { disconnect(); } // NOLINT(bugprone-exception-escape)
 
     // Establishes a Broker connection to `<host>[:<port>]`. Only reports fatal
     // errors, *not* including when the connection can't be established (it
@@ -97,7 +97,7 @@ private:
 
     const auto& options() const { return _db->configuration().options(); }
 
-private:
+
     Database* _db = nullptr;                          // as passed into constructor
     Scheduler* _scheduler = nullptr;                  // as passed into constructor
     std::optional<broker::network_info> _destination; // parsed destination as passed into constructor
@@ -143,7 +143,7 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
     };
 
     auto groups = options().zeek_groups;
-    groups.push_back("all");
+    groups.emplace_back("all");
     groups.push_back(tolower(platform::name()));
 
     for ( const auto& group : groups ) {
@@ -158,13 +158,13 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
             if ( broker::get_topic(msg) == broker::topic::statuses_str ) {
                 Synchronize _(this);
                 auto x = broker::to<broker::status>(broker::get_data(msg));
-                assert(x);
+                assert(x); // NOLINT(bugprone-lambda-function-name)
                 processStatus(*x);
             }
             else if ( broker::get_topic(msg) == broker::topic::errors_str ) {
                 Synchronize _(this);
                 auto x = broker::to<broker::error>(broker::get_data(msg));
-                assert(x);
+                assert(x); // NOLINT(bugprone-lambda-function-name)
                 processError(*x);
             }
             else {
@@ -233,7 +233,7 @@ void BrokerConnection::installQuery(ZeekQuery zquery) {
         // Already installed.
         return;
 
-    zquery.query.callback_result = [this, zeek_id](query::ID /* query_id */, query::Result result) {
+    zquery.query.callback_result = [this, zeek_id](query::ID /* query_id */, const query::Result& result) {
         Synchronize _(this);
         transmitResult(zeek_id, result);
     };
@@ -384,11 +384,11 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
                 cookie = broker::get<std::string>(query_record[4]);
 
             zquery = ZeekQuery{.zeek_instance = std::move(zeek_instance),
-                               .zeek_id = std::move(zeek_id),
+                               .zeek_id = zeek_id,
                                .event_name = std::move(event_name),
                                .zeek_cookie = cookie,
                                .query = Query{.sql_stmt = std::move(sql_stmt),
-                                              .subscription = std::move(subscription),
+                                              .subscription = subscription,
                                               .schedule = schedule_,
                                               .terminate = false,
                                               .cookie = *cookie,
@@ -478,7 +478,7 @@ void BrokerConnection::transmitResult(const std::string& zeek_id, const query::R
     for ( const auto& row : result.rows ) {
         std::vector<broker::data> columns;
 
-        for ( auto i = 0u; i < result.columns.size(); i++ ) {
+        for ( auto i = 0U; i < result.columns.size(); i++ ) {
             broker::data value;
             switch ( result.columns[i].type ) {
                 case value::Type::Blob:
@@ -500,7 +500,7 @@ void BrokerConnection::transmitError(const std::string& zeek_instance, const std
                                      const std::optional<std::string>& zeek_id,
                                      const std::optional<std::string>& cookie) {
     ZEEK_INSTANCE_DEBUG(zeek_instance, format("error: {}", msg));
-    transmitEvent("ZeekAgentAPI::agent_error_v1", {msg}, zeek_instance, zeek_id, std::move(cookie));
+    transmitEvent("ZeekAgentAPI::agent_error_v1", {msg}, zeek_instance, zeek_id, cookie);
 }
 
 void BrokerConnection::transmitEvent(std::string event_name, broker::vector args,
@@ -521,7 +521,7 @@ void BrokerConnection::transmitEvent(std::string event_name, broker::vector args
 
     std::vector<broker::data> context;
     context.emplace_back(options().agent_id);
-    context.emplace_back(static_cast<broker::timestamp>(std::chrono::system_clock().now()));
+    context.emplace_back(static_cast<broker::timestamp>(std::chrono::system_clock::now()));
     context.emplace_back(zeek_id ? broker::data(*zeek_id) : broker::data());
     context.emplace_back(std::move(change_data));
     context.emplace_back(cookie ? broker::data(*cookie) : broker::data());
@@ -623,7 +623,7 @@ TEST_SUITE("Zeek") {
                                 {.name = "b", .type = value::Type::Blob}}};
         }
 
-        virtual ~TestTable() {}
+        ~TestTable() override {}
 
         std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
             int64_t counter = 0;

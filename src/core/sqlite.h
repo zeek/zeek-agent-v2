@@ -89,7 +89,7 @@ public:
      * @return the compiled statement, or an error if there was any trouble
      * with the statement
      */
-    Result<std::unique_ptr<sqlite::PreparedStatement>> prepareStatement(std::string stmt);
+    Result<std::unique_ptr<sqlite::PreparedStatement>> prepareStatement(const std::string& stmt);
 
     /**
      * Execeutes an SQL statement against the currently registered tables.

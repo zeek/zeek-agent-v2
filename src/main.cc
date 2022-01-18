@@ -13,10 +13,9 @@
 #include "util/helpers.h"
 #include "util/threading.h"
 
+#include <csignal>
 #include <iostream>
 #include <optional>
-
-#include <signal.h>
 
 using namespace zeek::agent;
 
@@ -85,12 +84,12 @@ int main(int argc, char** argv) {
                 main_loop.wait(t);
             }
 
-            else if ( auto t = next_timer - std::chrono::system_clock().now(); t > 0s ) {
+            else if ( auto t = next_timer - std::chrono::system_clock::now(); t > 0s ) {
                 ZEEK_AGENT_DEBUG("main", "sleeping with timeout={}", to_string(t));
                 main_loop.wait(t);
             }
 
-            scheduler.advance(std::chrono::system_clock().now());
+            scheduler.advance(std::chrono::system_clock::now());
             db.expire();
             main_loop.reset(); // clear any updates that were just flagged
         }

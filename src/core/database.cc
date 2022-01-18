@@ -41,7 +41,7 @@ struct Pimpl<Database>::Implementation {
     Result<query::ID> query(Query q);
 
     // Cancel query.
-    void cancel(query::ID id, bool regular_termination);
+    void cancel(query::ID id, bool regular_shutdown);
 
     // Expire old state.
     void expire();
@@ -178,7 +178,7 @@ void Database::Implementation::addTable(Table* t) {
     if ( ! rc )
         throw FatalError(format("error registering table {} with SQLite backend: {}", schema.name, rc.error()));
 
-    _tables[schema.name] = std::move(t);
+    _tables[schema.name] = t;
 }
 
 static auto diffRows(std::vector<std::vector<Value>> old, std::vector<std::vector<Value>> new_) {
@@ -193,6 +193,7 @@ static auto diffRows(std::vector<std::vector<Value>> old, std::vector<std::vecto
 
     std::vector<query::result::Row> diff;
 
+    diff.reserve(deletes.size());
     for ( auto&& i : deletes )
         diff.push_back({.type = query::result::ChangeType::Delete, .values = std::move(i)});
 
@@ -211,6 +212,7 @@ static auto newRows(std::vector<std::vector<Value>> old, std::vector<std::vector
 
     std::vector<query::result::Row> diff;
 
+    diff.reserve(adds.size());
     for ( auto&& i : adds )
         diff.push_back({.type = query::result::ChangeType::Add, .values = std::move(i)});
 
@@ -234,7 +236,7 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
 
         if ( ! stype || *stype == query::SubscriptionType::Snapshots || ! i->previous_rows ) {
             for ( const auto& sql_row : sql_result->rows )
-                rows.push_back({.type = {}, .values = std::move(sql_row)});
+                rows.push_back({.type = {}, .values = sql_row});
         }
 
         else if ( stype == query::SubscriptionType::Events )
@@ -253,7 +255,7 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
                                                   .cookie = i->query.cookie,
                                                   .initial_result = ! i->previous_rows.has_value()};
 
-                (*i->query.callback_result)(id, std::move(query_result));
+                (*i->query.callback_result)(id, query_result);
             });
 
             // repeat search in case map was modified by callback
@@ -328,7 +330,7 @@ std::vector<const Table*> Database::tables() {
     return out;
 }
 
-Result<query::ID> Database::query(Query q) {
+Result<query::ID> Database::query(const Query& q) {
     ZEEK_AGENT_DEBUG("database", "new query: {} ", q.sql_stmt);
     Synchronize _(this);
 
@@ -416,7 +418,7 @@ std::string Database::documentRegisteredTables() {
 
         nlohmann::json table;
         table["description"] = schema.description;
-        table["columns"] = std::move(columns);
+        table["columns"] = columns;
 
         tables[schema.name] = std::move(table);
     }
@@ -435,7 +437,7 @@ TEST_SUITE("Database") {
 
     class TestTable : public Table {
     public:
-        TestTable(std::string name_postfix = "") : name_postfix(name_postfix) {}
+        TestTable(std::string name_postfix = "") : name_postfix(std::move(std::move(name_postfix))) {}
         Schema schema() const override {
             return {.name = "test_table" + name_postfix,
                     .description = "test-description",
@@ -443,7 +445,7 @@ TEST_SUITE("Database") {
                         schema::Column{.name = "x", .type = value::Type::Integer, .description = "colum-description"}}};
         }
 
-        virtual ~TestTable() {}
+        ~TestTable() override {}
 
         bool init() override {
             initialized = true;
@@ -507,7 +509,7 @@ TEST_SUITE("Database") {
     TEST_CASE("state expiration") {
         class Expire : public TestTable {
         public:
-            Expire(std::string name_postfix = "") : TestTable(name_postfix) {}
+            Expire(std::string name_postfix = "") : TestTable(std::move(name_postfix)) {}
             void expire(Time t_) override { t = t_; }
             Time t = 0_time;
         };
@@ -679,7 +681,7 @@ TEST_SUITE("Database") {
                                .callback_result = std::move(callback_result),
                                .callback_done = std::move(callback_done)};
 
-            query_id = db.query(std::move(query));
+            query_id = db.query(query);
             REQUIRE(query_id);
             CHECK_EQ(db.numberQueries(), 1);
 
@@ -729,7 +731,7 @@ TEST_SUITE("Database") {
                                .callback_result = std::move(callback_result),
                                .callback_done = std::move(callback_done)};
 
-            query_id = db.query(std::move(query));
+            query_id = db.query(query);
             REQUIRE(query_id);
 
             CHECK_EQ(num_callback_executions, 0);
@@ -791,7 +793,7 @@ TEST_SUITE("Database") {
                                .cookie = "Leibniz",
                                .callback_result = std::move(callback)};
 
-            query_id = db.query(std::move(query));
+            query_id = db.query(query);
             REQUIRE(query_id);
 
             CHECK_EQ(num_callback_executions, 0);
@@ -843,7 +845,7 @@ TEST_SUITE("Database") {
                                .cookie = "Leibniz",
                                .callback_result = std::move(callback)};
 
-            query_id = db.query(std::move(query));
+            query_id = db.query(query);
             REQUIRE(query_id);
 
             CHECK_EQ(num_callback_executions, 0);
@@ -882,7 +884,7 @@ TEST_SUITE("Database") {
                            .cookie = "",
                            .callback_result = std::move(callback)};
 
-        auto query_id = db.query(std::move(query));
+        auto query_id = db.query(query);
         REQUIRE(query_id);
 
         tmgr.advance(1000_time);

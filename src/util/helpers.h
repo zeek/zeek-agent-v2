@@ -27,7 +27,7 @@ class ScopeGuard {
 public:
     using Callback = std::function<void()>;
     ScopeGuard(Callback cb) : _callback(std::move(cb)) {}
-    ~ScopeGuard() { _callback(); }
+    ~ScopeGuard() { _callback(); } // NOLINT(bugprone-exception-escape)
 
     ScopeGuard(const ScopeGuard& other) = delete;
     ScopeGuard(ScopeGuard&& other) = delete;
@@ -155,7 +155,7 @@ extern std::string toupper(const std::string& s);
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string rtrim(std::string s, const std::string& chars) noexcept {
+inline std::string rtrim(const std::string& s, const std::string& chars) noexcept {
     auto p = [](size_t pos) { return pos != std::string::npos ? pos + 1 : 0; }(s.find_last_not_of(chars));
     return s.substr(0, p);
 }
@@ -165,9 +165,9 @@ inline std::string rtrim(std::string s, const std::string& chars) noexcept {
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string ltrim(std::string s, const std::string& chars) noexcept {
+inline std::string ltrim(const std::string& s, const std::string& chars) noexcept {
     return s.substr(std::min(s.find_first_not_of(chars), s.size()));
-    return std::string(s);
+    return s;
 }
 
 /**
@@ -176,7 +176,9 @@ inline std::string ltrim(std::string s, const std::string& chars) noexcept {
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string trim(std::string s, const std::string& chars) noexcept { return ltrim(rtrim(s, chars), chars); }
+inline std::string trim(const std::string& s, const std::string& chars) noexcept {
+    return ltrim(rtrim(s, chars), chars);
+}
 
 namespace detail {
 constexpr char whitespace_chars[] = " \t\f\v\n\r";
@@ -187,21 +189,21 @@ constexpr char whitespace_chars[] = " \t\f\v\n\r";
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string rtrim(std::string s) noexcept { return rtrim(s, detail::whitespace_chars); }
+inline std::string rtrim(const std::string& s) noexcept { return rtrim(s, detail::whitespace_chars); }
 
 /**
  * Returns a string view with all leading white space removed.
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string ltrim(std::string s) noexcept { return ltrim(s, detail::whitespace_chars); }
+inline std::string ltrim(const std::string& s) noexcept { return ltrim(s, detail::whitespace_chars); }
 
 /**
  * Returns a string view with all leading & trailing white space removed.
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string trim(std::string s) noexcept { return trim(s, detail::whitespace_chars); }
+inline std::string trim(const std::string& s) noexcept { return trim(s, detail::whitespace_chars); }
 
 /**
  * Splits a string at all occurrences of a delimiter. Successive occurrences
@@ -209,7 +211,7 @@ inline std::string trim(std::string s) noexcept { return trim(s, detail::whitesp
  *
  * \note This function is not UTF8-aware.
  */
-std::vector<std::string> split(std::string s, std::string delim);
+std::vector<std::string> split(std::string s, const std::string& delim);
 
 /**
  * Splits a string at all occurrences of successive white space.
@@ -271,7 +273,7 @@ std::string base62_encode(uint64_t i);
 /** Creates a new random UUID, encoded in base62 ASCII. */
 std::string randomUUID();
 
-namespace std::chrono {
+namespace std::chrono { // NOLINT(cert-dcl58-cpp)
 
 inline std::ostream& operator<<(std::ostream& out, const zeek::agent::Time& t) {
     out << zeek::agent::to_string(t);

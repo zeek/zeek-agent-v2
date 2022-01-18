@@ -56,7 +56,7 @@ public:
     query::Result query(std::string stmt) {
         ConditionVariable cv;
         std::optional<query::Result> result;
-        Query q = {.sql_stmt = stmt,
+        Query q = {.sql_stmt = std::move(stmt),
                    .subscription = {},
                    .cookie = "",
                    .callback_result = [&](query::ID id, query::Result result_) {
@@ -64,7 +64,7 @@ public:
                        cv.notify();
                    }};
 
-        auto rc = db.query(std::move(q));
+        auto rc = db.query(q);
         REQUIRE(rc);
 
         scheduler.advance(scheduler.currentTime() + 1s); // this will execute the query

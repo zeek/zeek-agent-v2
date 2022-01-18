@@ -29,6 +29,7 @@ enum {
     OS_ACTIVITY_STREAM_PROMISCUOUS = 0x00000200,
     OS_ACTIVITY_STREAM_PRECISE_TIMESTAMPS = 0x00000200
 };
+// NOLINTNEXTLINE(modernize-use-using)
 typedef uint32_t os_activity_stream_flag_t;
 
 enum {
@@ -47,6 +48,7 @@ enum {
 
     OS_ACTIVITY_STREAM_TYPE_STATEDUMP_EVENT = 0x0A00,
 };
+// NOLINTNEXTLINE(modernize-use-using)
 typedef uint32_t os_activity_stream_type_t;
 
 enum {
@@ -56,12 +58,16 @@ enum {
     OS_ACTIVITY_STREAM_EVENT_CHUNK_STARTED = 4,
     OS_ACTIVITY_STREAM_EVENT_CHUNK_FINISHED = 5,
 };
+// NOLINTNEXTLINE(modernize-use-using)
 typedef uint32_t os_activity_stream_event_t;
 
 // Types
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef uint64_t os_activity_id_t;
+// NOLINTNEXTLINE(modernize-use-using)
 typedef struct os_activity_stream_s* os_activity_stream_t;
+// NOLINTNEXTLINE(modernize-use-using)
 typedef struct os_activity_stream_entry_s* os_activity_stream_entry_t;
 
 #define OS_ACTIVITY_STREAM_COMMON()                                                                                    \
@@ -74,6 +80,7 @@ typedef struct os_activity_stream_entry_s* os_activity_stream_entry_t;
     struct timezone tz;                                                                                                \
     uint32_t offset
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef struct os_activity_stream_common_s {
     OS_ACTIVITY_STREAM_COMMON();
 } * os_activity_stream_common_t;
@@ -90,6 +97,7 @@ struct os_activity_transition_s {
     os_activity_id_t transition_id;
 };
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef struct os_log_message_s {
     OS_ACTIVITY_STREAM_COMMON();
     const char* format;
@@ -104,6 +112,7 @@ typedef struct os_log_message_s {
     bool persisted;
 } * os_log_message_t;
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef struct os_trace_message_v2_s {
     OS_ACTIVITY_STREAM_COMMON();
     const char* format;
@@ -112,12 +121,14 @@ typedef struct os_trace_message_v2_s {
     xpc_object_t __unsafe_unretained payload;
 } * os_trace_message_v2_t;
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef struct os_activity_useraction_s {
     OS_ACTIVITY_STREAM_COMMON();
     const char* action;
     bool persisted;
 } * os_activity_useraction_t;
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef struct os_signpost_s {
     OS_ACTIVITY_STREAM_COMMON();
     const char* format;
@@ -132,6 +143,7 @@ typedef struct os_signpost_s {
     uint64_t callstack[OS_ACTIVITY_MAX_CALLSTACK];
 } * os_signpost_t;
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef struct os_activity_statedump_s {
     OS_ACTIVITY_STREAM_COMMON();
     char* message;
@@ -166,21 +178,28 @@ struct os_activity_stream_entry_s {
 
 // Blocks
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef bool (^os_activity_stream_block_t)(os_activity_stream_entry_t entry, int error);
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef void (^os_activity_stream_event_block_t)(os_activity_stream_t stream, os_activity_stream_event_t event);
 
 // SPI entry point prototypes
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef os_activity_stream_t (*os_activity_stream_for_pid_t)(pid_t pid, os_activity_stream_flag_t flags,
                                                              os_activity_stream_block_t stream_block);
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef void (*os_activity_stream_resume_t)(os_activity_stream_t stream);
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef void (*os_activity_stream_cancel_t)(os_activity_stream_t stream);
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef char* (*os_log_copy_formatted_message_t)(os_log_message_t log_message);
 
+// NOLINTNEXTLINE(modernize-use-using)
 typedef void (*os_activity_stream_set_event_handler_t)(os_activity_stream_t stream,
                                                        os_activity_stream_event_block_t block);
 

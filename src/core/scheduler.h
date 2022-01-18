@@ -108,7 +108,7 @@ public:
      *
      * @param callback callback to execute after any change in state
      **/
-    void registerUpdateCallback(std::function<void()> callback);
+    void registerUpdateCallback(std::function<void()> cb);
 };
 
 } // namespace zeek::agent

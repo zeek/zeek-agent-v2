@@ -21,11 +21,11 @@ std::vector<filesystem::path> platform::glob(const std::vector<filesystem::path>
 
     for ( const auto& p : patterns ) {
         ::glob_t paths;
-        bzero(&paths, sizeof(paths));
+        memset(&paths, 0, sizeof(paths));
 
-        if ( auto rc = glob(p.c_str(), 0, 0, &paths); rc == 0 ) {
-            for ( auto i = 0u; i < paths.gl_pathc && result.size() < max; i++ )
-                result.push_back(paths.gl_pathv[i]);
+        if ( auto rc = glob(p.c_str(), 0, nullptr, &paths); rc == 0 ) {
+            for ( auto i = 0U; i < paths.gl_pathc && result.size() < max; i++ )
+                result.emplace_back(paths.gl_pathv[i]);
         }
 
         globfree(&paths);

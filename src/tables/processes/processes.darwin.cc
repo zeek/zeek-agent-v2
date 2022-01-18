@@ -25,9 +25,9 @@ database::RegisterTable<ProcessesDarwin> _;
 }
 
 std::vector<std::vector<Value>> ProcessesDarwin::snapshot(const std::vector<table::Where>& wheres) {
-    auto buffer_size = proc_listpids(PROC_ALL_PIDS, 0, 0, 0);
+    auto buffer_size = proc_listpids(PROC_ALL_PIDS, 0, nullptr, 0);
     pid_t pids[buffer_size / sizeof(pid_t)];
-    buffer_size = proc_listpids(PROC_ALL_PIDS, 0, pids, sizeof(pids));
+    buffer_size = proc_listpids(PROC_ALL_PIDS, 0, pids, static_cast<int>(sizeof(pids)));
     if ( buffer_size <= 0 ) {
         logger()->warn(format("sockets: cannot get pids"));
         return {};
@@ -68,7 +68,10 @@ void ProcessesDarwin::addProcess(std::vector<std::vector<Value>>* rows, const st
     Value nice = pi->pbi_nice;
     Value started = static_cast<int64_t>(pi->pbi_start_tvsec);
 
-    Value vsize, rsize, utime, stime;
+    Value vsize;
+    Value rsize;
+    Value utime;
+    Value stime;
     if ( ti ) {
         vsize = static_cast<int64_t>(ti->pti_virtual_size);
         rsize = static_cast<int64_t>(ti->pti_resident_size);

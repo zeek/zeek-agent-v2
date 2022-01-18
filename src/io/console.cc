@@ -12,6 +12,7 @@
 #include "util/helpers.h"
 
 #include <algorithm>
+#include <csignal>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -19,7 +20,6 @@
 #include <vector>
 
 #include <replxx.hxx>
-#include <signal.h>
 
 using namespace zeek::agent;
 
@@ -32,7 +32,7 @@ struct Pimpl<Console>::Implementation {
     void execute(const std::string& cmd, bool terminate = false);
 
     // Performance a query against the database.
-    void query(const std::string stmt, std::optional<query::SubscriptionType> type, bool terminate = false);
+    void query(const std::string& stmt, std::optional<query::SubscriptionType> subscription, bool terminate = false);
 
     // Cancels the current query.
     void cancelQuery();
@@ -44,7 +44,7 @@ struct Pimpl<Console>::Implementation {
     void error(const std::string& msg);
 
     // Prints a query result to the console.
-    void printResult(const query::Result& result, bool subscription);
+    void printResult(const query::Result& result, bool include_type);
 
     // Prints a liste of all tables.
     void printTables();
@@ -78,7 +78,7 @@ void Console::Implementation::cancelQuery() {
 void Console::Implementation::execute(const std::string& cmd, bool terminate) {
     ZEEK_AGENT_DEBUG("console", "executing: {}", cmd);
 
-    static auto check_terminate = [&]() {
+    auto check_terminate = [&]() {
         if ( terminate )
             _scheduler->terminate();
     };
@@ -214,14 +214,14 @@ Result<Nothing> Console::Implementation::printSchema(const std::string& table) {
     return Nothing();
 }
 
-void Console::Implementation::query(const std::string stmt, std::optional<query::SubscriptionType> subscription,
+void Console::Implementation::query(const std::string& stmt, std::optional<query::SubscriptionType> subscription,
                                     bool terminate) {
     Query query = {.sql_stmt = stmt,
                    .subscription = subscription,
                    .schedule = 2s,
                    .terminate = terminate,
                    .cookie = "",
-                   .callback_result = [&](query::ID id, query::Result result) {
+                   .callback_result = [&](query::ID id, const query::Result& result) {
                        printResult(result, subscription && *subscription != query::SubscriptionType::Snapshots);
 
                        if ( subscription && *subscription == query::SubscriptionType::Snapshots )

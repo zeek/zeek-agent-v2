@@ -8,7 +8,7 @@ namespace zeek::agent::table {
 
 class ZeekAgent : public SnapshotTable {
 public:
-    ZeekAgent() { _startup = std::chrono::system_clock().now(); }
+    ZeekAgent() { _startup = std::chrono::system_clock::now(); }
     auto startupTime() { return _startup; }
 
     Schema schema() const override {

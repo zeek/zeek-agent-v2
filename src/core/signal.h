@@ -56,7 +56,7 @@ public:
      *
      * @param set of signals that this manager is to (exclusively) handle
      */
-    SignalManager(std::vector<Signal> signals_to_handle);
+    SignalManager(const std::vector<Signal>& signals_to_handle);
     ~SignalManager();
 };
 

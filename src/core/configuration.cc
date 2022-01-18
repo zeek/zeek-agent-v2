@@ -10,6 +10,7 @@
 #include "util/helpers.h"
 #include "util/platform.h"
 
+#include <cstring>
 #include <memory>
 #include <sstream>
 #include <system_error>
@@ -17,7 +18,6 @@
 #include <vector>
 
 #include <getopt.h>
-#include <string.h>
 #include <uuid.h>
 
 #include <toml++/toml.h>
@@ -180,7 +180,7 @@ void Configuration::Implementation::apply(Options options) {
 
         auto argv = preprocessArgv(true);
         setenv("TZ", "GMT", 1);
-        doctest::Context context(argv.size(), argv.data());
+        doctest::Context context(static_cast<int>(argv.size()), argv.data());
         exit(context.run());
 #else
         logger::fatalError("unit tests not compiled in");
@@ -215,7 +215,8 @@ Result<Options> Configuration::Implementation::addArgv(Options options) {
 #endif
 
     while ( true ) {
-        int c = getopt_long(argv.size(), argv.data(), "DL:MNTc:e:hivz:", long_driver_options, nullptr);
+        int c =
+            getopt_long(static_cast<int>(argv.size()), argv.data(), "DL:MNTc:e:hivz:", long_driver_options, nullptr);
         if ( c < 0 )
             return options;
 
@@ -275,7 +276,7 @@ Result<Nothing> Configuration::Implementation::read(const filesystem::path& path
 }
 
 template<typename T>
-Result<T> tomlSafeGet(const toml::table& tbl, std::string key) {
+Result<T> tomlSafeGet(const toml::table& tbl, const std::string& key) {
     if ( auto x = tbl[key].value<T>() )
         return *x;
     else
@@ -396,8 +397,9 @@ Result<Nothing> Configuration::initFromArgv(int argc, const char* const* argv) {
     Synchronize _(this);
 
     std::vector<std::string> vargv;
+    vargv.reserve(argc);
     for ( auto i = 0; i < argc; i++ )
-        vargv.push_back(argv[i]);
+        vargv.emplace_back(argv[i]);
 
     ZEEK_AGENT_DEBUG("configuration", "setting command line arguments: {}", join(vargv, " "));
     return pimpl()->initFromArgv(std::move(vargv));

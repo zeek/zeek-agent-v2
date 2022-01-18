@@ -34,10 +34,10 @@ std::vector<filesystem::path> FilesBase::expandPaths(const std::vector<table::Wh
 
     for ( const auto& where : wheres ) {
         if ( where.column == "path" && where.op == table::Operator::Equal )
-            paths.push_back(std::get<std::string>(where.expression));
+            paths.emplace_back(std::get<std::string>(where.expression));
 
         if ( where.column == "path" && where.op == table::Operator::Glob )
-            patterns.push_back(std::get<std::string>(where.expression));
+            patterns.emplace_back(std::get<std::string>(where.expression));
 
         // TODO: we can't enforce use of specific operators currently, so if
         // somebody uses, e.g., LIKE, we'll end up without a pattern.
@@ -54,7 +54,12 @@ std::vector<std::vector<Value>> FilesListPosix::snapshot(const std::vector<table
 
     for ( auto p : expandPaths(wheres) ) {
         Value path = p;
-        Value type, uid, gid, mode, mtime, size;
+        Value type;
+        Value uid;
+        Value gid;
+        Value mode;
+        Value mtime;
+        Value size;
 
         struct ::stat stat;
         if ( ::stat(p.native().c_str(), &stat) == 0 ) {

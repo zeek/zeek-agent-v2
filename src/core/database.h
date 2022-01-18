@@ -133,7 +133,7 @@ public:
      * @param timer_mgr timer manager to use for scheduling queries; caller must keep object around for the lifetime of
      * the database
      */
-    Database(Configuration* cfg, Scheduler* timer_mgr);
+    Database(Configuration* configuration, Scheduler* scheduler);
     ~Database();
 
     /** Returns the configuration object provided to the constructor. */
@@ -166,7 +166,7 @@ public:
      * callback; or an error if there was a problem with the query (such as an
      * error with the SQL statement)
      **/
-    Result<query::ID> query(Query q);
+    Result<query::ID> query(const Query& q);
 
     /**
      * Cancels a previous scheduled query, both standard and subscription. The

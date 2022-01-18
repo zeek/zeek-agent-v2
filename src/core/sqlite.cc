@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <list>
 #include <map>
+#include <memory>
 #include <utility>
 
 #include <sqlite3.h>
@@ -83,7 +84,7 @@ struct Pimpl<SQLite>::Implementation {
 };
 
 // Records error message in virtual table. Returns SQLITE_ERROR for convinient caller usage.
-static int sqliteError(VTab* vtab, std::string msg) {
+static int sqliteError(VTab* vtab, const std::string& msg) {
     if ( vtab->vtab.zErrMsg )
         ::sqlite3_free(vtab->vtab.zErrMsg);
 
@@ -155,7 +156,7 @@ static int onTableConnect(::sqlite3* db, void* paux, int argc, const char* const
                                           std::string name = c.name + " ";
 
                                           switch ( c.type ) {
-                                              case value::Type::Blob: return name + "INTEGER";
+                                              case value::Type::Blob: return name + "TEXT";
                                               case value::Type::Integer: return name + "INTEGER";
                                               case value::Type::Real: return name + "REAL";
                                               case value::Type::Text: return name + "TEXT";
@@ -230,7 +231,7 @@ static int onxBestIndexCallback(::sqlite3_vtab* pvtab, ::sqlite3_index_info* inf
 
             Constraint constraint;
             constraint.column = column.name;
-            constraint.argv_index = constraints.size() + 1;
+            constraint.argv_index = static_cast<int>(constraints.size() + 1);
 
             info->aConstraintUsage[i].argvIndex =
                 constraint.argv_index;             // pass expression value for this constraint to filter()
@@ -325,11 +326,11 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
                     return true;
 
                 switch ( type ) {
-                    case value::Type::Integer: return std::holds_alternative<int64_t>(value);
-                    case value::Type::Text: return std::holds_alternative<std::string>(value);
                     case value::Type::Blob: return std::holds_alternative<std::string>(value);
-                    case value::Type::Real: return std::holds_alternative<double>(value);
+                    case value::Type::Integer: return std::holds_alternative<int64_t>(value);
                     case value::Type::Null: return std::holds_alternative<std::monostate>(value);
+                    case value::Type::Real: return std::holds_alternative<double>(value);
+                    case value::Type::Text: return std::holds_alternative<std::string>(value);
                 }
                 cannot_be_reached(); // thanks GCC
             }(cursor->schema.columns[i].type, row[i]);
@@ -390,13 +391,13 @@ static int onColumn(::sqlite3_vtab_cursor* pcursor, ::sqlite3_context* context, 
 
         case value::Type::Blob: {
             const auto& v = std::get<std::string>(value);
-            ::sqlite3_result_blob(context, v.data(), v.size(), SQLITE_STATIC);
+            ::sqlite3_result_blob(context, v.data(), static_cast<int>(v.size()), SQLITE_STATIC);
             break;
         }
 
         case value::Type::Text: {
             const auto& v = std::get<std::string>(value);
-            ::sqlite3_result_text(context, v.data(), v.size(), SQLITE_STATIC);
+            ::sqlite3_result_text(context, v.data(), static_cast<int>(v.size()), SQLITE_STATIC);
             break;
         }
     }
@@ -461,7 +462,7 @@ void SQLite::Implementation::open() {
 void SQLite::Implementation::close() { ::sqlite3_close(_sqlite_db); }
 
 Table* SQLite::Implementation::table(const std::string& name) {
-    for ( auto i : _tables_by_name ) {
+    for ( const auto& i : _tables_by_name ) {
         if ( i.second->name() == name )
             return i.second;
     };
@@ -501,14 +502,13 @@ Result<Nothing> SQLite::Implementation::addTable(Table* table) {
 Result<std::unique_ptr<sqlite::PreparedStatement>> SQLite::Implementation::prepareStatement(std::string stmt) {
     ::sqlite3_stmt* prepared_stmt = nullptr;
     _stmt_tables.clear();
-    auto rc = ::sqlite3_prepare_v2(_sqlite_db, stmt.data(), stmt.size(), &prepared_stmt, nullptr);
+    auto rc = ::sqlite3_prepare_v2(_sqlite_db, stmt.data(), static_cast<int>(stmt.size()), &prepared_stmt, nullptr);
     if ( rc != SQLITE_OK )
         return result::Error(format("failed to compile SQL statement: {} ({})", stmt, ::sqlite3_errmsg(_sqlite_db)));
 
     ZEEK_AGENT_DEBUG("sqlite", "statement result will have {} columns", ::sqlite3_column_count(prepared_stmt));
 
-    return std::unique_ptr<sqlite::PreparedStatement>(
-        new sqlite::PreparedStatement(prepared_stmt, std::move(_stmt_tables)));
+    return std::make_unique<sqlite::PreparedStatement>(prepared_stmt, std::move(_stmt_tables));
 }
 
 Result<sqlite::Result> SQLite::Implementation::runStatement(const sqlite::PreparedStatement& stmt, Time t) {
@@ -595,7 +595,7 @@ SQLite::~SQLite() {
     pimpl()->close();
 }
 
-Result<std::unique_ptr<sqlite::PreparedStatement>> SQLite::prepareStatement(std::string stmt) {
+Result<std::unique_ptr<sqlite::PreparedStatement>> SQLite::prepareStatement(const std::string& stmt) {
     ZEEK_AGENT_DEBUG("sqlite", "preparing statement: \"{}\"", stmt);
     Synchronize _(this);
     return pimpl()->prepareStatement(stmt);
@@ -644,10 +644,10 @@ TEST_SUITE("SQLite") {
                                     {.name = "t1", .type = value::Type::Text}}};
             }
 
-            virtual ~TestTable1() {}
+            ~TestTable1() override {}
 
-            virtual void activate() override { active += 1; }
-            virtual void deactivate() override { active -= 1; }
+            void activate() override { active += 1; }
+            void deactivate() override { active -= 1; }
 
             std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
                 int64_t counter = 0;
@@ -676,7 +676,7 @@ TEST_SUITE("SQLite") {
                                     {.name = "b2", .type = value::Type::Blob}}};
             }
 
-            virtual ~TestTable2() {}
+            ~TestTable2() override {}
 
             std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
                 int64_t counter = 0;
@@ -829,7 +829,7 @@ TEST_SUITE("SQLite") {
     TEST_CASE("statement event tables") {
         class TestTable : public EventTable {
         public:
-            virtual ~TestTable() {}
+            ~TestTable() override {}
 
             Schema schema() const override {
                 return {.name = "test_events",
@@ -844,11 +844,11 @@ TEST_SUITE("SQLite") {
         SQLite sql;
         sql.addTable(&table);
 
-        table.newEvent(10_time, {{10l}, {"foo_10"}});
-        table.newEvent(20_time, {{20l}, {"foo_20"}});
-        table.newEvent(30_time, {{30l}, {"foo_30"}});
-        table.newEvent(40_time, {{40l}, {"foo_40"}});
-        table.newEvent(50_time, {{50l}, {"foo_50"}});
+        table.newEvent(10_time, {{10L}, {"foo_10"}});
+        table.newEvent(20_time, {{20L}, {"foo_20"}});
+        table.newEvent(30_time, {{30L}, {"foo_30"}});
+        table.newEvent(40_time, {{40L}, {"foo_40"}});
+        table.newEvent(50_time, {{50L}, {"foo_50"}});
 
         SUBCASE("table registration") {
             auto result = sql.runStatement("SELECT * FROM sqlite_schema");
@@ -886,7 +886,7 @@ TEST_SUITE("SQLite") {
                                     {.name = "c", .type = value::Type::Text, .mandatory_constraint = true}}};
             }
 
-            virtual ~TestTable() {}
+            ~TestTable() override {}
 
             std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
                 REQUIRE_EQ(wheres.size(), 1);
@@ -896,9 +896,9 @@ TEST_SUITE("SQLite") {
 
                 auto val = std::get<std::string>(where.expression);
                 std::vector<std::vector<Value>> x;
-                x.push_back({{1l}, val});
-                x.push_back({{2l}, val});
-                x.push_back({{3l}, val});
+                x.push_back({{1L}, val});
+                x.push_back({{2L}, val});
+                x.push_back({{3L}, val});
                 return x;
             }
         };
@@ -935,16 +935,16 @@ TEST_SUITE("SQLite") {
                                     {.name = "c", .type = value::Type::Text}}};
             }
 
-            virtual ~BrokenTable() {}
+            ~BrokenTable() override {}
 
             std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
                 std::vector<std::vector<Value>> x;
 
                 if ( error_type == 1 )
-                    x.push_back({1l}); // missing column
+                    x.push_back({1L}); // missing column
 
                 if ( error_type == 2 )
-                    x.push_back({{1l}, {3.14}}); // wrong column type
+                    x.push_back({{1L}, {3.14}}); // wrong column type
 
                 return x;
             }

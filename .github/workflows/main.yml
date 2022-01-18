@@ -43,6 +43,7 @@ jobs:
       - name: Check code
         run: |
           pre-commit run -a --show-diff-on-failure
+          make -C tests tidy
 
   # TODO: Install Zeek and run Zeek tests.
   release_alpine_3_15_static:

@@ -91,6 +91,17 @@ else ()
     message(FATAL_ERROR "unknown platform, supporting only Linux and macOS currently")
 endif()
 
+### Additional targets.
+
+include(ProcessorCount)
+ProcessorCount(NUM_CPUS)
+if(NUM_CPUS EQUAL 0)
+    set(NUM_CPUS 1)
+endif()
+
+# Create a target for running clang-tidy through our helper script.
+add_custom_target(tidy COMMAND ${CMAKE_SOURCE_DIR}/aux/run-clang-tidy -j ${NUM_CPUS} ${CMAKE_BINARY_DIR})
+
 ### Add subdirectories.
 
 add_subdirectory(3rdparty)

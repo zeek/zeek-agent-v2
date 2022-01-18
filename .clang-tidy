@@ -1,18 +1,20 @@
 ---
-Checks: 'bugprone,
-         cert,
-         clang,
-         misc,
-         modernize,
-         performance,
-         portability,
-         readability,
+Checks: 'bugprone-*,
+         cert-*,
+         clang-*,
+         concurrency-*,
+         misc-*,
+         modernize-*,
+         performance-*,
+         portability-*,
+         readability-*,
 
          -cert-err58-cpp,
          -clang-analyzer-cplusplus.NewDeleteLeaks,
          -clang-diagnostic-c++2a-designator,
          -clang-diagnostic-deprecated-copy,
          -clang-diagnostic-range-loop-analysis,
+         -concurrency-mt-unsafe,
          -misc-macro-parentheses,
          -misc-non-private-member-variables-in-classes,
          -misc-suspicious-semicolon,
@@ -30,11 +32,9 @@ Checks: 'bugprone,
          -readability-make-member-function-const,
          -readability-named-parameter,
          -readability-qualified-auto,
+         -readability-function-cognitive-complexity,
+         -readability-function-size,
          '
 
-HeaderFilterRegex: '(/include/(hilti|spicy)/[^3].*/[^_][^_][^/]*$)|(^3rdparty.*)'
+HeaderFilterRegex: '/src'
 WarningsAsErrors: '*'
-
-CheckOptions:
-      - key:             performance-unnecessary-value-param.AllowedTypes
-        value:           hilti::NodeRef

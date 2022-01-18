@@ -1,6 +1,6 @@
 // Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
-#include "signal.h"
+#include "./signal.h"
 
 #include "logger.h"
 #include "util/fmt.h"
@@ -8,19 +8,18 @@
 #include "util/threading.h"
 
 #include <algorithm>
+#include <csignal>
 #include <map>
 #include <memory>
 #include <thread>
 #include <utility>
-
-#include <signal.h>
 
 using namespace zeek::agent;
 
 template<>
 struct Pimpl<SignalManager>::Implementation {
     // Globally blocks the given signals for the current process.
-    void blockSignals(std::vector<Signal> signals);
+    void blockSignals(const std::vector<Signal>& signals);
 
     // Restores default behaviour for all signals blocked by `blockSignals`.
     void restoreSignals();
@@ -55,7 +54,7 @@ signal::Handler::~Handler() {
     _manager->pimpl()->_handlers[_signal].erase(_handler);
 }
 
-void SignalManager::Implementation::blockSignals(std::vector<Signal> signals) {
+void SignalManager::Implementation::blockSignals(const std::vector<Signal>& signals) {
     sigemptyset(&_mask);
     sigaddset(&_mask, SIGUSR1); // always add USE1, we use it at termination to force the loop to wakeup
 
@@ -103,7 +102,7 @@ void SignalManager::Implementation::stop() {
     _thread->join();
 }
 
-SignalManager::SignalManager(std::vector<Signal> signals_to_handle) {
+SignalManager::SignalManager(const std::vector<Signal>& signals_to_handle) {
     ZEEK_AGENT_DEBUG("signal manager", "creating instance, handling signals: {}",
                      join(transform(signals_to_handle, [](auto i) { return std::to_string(i); }), ", "));
 

@@ -22,9 +22,9 @@ class SocketsDarwin : public SocketsCommon {
 public:
     std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override;
 
-    void addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, std::string process);
+    void addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, const std::string& process);
     void addSocket(std::vector<std::vector<Value>>* rows, int pid, const std::string& process,
-                   const struct socket_info& pi);
+                   const struct socket_info& si);
 };
 
 namespace {
@@ -33,9 +33,9 @@ database::RegisterTable<SocketsDarwin> _;
 
 std::vector<std::vector<Value>> SocketsDarwin::snapshot(const std::vector<table::Where>& wheres) {
     // TODO: The following is replicated from proceeses.darwin.cc, could merge.
-    auto buffer_size = proc_listpids(PROC_ALL_PIDS, 0, 0, 0);
+    auto buffer_size = proc_listpids(PROC_ALL_PIDS, 0, nullptr, 0);
     pid_t pids[buffer_size / sizeof(pid_t)];
-    buffer_size = proc_listpids(PROC_ALL_PIDS, 0, pids, sizeof(pids));
+    buffer_size = proc_listpids(PROC_ALL_PIDS, 0, pids, static_cast<int>(sizeof(pids)));
     if ( buffer_size <= 0 ) {
         logger()->warn(format("sockets: cannot get pids"));
         return {};
@@ -63,8 +63,8 @@ std::vector<std::vector<Value>> SocketsDarwin::snapshot(const std::vector<table:
     return rows;
 }
 
-void SocketsDarwin::addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, std::string process) {
-    auto buffer_size = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, 0, 0);
+void SocketsDarwin::addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, const std::string& process) {
+    auto buffer_size = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nullptr, 0);
     struct proc_fdinfo fds[buffer_size / sizeof(proc_fdinfo)];
     buffer_size = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, fds, buffer_size);
     if ( buffer_size <= 0 ) {

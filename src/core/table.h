@@ -48,7 +48,7 @@ inline Value fromOptionalString(const char* s) { return s ? s : Value(); }
  * Instantiates a `Value` from a boolean. The value will have type integer,
  * with value 0 or 1.
  */
-inline Value fromBool(bool b) { return b ? 1l : 0l; }
+inline Value fromBool(bool b) { return b ? 1L : 0L; }
 
 /**
  * Instantiates a `Value` from a time value. The value will have type integer
@@ -65,7 +65,7 @@ inline Value fromInterval(Interval i) { return i.count(); }
 } // namespace value
 
 /** Renders a value type into a string representation for display. */
-extern std::string to_string(value::Type op);
+extern std::string to_string(value::Type type);
 
 /** Renders a value into a string representation for display. */
 extern std::string to_string(const Value& value);
@@ -82,7 +82,7 @@ struct Column {
 
     /** human-readable description of the columns semantics for
      * documentation */
-    std::string description = "";
+    std::string description;
 
     /**< true if queries on the table *require* a WHERE constraint on this
      * column */
@@ -98,8 +98,8 @@ struct Column {
 /** Defines a table's schema, along with some further meta data. */
 struct Schema {
     std::string name;                    /**< name of the table */
-    std::string description = "";        /**< human-readable description of the
-                                           table for documentation */
+    std::string description;             /**< human-readable description of the
+                                                table for documentation */
     std::vector<schema::Column> columns; /**< the table's columns */
 };
 

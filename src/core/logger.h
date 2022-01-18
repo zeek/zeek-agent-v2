@@ -8,7 +8,7 @@ namespace zeek::agent {
 /** Returns the global logger instance. Use of the logger is thread-safe. */
 extern spdlog::logger* logger();
 
-#define __ZEEK_AGENT_LOG(level, component, ...)                                                                        \
+#define __ZEEK_AGENT_LOG(level, component, ...) /* NOLINT */                                                           \
     logger()->debug(::zeek::agent::format("[{}] ", component) + ::zeek::agent::format(__VA_ARGS__))
 
 #ifndef NDEBUG

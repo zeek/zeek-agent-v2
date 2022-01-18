@@ -20,10 +20,10 @@ void AsciiTable::addRow(std::vector<std::string> row) {
     if ( _column_widths.size() < row.size() )
         _column_widths.resize(row.size());
 
-    for ( auto i = 0u; i < _column_widths.size(); i++ )
+    for ( auto i = 0U; i < _column_widths.size(); i++ )
         _column_widths[i] = std::max(row[i].size(), _column_widths[i]);
 
-    _rows.push_back({false, std::move(row)});
+    _rows.emplace_back(false, std::move(row));
 }
 
 void AsciiTable::clear(bool reset_colum_widths) {
@@ -35,7 +35,7 @@ void AsciiTable::clear(bool reset_colum_widths) {
 
 void AsciiTable::printRow(std::ostream& out, const std::vector<std::string>& row, bool is_header, bool is_border,
                           const char* sep) {
-    for ( auto i = 0u; i < _column_widths.size(); i++ ) {
+    for ( auto i = 0U; i < _column_widths.size(); i++ ) {
         auto width = _column_widths[i];
         auto value = (i < row.size() ? row[i] : std::string());
         auto fill_left = std::string((width - value.size()) / 2, ' ');

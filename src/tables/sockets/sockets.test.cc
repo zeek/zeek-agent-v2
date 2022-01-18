@@ -12,7 +12,8 @@ using namespace zeek::agent;
 TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables")) {
     useTable("sockets");
 
-    int port = -1, fd = -1;
+    int port = -1;
+    int fd = -1;
     while ( true ) {
         // Listen on a random port, then check if we can see it.
         fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -21,9 +22,9 @@ TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables"))
         fchmod(fd, 0777);
 
         struct sockaddr_in addr;
-        bzero(&addr, sizeof(addr));
+        memset(&addr, 0, sizeof(addr));
 
-        port = (random() + 1024) % 65536;
+        port = static_cast<int>((random() + 1024) % 65536); // NOLINT(clang-analyzer-security.insecureAPI.rand)
 
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);

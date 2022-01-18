@@ -40,7 +40,7 @@ std::string zeek::agent::toupper(const std::string& s) {
     return t;
 }
 
-std::vector<std::string> zeek::agent::split(std::string s, std::string delim) {
+std::vector<std::string> zeek::agent::split(std::string s, const std::string& delim) {
     if ( delim.empty() )
         return {std::string(s)};
 
@@ -61,7 +61,7 @@ std::vector<std::string> zeek::agent::split(std::string s, std::string delim) {
     } while ( ! s.empty() );
 
     if ( ends_in_delim )
-        l.push_back("");
+        l.emplace_back("");
 
     return l;
 }
@@ -120,7 +120,7 @@ std::string base62_encode(uint64_t i) {
     do {
         x.insert(0, std::string(1, alphabet[i % 62]));
         i /= 62;
-    } while (i > 0);
+    } while ( i > 0 );
 
     return x;
 }
@@ -175,7 +175,7 @@ TEST_SUITE("Helpers") {
         CHECK_EQ(join(str_list{"a", "b"}, "1"), "a1b");
         CHECK_EQ(join(str_list{"a", "b", "c"}, "\b1"), "a\b1b\b1c");
 
-        const auto null = std::string(1u, '\0');
+        const auto null = std::string(1U, '\0');
         CHECK_EQ(join(str_list{null, null}, null), null + null + null);
     }
 
@@ -194,7 +194,7 @@ TEST_SUITE("Helpers") {
         CHECK_EQ(trim("aa123a", "abc"), "123");
         CHECK_EQ(trim("aa123a", "XYZ"), "aa123a");
 
-        const auto null = std::string(1u, '\0');
+        const auto null = std::string(1U, '\0');
         CHECK_EQ(trim(null + null + "123" + null + "abc" + null, null), "123" + null + "abc");
     }
 
@@ -205,7 +205,7 @@ TEST_SUITE("Helpers") {
         CHECK_EQ(ltrim("ab1b2c3d4", "abc"), "1b2c3d4");
         CHECK_EQ(ltrim("abc1b2c3d4", "abc"), "1b2c3d4");
 
-        const auto null = std::string(1u, '\0');
+        const auto null = std::string(1U, '\0');
         CHECK_EQ(ltrim(null + null + "abc", "a" + null), "bc");
     }
 
@@ -216,7 +216,7 @@ TEST_SUITE("Helpers") {
         CHECK_EQ(rtrim("4d3c2b1ba", "abc"), "4d3c2b1");
         CHECK_EQ(rtrim("4d3c2b1cba", "abc"), "4d3c2b1");
 
-        const auto null = std::string(1u, '\0');
+        const auto null = std::string(1U, '\0');
         CHECK_EQ(rtrim("cba" + null + null, "a" + null), "cb");
     }
 

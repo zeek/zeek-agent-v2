@@ -9,6 +9,7 @@
 #include "util/testing.h"
 
 #include <algorithm>
+#include <utility>
 
 using namespace zeek::agent;
 
@@ -84,7 +85,7 @@ Time Table::currentTime() const {
 std::vector<Value> Table::generateMockRow(int i) {
     std::vector<Value> row;
 
-    for ( auto j = 0u; j < schema().columns.size(); j++ ) {
+    for ( auto j = 0U; j < schema().columns.size(); j++ ) {
         Value v;
         switch ( schema().columns[j].type ) {
             case value::Type::Blob: v = format("blob_{:c}_{:c}", ('a' + i % 65), ('a' + j % 65)); break;
@@ -127,6 +128,7 @@ std::vector<std::vector<Value>> SnapshotTable::rows(Time t, const std::vector<ta
     if ( usesMockData() ) {
         std::vector<std::vector<Value>> result;
 
+        result.reserve(5);
         for ( int i = 0; i < 5; i++ )
             result.push_back(generateMockRow(i));
 
@@ -175,7 +177,7 @@ void EventTable::expire(Time t) {
 TEST_SUITE("Table") {
     class TestBaseTable : public Table {
     public:
-        TestBaseTable(std::string name) : name(name) {}
+        TestBaseTable(std::string name) : name(std::move(std::move(name))) {}
         Schema schema() const override {
             return {.name = name, .columns = {schema::Column{.name = "x", .type = value::Type::Integer}}};
         }
@@ -207,7 +209,7 @@ TEST_SUITE("Table") {
             std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
                 CHECK_EQ(wheres.size(), 1);
                 CHECK_EQ(wheres[0].column, "x");
-                return {{10l}, {20l}, {30l}, {40l}, {50l}};
+                return {{10L}, {20L}, {30L}, {40L}, {50L}};
             }
 
             using SnapshotTable::enableMockData;
@@ -253,12 +255,12 @@ TEST_SUITE("Table") {
 
         TestTable t;
 
-        t.newEvent(1_time, {10l});
-        t.newEvent(2_time, {20l});
-        t.newEvent(2_time, {21l});
-        t.newEvent(3_time, {30l});
-        t.newEvent(4_time, {40l});
-        t.newEvent(5_time, {50l});
+        t.newEvent(1_time, {10L});
+        t.newEvent(2_time, {20L});
+        t.newEvent(2_time, {21L});
+        t.newEvent(3_time, {30L});
+        t.newEvent(4_time, {40L});
+        t.newEvent(5_time, {50L});
 
         SUBCASE("real data") {
             auto rows = t.rows(0_time, {});
