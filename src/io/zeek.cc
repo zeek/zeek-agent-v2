@@ -2,6 +2,7 @@
 
 #include "zeek.h"
 
+#include "autogen/config.h"
 #include "core/configuration.h"
 #include "core/database.h"
 #include "core/logger.h"
@@ -700,8 +701,17 @@ TEST_SUITE("Zeek") {
         auto hello = wait_for_connect_and_hello();
 
         // Kill connection.
-        for ( auto p : receiver.peers() )
+        for ( auto p : receiver.peers() ) {
+            // GCC may report "p.peer.network->port" as potentially uninitialized. Not under our control so ignore.
+#ifdef HAVE_GCC
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
             receiver.unpeer(p.peer.network->address, p.peer.network->port);
+#ifdef HAVE_GCC
+#pragma GCC diagnostic pop
+#endif
+        }
 
         wait_for_disconnect();
 

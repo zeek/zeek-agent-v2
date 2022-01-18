@@ -34,7 +34,7 @@ jobs:
       - name: Build
         run: |
           ./configure --prefix=/tmp/zeek-agent --enable-debug --enable-sanitizer --enable-ccache --enable-werror --generator=Ninja
-          cd build && ninja
+          ninja -C build
 
       - name: Test
         run: |
@@ -43,7 +43,7 @@ jobs:
       - name: Check code
         run: |
           pre-commit run -a --show-diff-on-failure
-          make -C tests tidy
+          ninja -C build tidy
 
   # TODO: Install Zeek and run Zeek tests.
   release_alpine_3_15_static:
@@ -70,7 +70,7 @@ jobs:
       - name: Build
         run: |
           ./configure --prefix=/tmp/zeek-agent --enable-ccache --enable-werror --enable-static --generator=Ninja --with-openssl=
-          cd build && ninja
+          ninja -C build
 
       - name: Test
         run: |
@@ -79,14 +79,13 @@ jobs:
 
       - name: Install
         run: |
-          cd build && ninja install
+          ninja -C build install
           find /tmp/zeek-agent -exec ls -ald '{}' ';'
 
       - name: Package
         run: |
-          cd build && ninja package
-          cd dist
-          echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV
+          ninja -C build package
+          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
       - uses: actions/upload-artifact@v2
         with:
@@ -129,7 +128,7 @@ jobs:
       - name: Build
         run: |
           ./configure --prefix=${{runner.temp}}/zeek-agent --enable-ccache --enable-werror --enable-osx-universal --generator=Ninja --with-openssl=/tmp/openssl
-          cd build && ninja
+          ninja -C build
 
       - name: Test
         run: |
@@ -138,15 +137,13 @@ jobs:
 
       - name: Install
         run: |
-          cd build && ninja install
-          find ${{runner.temp}}/zeek-agent -exec ls -ald '{}' ';'
+          ninja -C build install
+          find build/${{runner.temp}}/zeek-agent -exec ls -ald '{}' ';'
 
       - name: Package
         run: |
-          cd build && ninja package
-          cd dist
-          echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV
-          echo "ZA_DMG=$(echo *.dmg)" >>$GITHUB_ENV
+          ninja -C build package
+          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV && echo "ZA_DMG=$(echo *.dmg)" >>$GITHUB_ENV)
 
       - uses: actions/upload-artifact@v2
         with:

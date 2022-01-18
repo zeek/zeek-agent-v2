@@ -5,6 +5,8 @@
 #cmakedefine HAVE_POSIX
 #cmakedefine HAVE_DARWIN
 #cmakedefine HAVE_LINUX
+#cmakedefine HAVE_GCC
+#cmakedefine HAVE_CLANG
 
 namespace zeek::agent {
 inline const auto Version = "${ZEEK_AGENT_VERSION}";
