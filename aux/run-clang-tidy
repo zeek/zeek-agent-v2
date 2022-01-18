@@ -90,7 +90,7 @@ fi
 
 clang_apply_replacements_path=$(echo ${clang_tidy_path} | sed 's/clang-tidy/clang-apply-replacements/')
 
-if [ ! -x "${clang_apply_replacements_path}" ]; then
+if [ -n "${fix}" -a ! -x "${clang_apply_replacements_path}" ]; then
     error "cannot find clang-apply-replacements" && exit 1
 fi
 
