@@ -305,7 +305,6 @@ void BrokerConnection::unexpectedEventArguments(const std::string& zeek_agent, b
 }
 
 void BrokerConnection::processEvent(const broker::data_message& msg) {
-    auto topic = std::get<0>(msg.data());
     broker::zeek::Event event(std::get<1>(msg.data()));
     auto args = event.args();
 
@@ -702,14 +701,23 @@ TEST_SUITE("Zeek") {
 
         // Kill connection.
         for ( auto p : receiver.peers() ) {
-            // GCC may report "p.peer.network->port" as potentially uninitialized. Not under our control so ignore.
-#ifdef HAVE_GCC
-#pragma GCC diagnostic push
+            // GCC may report "p.peer.network->port" as potentially
+            // uninitialized. Not under our control so ignore. Note that this
+            // needs to work with clang-tidy too even when compiler is GCC.
+
+#if ! defined(__has_warning) // Clang always has this
+#define __suppress_warning
+#elif __has_warning("-Wmaybe-uninitialized")
+#define __suppress_warning
+#endif
+
+#ifdef __suppress_warning
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
             receiver.unpeer(p.peer.network->address, p.peer.network->port);
-#ifdef HAVE_GCC
+#ifdef __suppress_warning
 #pragma GCC diagnostic pop
+#undef __suppress_warning
 #endif
         }
 

@@ -29,14 +29,14 @@ std::vector<std::vector<Value>> UsersLinux::snapshot(const std::vector<table::Wh
 
     setpwent();
 
-    while ( 1 ) {
+    while ( true ) {
         auto pw = getpwent();
         if ( ! pw )
             break;
 
         Value short_name = pw->pw_name;
         Value full_name = pw->pw_gecos;
-        Value is_admin = (pw->pw_uid == 0 ? 1l : 0l);
+        Value is_admin = (pw->pw_uid == 0 ? 1L : 0L);
         Value is_system = {};
         Value uid = static_cast<int64_t>(pw->pw_uid);
         Value gid = static_cast<int64_t>(pw->pw_gid);

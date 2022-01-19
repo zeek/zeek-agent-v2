@@ -21,12 +21,12 @@ namespace {
 
 class ZeekAgentLinux : public ZeekAgent {
 public:
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres);
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override;
 };
 
 database::RegisterTable<ZeekAgentLinux> _;
 
-static Value primaryAddress() {
+Value primaryAddress() {
     // Get default interface, per https://stackoverflow.com/a/17940988.
     std::ifstream route("/proc/net/route");
     if ( ! route )
@@ -60,7 +60,7 @@ static Value primaryAddress() {
 
         auto sock_size = (family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
         char buffer[NI_MAXHOST];
-        if ( getnameinfo(ifa->ifa_addr, sock_size, buffer, NI_MAXHOST, NULL, 0, NI_NUMERICHOST) == 0 )
+        if ( getnameinfo(ifa->ifa_addr, sock_size, buffer, NI_MAXHOST, nullptr, 0, NI_NUMERICHOST) == 0 )
             addr = buffer;
     }
 
@@ -68,7 +68,7 @@ static Value primaryAddress() {
     return addr;
 }
 
-static std::optional<std::string> getKeyFromFile(const char* file, const char* key) {
+std::optional<std::string> getKeyFromFile(const char* file, const char* key) {
     std::ifstream in(file);
     if ( ! in )
         return {};
@@ -92,7 +92,7 @@ static std::optional<std::string> getKeyFromFile(const char* file, const char* k
     return {};
 }
 
-static Value distribution() {
+Value distribution() {
     if ( auto x = getKeyFromFile("/etc/os-release", "PRETTY_NAME") )
         return *x;
 
@@ -141,9 +141,12 @@ std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table
     Value agent = VersionNumber;
     Value broker = {}; // TODO
     Value uptime =
-        std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock().now() - startupTime()).count();
+        std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - startupTime()).count();
 
-    Value kernel_name, kernel_release, kernel_arch;
+    Value kernel_name;
+    Value kernel_release;
+    Value kernel_arch;
+
     struct utsname uname_info {};
     if ( uname(&uname_info) >= 0 ) {
         kernel_name = uname_info.sysname;

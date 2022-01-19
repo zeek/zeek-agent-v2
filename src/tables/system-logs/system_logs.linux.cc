@@ -54,7 +54,7 @@ bool SystemLogsLinux::init() {
         options.redirect.out.type = reproc::redirect::discard;
         options.redirect.err.type = reproc::redirect::discard;
 
-        auto [status, ec] = reproc::run(std::vector<std::string>{p.native(), "--version"}, std::move(options));
+        auto [status, ec] = reproc::run(std::vector<std::string>{p.native(), "--version"}, options);
         if ( status == 0 ) {
             // It works.
             journalctl = p;
@@ -160,7 +160,10 @@ void SystemLogsLinux::parseJSON(const std::string& object) {
     try {
         auto j = nlohmann::json::parse(object);
 
-        Value t, process, priority, msg;
+        Value t;
+        Value process;
+        Value priority;
+        Value msg;
 
         auto t_ = std::stoll(j.at("__REALTIME_TIMESTAMP").get<std::string>()); // always exists
         t = value::fromTime(std::chrono::time_point<std::chrono::system_clock>(std::chrono::microseconds(t_)));
