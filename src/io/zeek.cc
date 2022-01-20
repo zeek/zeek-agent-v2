@@ -387,16 +387,13 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
                                .zeek_id = zeek_id,
                                .event_name = std::move(event_name),
                                .zeek_cookie = cookie,
-                               .query = Query{.sql_stmt = std::move(sql_stmt),
-                                              .subscription = subscription,
-                                              .schedule = schedule_,
-                                              .terminate = false,
-                                              .cookie = *cookie,
-                                              .callback_result = [zeek_id, this](query::ID /* not used */,
-                                                                                 const query::Result& result) {
-                                                  Synchronize _(this);
-                                                  transmitResult(zeek_id, result);
-                                              }}};
+                               .query = Query{
+                                   .sql_stmt = std::move(sql_stmt),
+                                   .subscription = subscription,
+                                   .schedule = schedule_,
+                                   .terminate = false,
+                                   .cookie = *cookie,
+                               }};
         } catch ( const std::exception& e ) {
             unexpectedEventArguments(zeek_instance, event);
             return;
