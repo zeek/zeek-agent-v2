@@ -12,15 +12,15 @@ public:
             .name = "users",
             .description = "List of users on system",
             .columns = {
-                {.name = "name", .type = value::Type::Text, .description = ""},
-                {.name = "full_name", .type = value::Type::Text, .description = ""},
-                {.name = "is_admin", .type = value::Type::Integer, .description = ""},
-                {.name = "is_system", .type = value::Type::Integer, .description = ""},
-                {.name = "uid", .type = value::Type::Integer, .description = ""},
-                {.name = "gid", .type = value::Type::Integer, .description = ""},
-                {.name = "home", .type = value::Type::Text, .description = ""},
-                {.name = "shell", .type = value::Type::Text, .description = ""},
-                {.name = "email", .type = value::Type::Text, .description = ""},
+                {.name = "name", .type = value::Type::Text, .description = "short name"},
+                {.name = "full_name", .type = value::Type::Text, .description = "full name"},
+                {.name = "is_admin", .type = value::Type::Integer, .description = "1 if user has adminstrative privileges"},
+                {.name = "is_system", .type = value::Type::Integer, .description = "1 if user correponds to OS service"},
+                {.name = "uid", .type = value::Type::Integer, .description = "user ID"},
+                {.name = "gid", .type = value::Type::Integer, .description = "group ID"},
+                {.name = "home", .type = value::Type::Text, .description = "path to home directory"},
+                {.name = "shell", .type = value::Type::Text, .description = "path to default shell"},
+                {.name = "email", .type = value::Type::Text, .description = "email address"},
             }
             // clang-format on
         };
