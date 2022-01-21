@@ -34,17 +34,19 @@ std::vector<std::vector<Value>> ProcessesLinux::snapshot(const std::vector<table
                 auto status = p.get_status();
                 Value name = p.get_comm();
                 Value pid = static_cast<int64_t>(p.id());
+                Value ppid = static_cast<int64_t>(stat.ppid);
                 Value uid = static_cast<int64_t>(status.uid.effective);
                 Value gid = static_cast<int64_t>(status.gid.effective);
-                Value ppid = static_cast<int64_t>(stat.ppid);
-                Value nice = static_cast<int64_t>(stat.nice);
-                Value started = {}; // static_cast<int64_t>(pi->pbi_start_tvsec);
+                Value ruid = static_cast<int64_t>(status.uid.real);
+                Value rgid = static_cast<int64_t>(status.gid.real);
+                Value priority = static_cast<int64_t>(stat.priority);
+                Value startup = {}; // static_cast<int64_t>(pi->pbi_start_tvsec);
                 Value vsize = static_cast<int64_t>(stat.vsize);
                 Value rsize = static_cast<int64_t>(stat.rss * getpagesize());
                 Value utime = static_cast<int64_t>(stat.utime);
                 Value stime = static_cast<int64_t>(stat.stime);
 
-                rows.push_back({name, pid, uid, gid, ppid, nice, started, vsize, rsize, utime, stime});
+                rows.push_back({name, pid, ppid, uid, gid, ruid, rgid, priority, startup, vsize, rsize, utime, stime});
             } catch ( std::system_error& ) {
                 // ignore, most likely a permission problem
             } catch ( std::runtime_error& ) {

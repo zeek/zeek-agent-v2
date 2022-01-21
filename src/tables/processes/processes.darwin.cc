@@ -62,11 +62,13 @@ void ProcessesDarwin::addProcess(std::vector<std::vector<Value>>* rows, const st
                                  const struct proc_taskinfo* ti) {
     Value name = value::fromOptionalString(pi->pbi_name);
     Value pid = pi->pbi_pid;
+    Value ppid = pi->pbi_ppid;
     Value uid = pi->pbi_uid;
     Value gid = pi->pbi_gid;
-    Value ppid = pi->pbi_ppid;
-    Value nice = pi->pbi_nice;
-    Value started = static_cast<int64_t>(pi->pbi_start_tvsec);
+    Value ruid = pi->pbi_ruid;
+    Value rgid = pi->pbi_rgid;
+    Value priority = -pi->pbi_nice;
+    Value startup = static_cast<int64_t>(pi->pbi_start_tvsec);
 
     Value vsize;
     Value rsize;
@@ -79,7 +81,7 @@ void ProcessesDarwin::addProcess(std::vector<std::vector<Value>>* rows, const st
         stime = static_cast<int64_t>(ti->pti_total_system);
     }
 
-    rows->push_back({name, pid, uid, gid, ppid, nice, started, vsize, rsize, utime, stime});
+    rows->push_back({name, pid, ppid, uid, gid, ruid, rgid, priority, startup, vsize, rsize, utime, stime});
 }
 
 } // namespace zeek::agent::table
