@@ -125,7 +125,7 @@ std::vector<std::vector<Value>> SnapshotTable::rows(Time t, const std::vector<ta
     // be reflecting *now*, and *now* is must be older or equal to *now*, and
     // *now* is always larger or equal any valid t.
 
-    if ( usesMockData() ) {
+    if ( usesMockData() && name() != "zeek_agent" ) {
         std::vector<std::vector<Value>> result;
 
         result.reserve(5);
