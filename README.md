@@ -1,15 +1,18 @@
 # Zeek Agent README
 
-The Zeek Agent sends host-level information from endpoints to
-[Zeek](http://zeek.org), the open-source network security monitor.
-Inside Zeek, the activity will show up inside scripts as events, just
-as network activity does. A Zeek-side [Zeek Agent
-packages](https://github.com/zeek-packages/zeek-agent-v2) provides
-scripts with an API access to Zeek Agents. It also adds a number of
-new Zeek log files recording endpoint information to disk.
+The Zeek Agent sends host information from endpoints to
+[Zeek](http://zeek.org) for central monitoring. Inside Zeek's
+scripting language, the host activity shows up as events, just as
+network activity does. A Zeek-side [Zeek Agent
+package](https://github.com/zeek-packages/zeek-agent-v2) provides
+scripts with an API to control agents and process their information.
+That package also adds new log files to Zeek that records host
+activity to disk.
 
-This version supersedes a couple of older implementations (see the
-[history](#history)), but remains experimental at this point.
+This is a new version of the Zeek Agent that supersedes a couple of
+older implementations (see the [history](#history)). It remains
+experimental and in development for now, but we're working on making
+it stable. We are interested in any feedback you may have.
 
 <!-- begin table of contents -->
 
@@ -24,6 +27,7 @@ This version supersedes a couple of older implementations (see the
 - [Table Reference](#table-reference)
 - [Caveats](#caveats)
 - [Versioning](#versioning)
+- [Getting in Touch](#getting-in-touch)
 - [License](#license)
 - [History](#history)
 
@@ -38,49 +42,78 @@ This version supersedes a couple of older implementations (see the
   standard system libraries. (Individual tables may not be available
   if they don't find what they need.)
 
-- The agent’s script framework requires Zeek 4.0 or newer.
+- The agent’s Zeek package requires Zeek 4.0 or newer.
 
 ### Installation
 
 - Linux: We are providing a static binary that should run on most
-  reasonably modern Linux distributions.
-    - [Download](#) `zeek-agent` for Linux.
+  distributions:
 
-- macOS: We are providing a binary that works on macOS 11 (Big Sur) and macOS 12 (Monterey).
-    - [Download](#) `zeek-agent` for macOS.
+    - Download [zeek-agent for
+      Linux](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-linux-x86_64.tar.gz.zip).
+
+- macOS: We are providing a binary that works on macOS 11 (Big Sur) and newer:
+
+    - Download [zeek-agent for macOS](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-macos11.dmg.zip).
+
+    - *Note*: We don't sign the binaries yet, so you may need to
+      remove the quarantine bit after downloading before you can run
+      it: `xattr -r -d com.apple.quarantine bin/zeek-agent`.
 
 You can alternatively compile the agent from source yourself:
 
-```c
-# git clone --recursive https://github.com/zeek/zeek-agent-v2
-# cd https://github.com/zeek/zeek-agent-v2
-# ./configure && make && make test && make install
 ```
+# git clone --recursive https://github.com/zeek/zeek-agent-v2
+# cd zeek-agent-v2
+# ./configure [<options>] && make -j 4 && make test && make install
+```
+
+Selected `configure` options:
+
+    - `--prefix=<path>`: installation prefix
+    - `--with-openssl=<path>`: path to OpenSSL installation.
+
+On macOS with Homebrew, use `--with-openssl={/usr/local,/opt/homebrew}/opt/openssl@1.1`
 
 ### Zeek Package
 
-```c
+```
+# zkg refresh
 # zkg install zeek-agent-v2
 ```
 
+Make sure you have Zeek configured to use the `zkg` package manager.
+You may need to run `eval $(zkg env)` to set up environment variables
+correctly. See the package manager's [Quickstart
+Guide](https://docs.zeek.org/projects/package-manager/en/stable/quickstart.html)
+for more.
+
 ### Usage
 
-- Start Zeek as normal. The agent package will be activated by
-  default.
 
-- On the endpoints, run `zeek-agent -z <address-of-system-running-Zeek>`.
+Start Zeek:
 
-- There will be a new `zeek-agent.log` tracking endpoint connectivity.
-  In addition, you will see the follow new log files tracking endpoint
-  activity:
+```
+zeek zeek-agent-v2
+```
 
-    -`zeek-agent-users.log`: Users available on endpoints.
-    -`zeek-agent-processes.log`: Processes running on endpoints.
+On all endpoints, run as `root`:
+
+```
+zeek-agent -z <hostname-where-zeek-runs>
+```
+
+You should now see new log files recording endpoint activity:
+
+    - `zeek-agent-users.log`: Users available on endpoints.
+    - `zeek-agent-processes.log`: Processes running on endpoints.
+    - [more to come]
+
+You will also find a new `zeek-agent.log` tracking agent connectivity.
 
 ## Zeek API
 
-See [the package](https://github.com/zeek-packages/zeek-agent-v2) for
-more information on the API available to scripts inside Zeek.
+[More to come here.]
 
 ## Table Reference
 
@@ -196,22 +229,38 @@ more information on the API available to scripts inside Zeek.
 
 ## Caveats
 
-- The supply of tables is currently limited; we are planning to add
-  more in the future.
+- The supply of tables and Zeek logs is currently limited; we are
+  planning to add more in the future.
 
 - Currently, most data is collected in regular intervals only, meaning
   that short-lived activity happening between the agent’s regular
   snapshots might be missed (e.g., a process terminating quickly after
-  startup). The agent’s internal infrastructure supports “event
+  it started up). The agent’s internal infrastructure supports “event
   tables” that don’t have that limitation, and we plan to make more
-  use of that in the future. (Doing so typically requires usage of
-  OS-specific APIs, which is more complex to implement).
+  use of that in the future. Doing so typically requires usage of
+  OS-specific APIs, which makes these tables more complex to
+  implement.
 
 ## Versioning
 
 We do not provide stable/tagged releases yet, there’s just a `main`
-branch in Git; binaries are cut from there. APIs and table schemas are
-still evolving, and may break without much notice for the time being.
+branch in Git; binaries are cut from there. We also still commit
+directly to `main`, so things may occasionally break for a little
+while. APIs and table schemas are still evolving as well and may
+change without much notice.
+
+We will move to more stable processes as the agent matures.
+
+## Getting in Touch
+
+Having trouble using the agent? Have ideas how to make the agent
+better? We'd like to hear from you!
+
+- Report problems on the [GitHub issue
+  tracker](https://github.com/zeek/zeek-agent-v2/issues).
+
+- Ask the `#zeek-agent` channel [on Zeek's
+  Slack](https://zeek.org/connect).
 
 ## License
 
@@ -223,8 +272,9 @@ license header in place.
 
 This Zeek Agent supersedes an older, [1st-generation
 implementation](https://github.com/zeek/zeek-agent) that is no longer
-maintained. The new version retains the original table-based approach,
-but reduces the complexity of deployment and code. It no longer
-supports interfacing to osquery. Both Zeek Agent versions supersede
+maintained. The new version retains the original, table-based
+approach, but reduces the complexity of deployment and code base. It
+no longer supports interfacing to osquery (because that was a main
+source of complexity). Both versions of the Zeek Agent also supersede
 [an earlier osquery extension](https://github.com/zeek/zeek-osquery)
-for Zeek that focused on providing osquery's tables to Zeek.
+for Zeek that focused just on providing osquery's tables to Zeek.
