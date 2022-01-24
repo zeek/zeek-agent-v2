@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <list>
 #include <map>
+#include <optional>
 #include <set>
 #include <unordered_map>
 #include <utility>
@@ -54,6 +55,9 @@ struct Pimpl<Database>::Implementation {
 
     // Callback for the timers we install for our queries.
     Interval timerCallback(timer::ID id);
+
+    // Helper to lookup scheduled query.
+    std::optional<std::list<ScheduledQuery>::iterator> lookupQuery(query::ID);
 
     SynchronizedBase* _synchronized =
         nullptr; // database's synchronizer, so that we can grab it during callback execution
@@ -101,10 +105,10 @@ Result<query::ID> Database::Implementation::query(Query query) {
 void Database::Implementation::cancel(query::ID id, bool regular_shutdown) {
     _scheduler->cancel(id);
 
-    if ( auto i = _queries_by_id.find(id); i != _queries_by_id.end() ) {
+    if ( auto i = lookupQuery(id) ) {
         // Just mark as cancelled here. We'll remove it later once we can call
         // the callback without trouble for the caller.
-        i->second->query.cancelled = true;
+        (*i)->query.cancelled = true;
         _cancelled_queries.emplace(id, regular_shutdown);
     }
 }
@@ -113,23 +117,23 @@ void Database::Implementation::expire() {
     // Cleanup cancelled queries. We split this into two loops in case a
     // callback modifies the set of queries.
     for ( const auto& [id, regular_shutdown] : _cancelled_queries ) {
-        auto i = _queries_by_id.find(id);
-        if ( i == _queries_by_id.end() )
+        auto i = lookupQuery(id);
+        if ( ! i )
             continue;
 
-        if ( i->second->query.callback_done )
+        if ( (*i)->query.callback_done )
             _synchronized->unlockWhile([&, id = id, regular_shutdown = regular_shutdown]() {
-                (*i->second->query.callback_done)(id, ! regular_shutdown);
+                (*(*i)->query.callback_done)(id, ! regular_shutdown);
             });
     }
 
     for ( const auto& [id, regular_shutdown] : _cancelled_queries ) {
-        auto i = _queries_by_id.find(id);
-        if ( i == _queries_by_id.end() )
+        auto i = lookupQuery(id);
+        if ( ! i )
             continue;
 
-        _queries.erase(i->second);
-        _queries_by_id.erase(i);
+        _queries.erase(*i);
+        _queries_by_id.erase(id);
     }
 
     _cancelled_queries.clear();
@@ -224,67 +228,75 @@ static auto newRows(std::vector<std::vector<Value>> old, std::vector<std::vector
 Interval Database::Implementation::timerCallback(timer::ID id) {
     SynchronizedBase::Synchronize _(_synchronized);
 
-    auto i = _queries_by_id[id];
-    if ( i->query.cancelled )
-        // will be cleaned up shortly
+    auto i = lookupQuery(id);
+    if ( ! i || (*i)->query.cancelled )
+        // already gone, or will be cleaned up shortly
         return 0s;
 
-    auto sql_result = _synchronized->unlockWhile([&]() { return _sqlite->runStatement(*i->prepared_query); });
+    auto sql_result = _synchronized->unlockWhile([&]() { return _sqlite->runStatement(*(*i)->prepared_query); });
 
-    i = _queries_by_id[id]; // re-lookup because we released the lock
-    if ( i->query.cancelled )
-        // will be cleaned up shortly
+    // re-lookup because we released the lock
+    i = lookupQuery(id);
+    if ( ! i || (*i)->query.cancelled )
+        // already gone, or will be cleaned up shortly
         return 0s;
 
-    auto stype = i->query.subscription;
-    auto schedule = (stype ? i->query.schedule : 0s);
+    auto stype = (*i)->query.subscription;
+    auto schedule = (stype ? (*i)->query.schedule : 0s);
 
     if ( sql_result ) {
         std::vector<query::result::Row> rows;
 
-        if ( ! stype || *stype == query::SubscriptionType::Snapshots || ! i->previous_rows ) {
+        if ( ! stype || *stype == query::SubscriptionType::Snapshots || ! (*i)->previous_rows ) {
             for ( const auto& sql_row : sql_result->rows )
                 rows.push_back({.type = {}, .values = sql_row});
         }
 
         else if ( stype == query::SubscriptionType::Events )
-            rows = newRows(*i->previous_rows, sql_result->rows);
+            rows = newRows(*(*i)->previous_rows, sql_result->rows);
 
         else if ( stype == query::SubscriptionType::Differences )
-            rows = diffRows(*i->previous_rows, sql_result->rows);
+            rows = diffRows(*(*i)->previous_rows, sql_result->rows);
 
         else
             cannot_be_reached();
 
-        if ( i->query.callback_result ) {
+        if ( (*i)->query.callback_result ) {
             _synchronized->unlockWhile([&]() {
                 auto query_result = query::Result{.columns = std::move(sql_result->columns),
                                                   .rows = std::move(rows),
-                                                  .cookie = i->query.cookie,
-                                                  .initial_result = ! i->previous_rows.has_value()};
+                                                  .cookie = (*i)->query.cookie,
+                                                  .initial_result = ! (*i)->previous_rows.has_value()};
 
-                (*i->query.callback_result)(id, query_result);
+                (*(*i)->query.callback_result)(id, query_result);
             });
 
             // repeat search in case map was modified by callback
-            i = _queries_by_id[id];
+            i = lookupQuery(id);
         }
 
-        i->previous_execution = _scheduler->currentTime();
+        (*i)->previous_execution = _scheduler->currentTime();
 
         if ( schedule > 0s )
-            i->previous_rows = std::move(sql_result->rows);
+            (*i)->previous_rows = std::move(sql_result->rows);
     }
     else
         logger()->error(format("table error: {}", sql_result.error()));
 
-    if ( i->query.terminate )
+    if ( (*i)->query.terminate )
         _scheduler->terminate();
 
     if ( schedule == 0s )
         cancel(id, true);
 
     return schedule;
+}
+
+std::optional<std::list<ScheduledQuery>::iterator> Database::Implementation::lookupQuery(query::ID id) {
+    if ( auto i = _queries_by_id.find(id); i != _queries_by_id.end() )
+        return i->second;
+    else
+        return std::nullopt;
 }
 
 Table* Database::Implementation::table(const std::string& name) {
