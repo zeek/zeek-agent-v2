@@ -48,6 +48,7 @@ static struct option long_driver_options[] = {
     {"autodoc", no_argument, nullptr, 'D'},
     {"test", no_argument, nullptr, 'T'},
     {"use-mock-data", no_argument, nullptr, 'M'},
+    {"terminate-on-disconnect", no_argument, nullptr, 'N'},
     {"zeek", required_argument, nullptr, 'z'},
     {"version", no_argument, nullptr, 'v'},
     {nullptr, 0, nullptr, 0}
@@ -59,16 +60,17 @@ static void usage(const filesystem::path& name) {
     std::cerr << "\nUsage: " << name.filename().native() << format(
         " [options]\n"
         "\n"
-        "  -D | --autodoc              Output JSON documentating table schemas and exit.\n"
-        "  -L | --log-level <LEVEL>    Set logging level (" LOG_LEVEL_HELP ") [default: warning]\n"
-        "  -M | --use-mock-data        Let tables return only fake mock data for testing\n"
-        "  -T | --test                 Run unit tests and exit\n"
-        "  -c | --config <FILE>        Load configuration from file [default: {}]\n"
-        "  -e | --execute <STMT>       SQL statement to execute immediately, then quit"
-        "  -h | --help                 Show usage information\n"
-        "  -i | --interactive          Spawn interactive console\n"
-        "  -v | --version              Print version information\n"
-        "  -z | --zeek <host>[:port]   Connect to Zeek at given address\n"
+        "  -D | --autodoc                   Output JSON documentating table schemas and exit.\n"
+        "  -L | --log-level <LEVEL>         Set logging level (" LOG_LEVEL_HELP ") [default: warning]\n"
+        "  -M | --use-mock-data             Let tables return only fake mock data for testing\n"
+        "  -N | --terminate-on-disconnect   Let tables return only fake mock data for testing\n"
+        "  -T | --test                      Run unit tests and exit\n"
+        "  -c | --config <FILE>             Load configuration from file [default: {}]\n"
+        "  -e | --execute <STMT>            SQL statement to execute immediately, then quit"
+        "  -h | --help                      Show usage information\n"
+        "  -i | --interactive               Spawn interactive console\n"
+        "  -v | --version                   Print version information\n"
+        "  -z | --zeek <host>[:port]        Connect to Zeek at given address\n"
         "\n",
         platform::configurationFile().native());
     // clang-format on
@@ -96,7 +98,7 @@ void Options::debugDump() {
     ZEEK_AGENT_DEBUG("configuration", "[option] log-level: {}",
                      (log_level ? spdlog::level::to_short_c_str(*log_level) : "<not set>"));
     ZEEK_AGENT_DEBUG("configuration", "[option] use-mock-data: {}", use_mock_data);
-    ZEEK_AGENT_DEBUG("configuration", "[option] terminate_on_disconnect: {}", terminate_on_disconnect);
+    ZEEK_AGENT_DEBUG("configuration", "[option] terminate-on-disconnect: {}", terminate_on_disconnect);
     ZEEK_AGENT_DEBUG("configuration", "[option] zeeks: {}", join(zeeks, ", "));
 }
 
