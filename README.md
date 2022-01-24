@@ -86,7 +86,7 @@ more information on the API available to scripts inside Zeek.
 
 <!-- begin table reference -->
 <details>
-<summary><tt>files_lines:</tt> Report lines of text files matching glob pattern, with leading and trailing whitespace stripped.</summary>
+<summary>`files_lines`: Report lines of text files matching glob pattern, with leading and trailing whitespace stripped. (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -96,7 +96,7 @@ more information on the API available to scripts inside Zeek.
 </details>
 
 <details>
-<summary><tt>files_list:</tt> List files matching glob pattern</summary>
+<summary>`files_list`: List files matching glob pattern (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -110,7 +110,7 @@ more information on the API available to scripts inside Zeek.
 </details>
 
 <details>
-<summary><tt>processes:</tt> List of current system processes</summary>
+<summary>`processes`: List of current system processes (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -130,7 +130,7 @@ more information on the API available to scripts inside Zeek.
 </details>
 
 <details>
-<summary><tt>sockets:</tt> List of sockets open on system</summary>
+<summary>`sockets`: List of sockets open on system (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -146,7 +146,7 @@ more information on the API available to scripts inside Zeek.
 </details>
 
 <details>
-<summary><tt>system_logs_events:</tt> Logs recorded by the operating system</summary>
+<summary>`system_logs_events`: Logs recorded by the operating system (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -157,7 +157,7 @@ more information on the API available to scripts inside Zeek.
 </details>
 
 <details>
-<summary><tt>users:</tt> List of users on system</summary>
+<summary>`users`: List of users on system (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -173,7 +173,7 @@ more information on the API available to scripts inside Zeek.
 </details>
 
 <details>
-<summary><tt>zeek_agent:</tt> Information about the current Zeek Agent process</summary>
+<summary>`zeek_agent`: Information about the current Zeek Agent process (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |

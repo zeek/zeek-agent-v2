@@ -11,6 +11,7 @@ public:
             // clang-format off
             .name = "sockets",
             .description = "List of sockets open on system",
+            .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
                 {.name = "pid", .type = value::Type::Integer, .description = ""},
                 {.name = "process", .type = value::Type::Text, .description = ""},

@@ -425,8 +425,15 @@ std::string Database::documentRegisteredTables() {
 
         nlohmann::json table;
         table["description"] = schema.description;
-        table["columns"] = columns;
+        table["platforms"] = transform(schema.platforms, [](auto p) {
+            switch ( p ) {
+                case Platform::Darwin: return "darwin";
+                case Platform::Linux: return "linux";
+            };
+            cannot_be_reached();
+        });
 
+        table["columns"] = columns;
         tables[schema.name] = std::move(table);
     }
 

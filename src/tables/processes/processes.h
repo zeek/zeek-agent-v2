@@ -11,6 +11,7 @@ public:
             // clang-format off
             .name = "processes",
             .description = "List of current system processes",
+            .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
                 {.name = "name", .type = value::Type::Text, .description = "name of process"},
                 {.name = "pid", .type = value::Type::Integer, .description = "process ID"},

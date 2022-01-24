@@ -15,6 +15,7 @@ public:
         return {
             .name = "zeek_agent",
             .description = "Information about the current Zeek Agent process",
+            .platforms = {Platform::Darwin, Platform::Linux},
             .columns = {{.name = "id", .type = value::Type::Text, .description = "unique agent ID"},
                         {.name = "instance",
                          .type = value::Type::Text,

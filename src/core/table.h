@@ -95,11 +95,15 @@ struct Column {
 
 } // namespace schema
 
+/** Enum to define platforms that a table supports. */
+enum class Platform { Darwin, Linux };
+
 /** Defines a table's schema, along with some further meta data. */
 struct Schema {
     std::string name;                    /**< name of the table */
     std::string description;             /**< human-readable description of the
                                                 table for documentation */
+    std::vector<Platform> platforms;     /**< platform that support the table */
     std::vector<schema::Column> columns; /**< the table's columns */
 };
 

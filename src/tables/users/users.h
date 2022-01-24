@@ -11,6 +11,7 @@ public:
             // clang-format off
             .name = "users",
             .description = "List of users on system",
+            .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
                 {.name = "name", .type = value::Type::Text, .description = "short name"},
                 {.name = "full_name", .type = value::Type::Text, .description = "full name"},

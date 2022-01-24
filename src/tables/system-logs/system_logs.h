@@ -13,6 +13,7 @@ public:
             // clang-format off
             .name = "system_logs_events",
             .description = "Logs recorded by the operating system",
+            .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
                 {.name = "time", .type = value::Type::Integer, .description = "unix timestamp"},
                 {.name = "process", .type = value::Type::Text, .description = ""},
