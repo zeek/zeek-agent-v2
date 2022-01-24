@@ -46,11 +46,7 @@ try:
 except Exception:
     fatalError("no such table")
 
-print("{}\ntype {}: record {{".format(fmtComment(table["description"], "##"), snakeToCamel(table_name)))
-
-print("\tt: time;\t##< time when data was received")
-print("\thid: string;\t##< unique ID of originater host")
-print("\thost: string\t##< name of originator")
+print("{}\ntype Columns: record {{".format(fmtComment(table["description"], "##")))
 
 for column in table["columns"]:
     name = column["name"]

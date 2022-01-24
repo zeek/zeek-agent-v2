@@ -1,0 +1,22 @@
+#! /bin/sh
+
+cat <<EOD
+
+#### Table of Contents
+
+EOD
+
+awk '
+
+function fmt_entry(prefix, line) {
+    title = gensub("^#* *", "", 1, line);
+    link = tolower(gensub(" ", "-", "g", title));
+    printf("%s [%s](#%s)\n", prefix, title, link);
+}
+
+/^#.* Table of Contents/    { next; }
+/^## /                      { fmt_entry("-", $0); }
+/^### /                     { fmt_entry("    -", $0); }
+'
+
+echo

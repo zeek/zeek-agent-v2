@@ -1,14 +1,86 @@
-# Zeek Agent v2
+# Zeek Agent README
 
-This is a prototype of a new Zeek Agent implementation that applies
-some lessons learned. The goal is to come to a minimal, portable agent
-that's easy to deploy and scale, and focuses on what helps Zeek the
-most while keeping runtime overhead as low as possible.
+The Zeek Agent sends host-level information from endpoints to
+[Zeek](http://zeek.org), the open-source network security monitor.
+Inside Zeek, the activity will show up inside scripts as events, just
+as network activity does. A Zeek-side [Zeek Agent
+packages](https://github.com/zeek-packages/zeek-agent-v2) provides
+scripts with an API access to Zeek Agents. It also adds a number of
+new Zeek log files recording endpoint information to disk.
 
-For the time being, this new version remains unstable and WIP, with some
-functionality still missing.
+This version supersedes a couple of older implementations (see the
+[history](#history)), but remains experimental at this point.
 
-Stay tuned for updates and some documentation.
+<!-- begin table of contents -->
+
+#### Table of Contents
+
+- [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+    - [Zeek Package](#zeek-package)
+    - [Usage](#usage)
+- [Zeek API](#zeek-api)
+- [Table Reference](#table-reference)
+- [Caveats](#caveats)
+- [Versioning](#versioning)
+- [License](#license)
+- [History](#history)
+
+<!-- end table of contents -->
+
+## Getting Started
+
+### Prerequisites
+
+- The agent currently supports Linux and macOS; Windows support is
+  planned. There are no hard dependencies on the endpoints beyond
+  standard system libraries. (Individual tables may not be available
+  if they don't find what they need.)
+
+- The agent’s script framework requires Zeek 4.0 or newer.
+
+### Installation
+
+- Linux: We are providing a static binary that should run on most
+  reasonably modern Linux distributions.
+    - [Download](#) `zeek-agent` for Linux.
+
+- macOS: We are providing a binary that works on macOS 11 (Big Sur) and macOS 12 (Monterey).
+    - [Download](#) `zeek-agent` for macOS.
+
+You can alternatively compile the agent from source yourself:
+
+```c
+# git clone --recursive https://github.com/zeek/zeek-agent-v2
+# cd https://github.com/zeek/zeek-agent-v2
+# ./configure && make && make test && make install
+```
+
+### Zeek Package
+
+```c
+# zkg install zeek-agent-v2
+```
+
+### Usage
+
+- Start Zeek as normal. The agent package will be activated by
+  default.
+
+- On the endpoints, run `zeek-agent -z <address-of-system-running-Zeek>`.
+
+- There will be a new `zeek-agent.log` tracking endpoint connectivity.
+  In addition, you will see the follow new log files tracking endpoint
+  activity:
+
+    -`zeek-agent-users.log`: Users available on endpoints.
+    -`zeek-agent-processes.log`: Processes running on endpoints.
+
+## Zeek API
+
+See [the package](https://github.com/zeek-packages/zeek-agent-v2) for
+more information on the API available to scripts inside Zeek.
 
 ## Table Reference
 
@@ -44,10 +116,12 @@ Stay tuned for updates and some documentation.
 | --- | --- | --- |
 | `name` | text | name of process |
 | `pid` | int | process ID |
-| `uid` | int | user ID |
-| `gid` | int | group ID |
 | `ppid` | int | parent's process ID |
-| `priority` | int | process priority |
+| `uid` | int | effective user ID |
+| `gid` | int | effective group ID |
+| `ruid` | int | real user ID |
+| `rgid` | int | real group ID |
+| `priority` | int | process priority (higher is more) |
 | `startup` | int | time process started |
 | `vsize` | int | virtual memory size |
 | `rsize` | int | resident memory size |
@@ -87,15 +161,15 @@ Stay tuned for updates and some documentation.
 
 | Column | Type | Description
 | --- | --- | --- |
-| `name` | text |  |
-| `full_name` | text |  |
-| `is_admin` | int |  |
-| `is_system` | int |  |
-| `uid` | int |  |
-| `gid` | int |  |
-| `home` | text |  |
-| `shell` | text |  |
-| `email` | text |  |
+| `name` | text | short name |
+| `full_name` | text | full name |
+| `is_admin` | int | 1 if user has adminstrative privileges |
+| `is_system` | int | 1 if user correponds to OS service |
+| `uid` | int | user ID |
+| `gid` | int | group ID |
+| `home` | text | path to home directory |
+| `shell` | text | path to default shell |
+| `email` | text | email address |
 </details>
 
 <details>
@@ -118,3 +192,38 @@ Stay tuned for updates and some documentation.
 </details>
 
 <!-- end table reference -->
+
+## Caveats
+
+- The supply of tables is currently limited; we are planning to add
+  more in the future.
+
+- Currently, most data is collected in regular intervals only, meaning
+  that short-lived activity happening between the agent’s regular
+  snapshots might be missed (e.g., a process terminating quickly after
+  startup). The agent’s internal infrastructure supports “event
+  tables” that don’t have that limitation, and we plan to make more
+  use of that in the future. (Doing so typically requires usage of
+  OS-specific APIs, which is more complex to implement).
+
+## Versioning
+
+We do not provide stable/tagged releases yet, there’s just a `main`
+branch in Git; binaries are cut from there. APIs and table schemas are
+still evolving, and may break without much notice for the time being.
+
+## License
+
+The Zeek Agent is open source and released under a BSD license, which
+allows for pretty much unrestricted use as long as you leave the
+license header in place.
+
+## History
+
+This Zeek Agent supersedes an older, [1st-generation
+implementation](https://github.com/zeek/zeek-agent) that is no longer
+maintained. The new version retains the original table-based approach,
+but reduces the complexity of deployment and code. It no longer
+supports interfacing to osquery. Both Zeek Agent versions supersede
+[an earlier osquery extension](https://github.com/zeek/zeek-osquery)
+for Zeek that focused on providing osquery's tables to Zeek.

@@ -14,10 +14,17 @@ trap "rm -f ${tmp}" EXIT
 
 awk '
     BEGIN                               { p = 1 }
+
+    /<!-- begin table of contents -->/    { print;
+                                          system("cat ../README.md | ./md-to-toc");
+                                          p = 0; }
+    /<!-- end table of contents -->/      { p = 1; }
+
     /<!-- begin table reference -->/    { print;
                                           system("../build/bin/zeek-agent --autodoc | ./autodoc-to-md");
                                           p = 0; }
     /<!-- end table reference -->/      { p = 1; }
+
     p != 0                              { print; }
 ' <${README} >${tmp}
 
