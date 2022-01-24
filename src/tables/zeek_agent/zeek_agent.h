@@ -28,7 +28,8 @@ public:
                         {.name = "kernel_arch", .type = value::Type::Text, .description = ""},
                         {.name = "agent_version", .type = value::Type::Integer, .description = "agent version"},
                         {.name = "broker", .type = value::Type::Text, .description = "agent version"},
-                        {.name = "uptime", .type = value::Type::Integer, .description = "process uptime in seconds"}},
+                        {.name = "uptime", .type = value::Type::Integer, .description = "process uptime in seconds"},
+                        {.name = "tables", .type = value::Type::Text, .description = "tables available to queries"}},
         };
     }
 

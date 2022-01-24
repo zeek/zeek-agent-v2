@@ -278,6 +278,9 @@ public:
      */
     bool usesMockData() const { return _use_mock_data; }
 
+    /** Returns the database that the table is part of, or null if none. */
+    Database* database() const { return _db; }
+
 protected:
     /**
      * Returns the configuration options currently in effect. This won't be
@@ -288,7 +291,6 @@ protected:
 
     /** Returns the current time, per our database's scheduler. */
     Time currentTime() const;
-
 
     /**
      * Helpers that returns one row of mock data. The value types will match

@@ -679,7 +679,7 @@ TEST_SUITE("Zeek") {
 
             CHECK_EQ(hello.name(), "ZeekAgentAPI::agent_hello_v1");
             CHECK_EQ(hello.args().size(), 2);                                  // context plus columns record
-            CHECK_EQ(broker::get<broker::vector>(hello.args()[1]).size(), 12); // zeek_agent table has 12 columns
+            CHECK_EQ(broker::get<broker::vector>(hello.args()[1]).size(), 13); // zeek_agent table has 12 columns
 
             return hello;
         };

@@ -189,6 +189,7 @@ more information on the API available to scripts inside Zeek.
 | `agent_version` | int | agent version |
 | `broker` | text | agent version |
 | `uptime` | int | process uptime in seconds |
+| `tables` | text | tables available to queries |
 </details>
 
 <!-- end table reference -->

@@ -82,6 +82,7 @@ std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<tabl
     Value broker = {}; // TODO
     Value uptime =
         std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock().now() - startupTime()).count();
+    Value tables = join(transform(database()->tables(), [](const auto* t) { return t->name(); }), ",");
 
     Value kernel_name, kernel_release, kernel_arch;
     struct utsname uname_info {};
@@ -92,6 +93,6 @@ std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<tabl
     }
 
     return {{id, instance, hostname, address, platform, os_name, kernel_name, kernel_release, kernel_arch, agent,
-             broker, uptime}};
+             broker, uptime, tables}};
 }
 } // namespace

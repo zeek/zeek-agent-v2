@@ -4,6 +4,7 @@
 
 #include "autogen/config.h"
 #include "core/database.h"
+#include "util/helpers.h"
 #include "util/platform.h"
 
 #include <chrono>
@@ -142,6 +143,7 @@ std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table
     Value broker = {}; // TODO
     Value uptime =
         std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - startupTime()).count();
+    Value tables = join(transform(database()->tables(), [](const auto* t) { return t->name(); }), ",");
 
     Value kernel_name;
     Value kernel_release;
@@ -155,6 +157,6 @@ std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table
     }
 
     return {{id, instance, hostname, address, platform, os_name, kernel_name, kernel_release, kernel_arch, agent,
-             broker, uptime}};
+             broker, uptime, tables}};
 }
 } // namespace

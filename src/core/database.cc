@@ -114,7 +114,8 @@ void Database::Implementation::expire() {
     // callback modifies the set of queries.
     for ( const auto& [id, regular_shutdown] : _cancelled_queries ) {
         auto i = _queries_by_id.find(id);
-        assert(i != _queries_by_id.end());
+        if ( i == _queries_by_id.end() )
+            continue;
 
         if ( i->second->query.callback_done )
             _synchronized->unlockWhile([&, id = id, regular_shutdown = regular_shutdown]() {
@@ -124,7 +125,8 @@ void Database::Implementation::expire() {
 
     for ( const auto& [id, regular_shutdown] : _cancelled_queries ) {
         auto i = _queries_by_id.find(id);
-        assert(i != _queries_by_id.end());
+        if ( i == _queries_by_id.end() )
+            continue;
 
         _queries.erase(i->second);
         _queries_by_id.erase(i);
@@ -227,12 +229,18 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
         // will be cleaned up shortly
         return 0s;
 
+    auto sql_result = _synchronized->unlockWhile([&]() { return _sqlite->runStatement(*i->prepared_query); });
+
+    i = _queries_by_id[id]; // re-lookup because we released the lock
+    if ( i->query.cancelled )
+        // will be cleaned up shortly
+        return 0s;
+
     auto stype = i->query.subscription;
     auto schedule = (stype ? i->query.schedule : 0s);
 
-    if ( auto sql_result = _sqlite->runStatement(*i->prepared_query) ) {
+    if ( sql_result ) {
         std::vector<query::result::Row> rows;
-
 
         if ( ! stype || *stype == query::SubscriptionType::Snapshots || ! i->previous_rows ) {
             for ( const auto& sql_row : sql_result->rows )
@@ -320,7 +328,6 @@ Table* Database::table(const std::string& name) {
 }
 
 std::vector<const Table*> Database::tables() {
-    Synchronize _(this);
     std::vector<const Table*> out;
 
     // Need to creaste a copy to avoid races.
@@ -895,6 +902,6 @@ TEST_SUITE("Database") {
         auto zeek_agent = schema["tables"]["zeek_agent"];
 
         // Just a basic check that we it looks right.
-        CHECK_EQ(zeek_agent["columns"].size(), 12);
+        CHECK_EQ(zeek_agent["columns"].size(), 13);
     }
 }
