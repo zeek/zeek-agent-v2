@@ -52,13 +52,13 @@ it stable. We are interested in any feedback you may have.
     - Download [zeek-agent for
       Linux](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-linux-x86_64.tar.gz.zip).
 
-- macOS: We are providing a binary that works on macOS 11 (Big Sur) and newer:
+- macOS: We are providing a binary that works on Big Sur and newer:
 
     - Download [zeek-agent for macOS](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-macos11.dmg.zip).
 
-    - *Note*: We don't sign the binaries yet, so you may need to
-      remove the quarantine bit after downloading before you can run
-      it: `xattr -r -d com.apple.quarantine bin/zeek-agent`.
+    - We don't sign the binaries yet, so you may need to remove the
+      quarantine bit after downloading before you can run it: `xattr
+      -r -d com.apple.quarantine bin/zeek-agent`.
 
 You can alternatively compile the agent from source yourself:
 
@@ -70,8 +70,8 @@ You can alternatively compile the agent from source yourself:
 
 Selected `configure` options:
 
-    - `--prefix=<path>`: installation prefix
-    - `--with-openssl=<path>`: path to OpenSSL installation.
+- `--prefix=<path>`: installation prefix
+- `--with-openssl=<path>`: path to OpenSSL installation.
 
 On macOS with Homebrew, use `--with-openssl={/usr/local,/opt/homebrew}/opt/openssl@1.1`
 
@@ -94,20 +94,20 @@ for more.
 Start Zeek:
 
 ```
-zeek zeek-agent-v2
+# zeek zeek-agent-v2
 ```
 
 On all endpoints, run as `root`:
 
 ```
-zeek-agent -z <hostname-where-zeek-runs>
+# zeek-agent -z <hostname-where-zeek-runs>
 ```
 
 You should now see new log files recording endpoint activity:
 
-    - `zeek-agent-users.log`: Users available on endpoints.
-    - `zeek-agent-processes.log`: Processes running on endpoints.
-    - [more to come]
+- `zeek-agent-users.log`: Users available on endpoints.
+- `zeek-agent-processes.log`: Processes running on endpoints.
+- [more to come]
 
 You will also find a new `zeek-agent.log` tracking agent connectivity.
 
