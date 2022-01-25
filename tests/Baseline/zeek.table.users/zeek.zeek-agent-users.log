@@ -5,7 +5,6 @@
 #unset_field	-
 #path	zeek-agent-users
 #open XXXX-XX-XX-XX-XX-XX
-#fields	t	hid	host	change	name	full_name	is_admin	is_system	uid	gid	home	shell	email
-#types	time	string	string	string	string	string	int	int	int	int	string	string	string
-XXXXXXXXXX.XXXXXX	<uuid>	shire-air.local	-	text_a_a	text_a_b	102	103	104	105	text_a_g	text_a_h	text_a_i
-#close XXXX-XX-XX-XX-XX-XX
+#fields	t	hid	change	name	full_name	is_admin	is_system	uid	gid	home	shell	email
+#types	time	string	string	string	string	int	int	int	int	string	string	string
+XXXXXXXXXX.XXXXXX	<uuid>	-	text_a_a	text_a_b	102	103	104	105	text_a_g	text_a_h	text_a_i

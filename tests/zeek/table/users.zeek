@@ -5,22 +5,23 @@
 # @TEST-EXEC: btest-bg-run zeek  zeek ${FRAMEWORK} ${PACKAGE}/table/users.zeek %INPUT
 # @TEST-EXEC: btest-bg-run agent zeek-agent -M -N -L info -z localhost:${ZEEK_PORT}
 # @TEST-EXEC: btest-bg-wait 30
+# @TEST-EXEC: cat zeek/zeek-agent-users.log | zeek-cut -cn host >tmp && mv tmp zeek/zeek-agent-users.log
 # @TEST-EXEC: btest-diff zeek/zeek-agent-users.log
 
 @if ( getenv("ZEEK_PORT") != "" )
 redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
 @endif
 
-global seen: set[Log::ID];
+# We only accept the 1st write writer so that our output doesn't depend on
+# runtime duration.
+global already_logged = F;
 
-hook Log::log_stream_policy(rec: any, id: Log::ID)
+hook ZeekAgent_Users::log_policy(rec: any, id: Log::ID, filter: Log::Filter)
         {
-	# We only accept the 1st write per log writer so that our output
-	# doesn't depend on runtime duration.
-	if ( id in seen )
+	if ( already_logged )
 		break;
 	else
-		add seen[id];
+		already_logged = T;
         }
 
 event do_terminate() { terminate(); }
