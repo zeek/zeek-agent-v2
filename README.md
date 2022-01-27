@@ -1,5 +1,5 @@
 
-![Zeek Agent deployment overview](/aux/zeek-agent.svg)
+![Zeek Agent deployment overview](/aux/zeek-agent.png)
 
 # Zeek Agent README
 
@@ -22,25 +22,24 @@ older implementations (see the [history](#history)). It remains
 experimental and in development for now, but we're working on making
 it stable. We are interested in any feedback you may have.
 
-### Table of Contents
+#### Contents
 <!-- begin table of contents -->
-> - [Getting Started](#getting-started)
->     - [Zeek Agent](#zeek-agent)
->         - [Prerequisites](#prerequisites)
->         - [Installation](#installation)
->         - [Usage](#usage)
->     - [Zeek Package](#zeek-package)
->         - [Prerequisites](#prerequisites)
->         - [Installation](#installation)
->         - [Usage](#usage)
-> - [Getting in Touch](#getting-in-touch)
-> - [Zeek API](#zeek-api)
-> - [Table Reference](#table-reference)
-> - [Caveats](#caveats)
-> - [Versioning](#versioning)
-> - [License](#license)
-> - [History](#history)
-
+- [Getting Started](#getting-started)
+    - [Zeek Agent](#zeek-agent)
+        - [Prerequisites](#prerequisites)
+        - [Installation](#installation)
+        - [Usage](#usage)
+    - [Zeek Package](#zeek-package)
+        - [Prerequisites](#prerequisites)
+        - [Installation](#installation)
+        - [Usage](#usage)
+- [Getting in Touch](#getting-in-touch)
+- [Zeek API](#zeek-api)
+- [Table Reference](#table-reference)
+- [Caveats](#caveats)
+- [Versioning](#versioning)
+- [License](#license)
+- [History](#history)
 <!-- end table of contents -->
 
 ## Getting Started

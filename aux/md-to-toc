@@ -5,13 +5,11 @@ awk '
 function fmt_entry(prefix, line) {
     title = gensub("^#* *", "", 1, line);
     link = tolower(gensub(" ", "-", "g", title));
-    printf("> %s [%s](#%s)\n", prefix, title, link);
+    printf("%s [%s](#%s)\n", prefix, title, link);
 }
 
-/^#.* Table of Contents/    { next; }
+/^#.* Contents/             { next; }
 /^## /                      { fmt_entry("-", $0); }
 /^### /                     { fmt_entry("    -", $0); }
 /^#### /                    { fmt_entry("        -", $0); }
 '
-
-echo
