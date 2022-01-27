@@ -1,64 +1,76 @@
+
+![Zeek Agent deployment overview](/aux/zeek-agent.svg)
+
 # Zeek Agent README
 
-The Zeek Agent sends host information from endpoints to
-[Zeek](http://zeek.org) for central monitoring. Inside Zeek's
-scripting language, the host activity shows up as events, just as
-network activity does. A Zeek-side [Zeek Agent
-package](https://github.com/zeek-packages/zeek-agent-v2) provides
-scripts with an API to control agents and process their information.
-That package also adds new log files to Zeek that records host
-activity to disk.
+The *Zeek Agent* is an endpoint agent that sends host information to
+[Zeek](http://zeek.org) for central monitoring. Inside Zeek, the host
+activity—such as current processes, open sockets, or the list of users
+on the system—shows up as script-layer events, just as network
+activity does. Zeek and its agents communicate through
+[Broker](https://docs.zeek.org/projects/broker), Zeek's standard
+communication library.
+
+We provide a [script package for
+Zeek](https://github.com/zeek-packages/zeek-agent-v2) that adds a
+number of new log files to Zeek recording endpoint information
+received from agents. The package also provides an API to custom
+scripts for controlling agents and processing the events they send.
 
 This is a new version of the Zeek Agent that supersedes a couple of
 older implementations (see the [history](#history)). It remains
 experimental and in development for now, but we're working on making
 it stable. We are interested in any feedback you may have.
 
+### Table of Contents
 <!-- begin table of contents -->
-
-#### Table of Contents
-
-- [Getting Started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Installation](#installation)
-    - [Zeek Package](#zeek-package)
-    - [Usage](#usage)
-- [Zeek API](#zeek-api)
-- [Table Reference](#table-reference)
-- [Caveats](#caveats)
-- [Versioning](#versioning)
-- [Getting in Touch](#getting-in-touch)
-- [License](#license)
-- [History](#history)
+> - [Getting Started](#getting-started)
+>     - [Zeek Agent](#zeek-agent)
+>         - [Prerequisites](#prerequisites)
+>         - [Installation](#installation)
+>         - [Usage](#usage)
+>     - [Zeek Package](#zeek-package)
+>         - [Prerequisites](#prerequisites)
+>         - [Installation](#installation)
+>         - [Usage](#usage)
+> - [Getting in Touch](#getting-in-touch)
+> - [Zeek API](#zeek-api)
+> - [Table Reference](#table-reference)
+> - [Caveats](#caveats)
+> - [Versioning](#versioning)
+> - [License](#license)
+> - [History](#history)
 
 <!-- end table of contents -->
 
 ## Getting Started
 
-### Prerequisites
+### Zeek Agent
 
-- The agent currently supports Linux and macOS; Windows support is
-  planned. There are no hard dependencies on the endpoints beyond
-  standard system libraries. (Individual tables may not be available
-  if they don't find what they need.)
+#### Prerequisites
 
-- The agent’s Zeek package requires Zeek 4.0 or newer.
+- The agent currently supports Linux and macOS systems; Windows
+  support is planned.
 
-### Installation
+- There are no hard dependencies on the endpoints beyond standard
+  system libraries. (Individual tables may not be available if they
+  don't find on the system what they need.)
+
+#### Installation
 
 - Linux: We are providing a static binary that should run on most
-  distributions:
+  distributions.
 
-    - Download [zeek-agent for
+    - Download [Zeek Agent for
       Linux](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-linux-x86_64.tar.gz.zip).
 
-- macOS: We are providing a binary that works on Big Sur and newer:
+- macOS: We are providing a binary that works on Big Sur and newer.
 
-    - Download [zeek-agent for macOS](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-macos11.dmg.zip).
+    - Download [Zeek Agent for macOS](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-macos11.dmg.zip).
 
-    - We don't sign the binaries yet, so you may need to remove the
-      quarantine bit after downloading before you can run it: `xattr
-      -r -d com.apple.quarantine bin/zeek-agent`.
+    - We don't sign the macOS binary yet, so you may need to remove
+      the quarantine bit after downloading before you can run it:
+      `xattr -r -d com.apple.quarantine bin/zeek-agent`.
 
 You can alternatively compile the agent from source yourself:
 
@@ -75,41 +87,60 @@ Selected `configure` options:
 
 On macOS with Homebrew, use `--with-openssl={/usr/local,/opt/homebrew}/opt/openssl@1.1`
 
+#### Usage
+
+On all endpoints, run as `root`:
+
+```
+# zeek-agent -z <hostname-of-you-Zeek-system>
+```
+
 ### Zeek Package
+
+#### Prerequisites
+
+- The agent's Zeek package requires Zeek 4.0 or newer.
+
+- For a standard installation, make sure you have the Zeek package
+  manager available and configured. You may need to run `eval $(zkg
+  env)` to set up environment variables correctly. See the package
+  manager's [Quickstart
+  Guide](https://docs.zeek.org/projects/package-manager/en/stable/quickstart.html)
+  for more.
+
+#### Installation
 
 ```
 # zkg refresh
 # zkg install zeek-agent-v2
 ```
 
-Make sure you have Zeek configured to use the `zkg` package manager.
-You may need to run `eval $(zkg env)` to set up environment variables
-correctly. See the package manager's [Quickstart
-Guide](https://docs.zeek.org/projects/package-manager/en/stable/quickstart.html)
-for more.
+#### Usage
 
-### Usage
-
-
-Start Zeek:
+Run Zeek:
 
 ```
 # zeek zeek-agent-v2
 ```
 
-On all endpoints, run as `root`:
-
-```
-# zeek-agent -z <hostname-where-zeek-runs>
-```
-
 You should now see new log files recording endpoint activity:
 
-- `zeek-agent-users.log`: Users available on endpoints.
-- `zeek-agent-processes.log`: Processes running on endpoints.
+- `zeek-agent-users.log:`: Users available on endpoints.
+- `zeek-agent-processes.log:` Processes running on endpoints.
 - [more to come]
 
 You will also find a new `zeek-agent.log` tracking agent connectivity.
+
+## Getting in Touch
+
+Having trouble using the agent? Have ideas how to make the agent
+better? We'd like to hear from you!
+
+- Report problems on the [GitHub issue
+  tracker](https://github.com/zeek/zeek-agent-v2/issues).
+
+- Ask the `#zeek-agent` channel [on Zeek's
+  Slack](https://zeek.org/connect).
 
 ## Zeek API
 
@@ -119,7 +150,7 @@ You will also find a new `zeek-agent.log` tracking agent connectivity.
 
 <!-- begin table reference -->
 <details>
-<summary>`files_lines`: Report lines of text files matching glob pattern, with leading and trailing whitespace stripped. (Linux, macOS)</summary>
+<summary><tt>files_lines:</tt> Report lines of text files matching glob pattern, with leading and trailing whitespace stripped. (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -129,7 +160,7 @@ You will also find a new `zeek-agent.log` tracking agent connectivity.
 </details>
 
 <details>
-<summary>`files_list`: List files matching glob pattern (Linux, macOS)</summary>
+<summary><tt>files_list:</tt> List files matching glob pattern (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -143,7 +174,7 @@ You will also find a new `zeek-agent.log` tracking agent connectivity.
 </details>
 
 <details>
-<summary>`processes`: List of current system processes (Linux, macOS)</summary>
+<summary><tt>processes:</tt> List of current system processes (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -163,7 +194,7 @@ You will also find a new `zeek-agent.log` tracking agent connectivity.
 </details>
 
 <details>
-<summary>`sockets`: List of sockets open on system (Linux, macOS)</summary>
+<summary><tt>sockets:</tt> List of sockets open on system (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -179,7 +210,7 @@ You will also find a new `zeek-agent.log` tracking agent connectivity.
 </details>
 
 <details>
-<summary>`system_logs_events`: Logs recorded by the operating system (Linux, macOS)</summary>
+<summary><tt>system_logs_events:</tt> Logs recorded by the operating system (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -190,7 +221,7 @@ You will also find a new `zeek-agent.log` tracking agent connectivity.
 </details>
 
 <details>
-<summary>`users`: List of users on system (Linux, macOS)</summary>
+<summary><tt>users:</tt> List of users on system (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -206,7 +237,7 @@ You will also find a new `zeek-agent.log` tracking agent connectivity.
 </details>
 
 <details>
-<summary>`zeek_agent`: Information about the current Zeek Agent process (Linux, macOS)</summary>
+<summary><tt>zeek_agent:</tt> Information about the current Zeek Agent process (Linux, macOS)</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -250,17 +281,6 @@ while. APIs and table schemas are still evolving as well and may
 change without much notice.
 
 We will move to more stable processes as the agent matures.
-
-## Getting in Touch
-
-Having trouble using the agent? Have ideas how to make the agent
-better? We'd like to hear from you!
-
-- Report problems on the [GitHub issue
-  tracker](https://github.com/zeek/zeek-agent-v2/issues).
-
-- Ask the `#zeek-agent` channel [on Zeek's
-  Slack](https://zeek.org/connect).
 
 ## License
 

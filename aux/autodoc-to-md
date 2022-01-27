@@ -23,7 +23,7 @@ def renderTable(name, meta):
             platforms.append(p)
 
     print("<details>")
-    print("<summary>`{}`: {} ({})</summary>".format(name, meta["description"], ", ".join(sorted(platforms))))
+    print("<summary><tt>{}:</tt> {} ({})</summary>".format(name, meta["description"], ", ".join(sorted(platforms))))
     print()
     print("| Column | Type | Description")
     print("| --- | --- | --- |")
