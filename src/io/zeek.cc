@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include "broker/fwd.hh"
+#include <broker/configuration.hh>
 #include <broker/endpoint.hh>
 #include <broker/topic.hh>
 #include <broker/zeek.hh>
@@ -53,7 +54,8 @@ struct ZeekQuery {
 // their instance IDs that the Zeek-side agent framework creates)
 class BrokerConnection : SynchronizedBase {
 public:
-    BrokerConnection(Database* db, Scheduler* scheduler) : _db(db), _scheduler(scheduler) {}
+    BrokerConnection(Database* db, Scheduler* scheduler, broker::configuration broker_config)
+        : _db(db), _scheduler(scheduler), _endpoint(std::move(broker_config)) {}
     ~BrokerConnection() { disconnect(); } // NOLINT(bugprone-exception-escape)
 
     // Establishes a Broker connection to `<host>[:<port>]`. Only reports fatal
@@ -552,6 +554,9 @@ struct Pimpl<Zeek>::Implementation {
     // Performs periodic operations. Must be called reguarly from external.
     void poll();
 
+    // Helper to prepare Broker config object
+    static broker::configuration brokerConfig();
+
     Database* _db = nullptr;         // as passed into constructor
     Scheduler* _scheduler = nullptr; // as passed into constructor
 
@@ -560,9 +565,32 @@ struct Pimpl<Zeek>::Implementation {
     bool _stopped = false; // true once stop() can been executed
 };
 
+broker::configuration Zeek::Implementation::brokerConfig() {
+    // Configure Broker/CAF for lower resource consumption.
+    broker::broker_options options;
+    options.forward = false;
+    options.ignore_broker_conf = true;
+
+    broker::configuration config(options);
+    config.set("caf.scheduler.policy", "sharing");
+    config.set("caf.scheduler.max-threads", 1);
+    config.set("caf.middleman.workers", 0);
+
+#if 0
+    // TODO: Add options to config file.
+	config.openssl_cafile(get_option("Broker::ssl_cafile")->AsString()->CheckString());
+	config.openssl_capath(get_option("Broker::ssl_capath")->AsString()->CheckString());
+	config.openssl_certificate(get_option("Broker::ssl_certificate")->AsString()->CheckString());
+	config.openssl_key(get_option("Broker::ssl_keyfile")->AsString()->CheckString());
+	config.openssl_passphrase(get_option("Broker::ssl_passphrase")->AsString()->CheckString());
+#endif
+
+    return config;
+}
+
 void Zeek::Implementation::start(const std::vector<std::string>& zeeks) {
     for ( const auto& z : zeeks ) {
-        auto conn = std::make_unique<BrokerConnection>(_db, _scheduler);
+        auto conn = std::make_unique<BrokerConnection>(_db, _scheduler, brokerConfig());
         if ( auto rc = conn->connect(z) )
             _connections.push_back(std::move(conn));
         else
