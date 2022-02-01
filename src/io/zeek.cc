@@ -153,9 +153,11 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
             format("/zeek-agent/query/group/{}/{}", options().agent_id, group)); // group msg to individual host
     }
 
+    struct no_state {};
+
     _endpoint.subscribe(
-        topics, [](caf::unit_t&) { /* nop */ },
-        [this](caf::unit_t&, const broker::data_message& msg) {
+        topics, [](no_state&) { /* nop */ },
+        [this](no_state&, const broker::data_message& msg) {
             if ( broker::get_topic(msg) == broker::topic::statuses_str ) {
                 Synchronize _(this);
                 auto x = broker::to<broker::status>(broker::get_data(msg));
@@ -173,7 +175,7 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
                 processEvent(msg);
             }
         },                                                  //
-        [](caf::unit_t&, const caf::error&) { /* nop */ }); //
+        [](no_state&, const broker::error&) { /* nop */ }); //
 
     _subscriber = _endpoint.make_subscriber(topics);
     _status_subscriber = _endpoint.make_status_subscriber(true);
@@ -420,13 +422,9 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
 }
 
 void BrokerConnection::processError(const broker::error& err) {
-#if 0
     std::string msg = "<no error message>";
     if ( err.message() )
         msg = *err.message();
-#else
-    const auto& msg = err.context().get_as<std::string>(1);
-#endif
 
     logger()->warn("[{}] {}", endpoint(), msg);
 }
