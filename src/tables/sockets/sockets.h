@@ -10,18 +10,20 @@ public:
         return {
             // clang-format off
             .name = "sockets",
-            .description = "List of sockets open on system",
+            .summary = "List of sockets open on system",
+            .description = R"(
+                )",
             .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
-                {.name = "pid", .type = value::Type::Integer, .description = ""},
-                {.name = "process", .type = value::Type::Text, .description = ""},
-                {.name = "family", .type = value::Type::Text, .description = ""},
-                {.name = "protocol", .type = value::Type::Integer, .description = ""},
-                {.name = "local_port", .type = value::Type::Integer, .description = ""},
-                {.name = "remote_port", .type = value::Type::Integer, .description = ""},
-                {.name = "local_addr", .type = value::Type::Text, .description = ""},
-                {.name = "remote_addr", .type = value::Type::Text, .description = ""},
-                {.name = "state", .type = value::Type::Text, .description = ""},
+                {.name = "pid", .type = value::Type::Integer, .summary = ""},
+                {.name = "process", .type = value::Type::Text, .summary = ""},
+                {.name = "family", .type = value::Type::Text, .summary = ""},
+                {.name = "protocol", .type = value::Type::Integer, .summary = ""},
+                {.name = "local_port", .type = value::Type::Integer, .summary = ""},
+                {.name = "remote_port", .type = value::Type::Integer, .summary = ""},
+                {.name = "local_addr", .type = value::Type::Text, .summary = ""},
+                {.name = "remote_addr", .type = value::Type::Text, .summary = ""},
+                {.name = "state", .type = value::Type::Text, .summary = ""},
         }
             // clang-format on
         };

@@ -430,13 +430,14 @@ std::string Database::documentRegisteredTables() {
             nlohmann::json column;
             column["name"] = c.name;
             column["type"] = to_string(c.type);
-            column["description"] = c.description;
+            column["summary"] = c.summary;
             column["mandatory_constraint"] = c.mandatory_constraint;
             columns.emplace_back(std::move(column));
         }
 
         nlohmann::json table;
-        table["description"] = schema.description;
+        table["summary"] = trim(schema.summary);
+        table["description"] = trim(schema.description);
         table["platforms"] = transform(schema.platforms, [](auto p) {
             switch ( p ) {
                 case Platform::Darwin: return "darwin";
@@ -468,7 +469,7 @@ TEST_SUITE("Database") {
             return {.name = "test_table" + name_postfix,
                     .description = "test-description",
                     .columns = {
-                        schema::Column{.name = "x", .type = value::Type::Integer, .description = "colum-description"}}};
+                        schema::Column{.name = "x", .type = value::Type::Integer, .summary = "colum-description"}}};
         }
 
         ~TestTable() override {}

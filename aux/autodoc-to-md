@@ -5,10 +5,22 @@
 
 import json
 import sys
+import textwrap
 
 def fatalError(message: str):
     print(message, file=sys.stderr)
     sys.exit(1)
+
+def fmtDoc(doc):
+    n = []
+    doc = doc.split("\n\n")
+    for i in doc:
+        x = textwrap.dedent(i).strip()
+        wrapped = textwrap.fill(x)
+        if wrapped:
+            n += [wrapped]
+
+    return "\n\n".join(n)
 
 def renderTable(name, meta):
     platforms = []
@@ -23,14 +35,20 @@ def renderTable(name, meta):
             platforms.append(p)
 
     print("<details>")
-    print("<summary><tt>{}:</tt> {} ({})</summary>".format(name, meta["description"], ", ".join(sorted(platforms))))
+    print("<summary><tt>{}:</tt> {} [{}]</summary>".format(name, meta["summary"], ", ".join(sorted(platforms))))
     print()
+
+    description = fmtDoc(meta["description"])
+    if len(description):
+        print(description)
+        print()
+
     print("| Column | Type | Description")
     print("| --- | --- | --- |")
 
     for column in meta["columns"]:
         name = column["name"]
-        comment = column["description"]
+        comment = column["summary"]
         type = column["type"]
 
         print("| `{}` | {} | {} |".format(name, type, comment))

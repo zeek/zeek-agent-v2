@@ -46,11 +46,11 @@ try:
 except Exception:
     fatalError("no such table")
 
-print("{}\ntype Columns: record {{".format(fmtComment(table["description"], "##")))
+print("{}\ntype Columns: record {{".format(fmtComment(table["summary"], "##")))
 
 for column in table["columns"]:
     name = column["name"]
-    comment = column["description"]
+    comment = column["summary"]
     type = column["type"]
 
     if type == "int":

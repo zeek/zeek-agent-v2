@@ -12,13 +12,15 @@ public:
         return {
             // clang-format off
             .name = "system_logs_events",
-            .description = "Logs recorded by the operating system",
+            .summary = "Logs recorded by the operating system",
+            .description = R"(
+                )",
             .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
-                {.name = "time", .type = value::Type::Integer, .description = "unix timestamp"},
-                {.name = "process", .type = value::Type::Text, .description = ""},
-                {.name = "level", .type = value::Type::Text, .description = ""},
-                {.name = "message", .type = value::Type::Text, .description = ""}
+                {.name = "time", .type = value::Type::Integer, .summary = "unix timestamp"},
+                {.name = "process", .type = value::Type::Text, .summary = ""},
+                {.name = "level", .type = value::Type::Text, .summary = ""},
+                {.name = "message", .type = value::Type::Text, .summary = ""}
             }
             // clang-format on
         };

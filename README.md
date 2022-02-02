@@ -149,7 +149,7 @@ better? We'd like to hear from you!
 
 <!-- begin table reference -->
 <details>
-<summary><tt>files_lines:</tt> Report lines of text files matching glob pattern, with leading and trailing whitespace stripped. (Linux, macOS)</summary>
+<summary><tt>files_lines:</tt> Report lines of text files matching glob pattern, with leading and trailing whitespace stripped. [Linux, macOS]</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -159,7 +159,7 @@ better? We'd like to hear from you!
 </details>
 
 <details>
-<summary><tt>files_list:</tt> List files matching glob pattern (Linux, macOS)</summary>
+<summary><tt>files_list:</tt> List files matching glob pattern [Linux, macOS]</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -173,7 +173,10 @@ better? We'd like to hear from you!
 </details>
 
 <details>
-<summary><tt>processes:</tt> List of current system processes (Linux, macOS)</summary>
+<summary><tt>processes:</tt> current processes [Linux, macOS]</summary>
+
+The table provides a list of all processes that are running on
+the endpoint at the time of the query.
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -193,7 +196,7 @@ better? We'd like to hear from you!
 </details>
 
 <details>
-<summary><tt>sockets:</tt> List of sockets open on system (Linux, macOS)</summary>
+<summary><tt>sockets:</tt> List of sockets open on system [Linux, macOS]</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -209,7 +212,7 @@ better? We'd like to hear from you!
 </details>
 
 <details>
-<summary><tt>system_logs_events:</tt> Logs recorded by the operating system (Linux, macOS)</summary>
+<summary><tt>system_logs_events:</tt> Logs recorded by the operating system [Linux, macOS]</summary>
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -220,7 +223,11 @@ better? We'd like to hear from you!
 </details>
 
 <details>
-<summary><tt>users:</tt> List of users on system (Linux, macOS)</summary>
+<summary><tt>users:</tt> user accounts [Linux, macOS]</summary>
+
+The table provides a list of all user accounts that exist on
+the endpoint, retrieved at the time of the query from the
+operation system.
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -236,7 +243,7 @@ better? We'd like to hear from you!
 </details>
 
 <details>
-<summary><tt>zeek_agent:</tt> Information about the current Zeek Agent process (Linux, macOS)</summary>
+<summary><tt>zeek_agent:</tt> Information about the current Zeek Agent process [Linux, macOS]</summary>
 
 | Column | Type | Description
 | --- | --- | --- |

@@ -194,7 +194,7 @@ void Console::Implementation::printTables() {
     out.addHeader({"Name", "Description"});
 
     for ( const auto& t : _db->tables() )
-        out.addRow({t->name(), t->schema().description});
+        out.addRow({t->name(), t->schema().summary});
 
     out.print(std::cout);
 }
@@ -208,7 +208,7 @@ Result<Nothing> Console::Implementation::printSchema(const std::string& table) {
     out.addHeader({"Column", "Type", "Description"});
 
     for ( const auto& c : t->schema().columns )
-        out.addRow({c.name, to_string(c.type), c.description});
+        out.addRow({c.name, to_string(c.type), c.summary});
 
     out.print(std::cout);
     return Nothing();

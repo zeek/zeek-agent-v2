@@ -80,16 +80,13 @@ struct Column {
     std::string name; /**< name of the column */
     value::Type type; /**< type of the column's values */
 
-    /** human-readable description of the columns semantics for
-     * documentation */
-    std::string description;
+    /** short human-readable summary of the column's semantics for documentation */
+    std::string summary;
 
-    /**< true if queries on the table *require* a WHERE constraint on this
-     * column */
+    /**< true if queries on the table *require* a WHERE constraint on this column  */
     bool mandatory_constraint = false;
 
-    /** Returns a human-readable representation of the column definition.
-     * */
+    /** Returns a human-readable representation of the column definition. */
     std::string str() const;
 };
 
@@ -101,7 +98,9 @@ enum class Platform { Darwin, Linux };
 /** Defines a table's schema, along with some further meta data. */
 struct Schema {
     std::string name;                    /**< name of the table */
-    std::string description;             /**< human-readable description of the
+    std::string summary;                 /**< short human-readable description of the
+                                                    table for documentation */
+    std::string description;             /**< detailed human-readable description of the
                                                 table for documentation */
     std::vector<Platform> platforms;     /**< platform that support the table */
     std::vector<schema::Column> columns; /**< the table's columns */
