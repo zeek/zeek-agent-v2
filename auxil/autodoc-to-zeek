@@ -28,6 +28,12 @@ def fmtComment(txt, prefix, single_line=False):
     else:
         return textwrap.fill(txt, initial_indent=prefix, subsequent_indent=prefix)
 
+def fmtID(id):
+    if id == "time":
+        return "time_"
+
+    return id
+
 ### Main
 
 if len(sys.argv) != 2:
@@ -46,10 +52,17 @@ try:
 except Exception:
     fatalError("no such table")
 
-print("{}\ntype Columns: record {{".format(fmtComment(table["summary"], "##")))
+indent = "\t"
+
+summary = table["summary"].capitalize()
+if not summary.endswith("."):
+    summary += "."
+
+print("{}{}".format(indent, fmtComment(summary, "##")))
+print("{}type Columns: record {{".format(indent))
 
 for column in table["columns"]:
-    name = column["name"]
+    name = fmtID(column["name"])
     comment = column["summary"]
     type = column["type"]
 
@@ -65,6 +78,6 @@ for column in table["columns"]:
     else:
         fatalError("unknown column type '{}'".format(type))
 
-    print("\t{}: {} &optional &log;{}".format(name, type, fmtComment(comment, "\t##<")))
+    print("{}{}{}: {} &optional &log;{}".format(indent, indent, name, type, fmtComment(comment, "\t##<")))
 
-print("};")
+print("{}}};".format(indent))
