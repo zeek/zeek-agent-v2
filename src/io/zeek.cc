@@ -30,8 +30,8 @@
 
 // Helpers for debugging logging that include additional state.
 #define ZEEK_INSTANCE_DEBUG(instance, ...)                                                                             \
-    ZEEK_AGENT_DEBUG("zeek", format("[{}/{}] {}", endpoint(), instance, __VA_ARGS__))
-#define ZEEK_CONN_DEBUG(...) ZEEK_AGENT_DEBUG("zeek", format("[{}] {}", endpoint(), __VA_ARGS__))
+    ZEEK_AGENT_DEBUG("zeek", "{}", format("[{}/{}] ", endpoint(), instance) + format(__VA_ARGS__))
+#define ZEEK_CONN_DEBUG(...) ZEEK_AGENT_DEBUG("zeek", "{}", format("[{}] ", endpoint()) + format(__VA_ARGS__))
 #define ZEEK_IO_DEBUG(...) ZEEK_AGENT_DEBUG("zeek", __VA_ARGS__)
 
 using namespace zeek::agent;
@@ -187,7 +187,7 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
 
     ZEEK_CONN_DEBUG("beginning to peer");
     for ( const auto& t : topics )
-        ZEEK_CONN_DEBUG(format("  subscribing to: {}", t.string()));
+        ZEEK_CONN_DEBUG("  subscribing to: {}", t.string());
 
     // Broker's peer_nosync() has not version taking netinfo directly
     _endpoint.peer_nosync(_destination->address, _destination->port, _destination->retry);
@@ -245,7 +245,7 @@ void BrokerConnection::installQuery(ZeekQuery zquery) {
 
     zquery.query.callback_done = [this, zeek_id](query::ID /* query_id */, bool /* cancelled */) {
         Synchronize _(this);
-        ZEEK_CONN_DEBUG(format("database done with query {}, removing", zeek_id));
+        ZEEK_CONN_DEBUG("database done with query {}, removing", zeek_id);
         _zeek_queries.erase(zeek_id);
     };
 
@@ -304,8 +304,8 @@ void BrokerConnection::cancelAllQueries() {
 }
 
 void BrokerConnection::unexpectedEventArguments(const std::string& zeek_agent, broker::zeek::Event& ev) {
-    ZEEK_INSTANCE_DEBUG(zeek_agent, format("ignoring event with unexpected argument types: {}{}", ev.name(),
-                                           broker::to_string(ev.args())));
+    ZEEK_INSTANCE_DEBUG(zeek_agent, "ignoring event with unexpected argument types: {}{}", ev.name(),
+                        broker::to_string(ev.args()));
 }
 
 void BrokerConnection::processEvent(const broker::data_message& msg) {
@@ -332,7 +332,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
         return;
     }
 
-    ZEEK_INSTANCE_DEBUG(zeek_instance, format("got event: {}{}", event.name(), broker::to_string(event.args())));
+    ZEEK_INSTANCE_DEBUG(zeek_instance, "got event: {}{}", event.name(), broker::to_string(event.args()));
 
     if ( event.name() == "ZeekAgentAPI::zeek_hello_v1" ) {
         // nothing to do
@@ -351,7 +351,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
 
             auto zeek_id = broker::get<std::string>(args[1]);
             if ( lookupQuery(zeek_id) ) {
-                ZEEK_INSTANCE_DEBUG(zeek_instance, format("ignoring already known query {}", zquery.zeek_id));
+                ZEEK_INSTANCE_DEBUG(zeek_instance, "ignoring already known query {}", zquery.zeek_id);
                 return;
             }
 
@@ -376,8 +376,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
                 else if ( enum_.name == "ZeekAgent::Differences" )
                     subscription = query::SubscriptionType::Differences;
                 else
-                    ZEEK_INSTANCE_DEBUG(zeek_instance,
-                                        format("ignoring event with unknown subscription type: {}", enum_.name));
+                    ZEEK_INSTANCE_DEBUG(zeek_instance, "ignoring event with unknown subscription type: {}", enum_.name);
             }
 
             auto event_name = broker::get<std::string>(broker::get<broker::vector>(query_record[3])[0]);
@@ -498,7 +497,7 @@ void BrokerConnection::transmitResult(const std::string& zeek_id, const query::R
 void BrokerConnection::transmitError(const std::string& zeek_instance, const std::string& msg,
                                      const std::optional<std::string>& zeek_id,
                                      const std::optional<std::string>& cookie) {
-    ZEEK_INSTANCE_DEBUG(zeek_instance, format("error: {}", msg));
+    ZEEK_INSTANCE_DEBUG(zeek_instance, "error: {}", msg);
     transmitEvent("ZeekAgentAPI::agent_error_v1", {msg}, zeek_instance, zeek_id, cookie);
 }
 
@@ -529,11 +528,11 @@ void BrokerConnection::transmitEvent(std::string event_name, broker::vector args
     broker::zeek::Event event(std::move(event_name), std::move(args));
 
     if ( zeek_instance ) {
-        ZEEK_INSTANCE_DEBUG(*zeek_instance, format("sending event: {}{}", event.name(), to_string(event.args())));
+        ZEEK_INSTANCE_DEBUG(*zeek_instance, "sending event: {}{}", event.name(), to_string(event.args()));
         _endpoint.publish(format("/zeek-agent/response/{}/{}", *zeek_instance, options().agent_id), std::move(event));
     }
     else {
-        ZEEK_INSTANCE_DEBUG("all", format("sending event: {}{}", event.name(), to_string(event.args())));
+        ZEEK_INSTANCE_DEBUG("all", "sending event: {}{}", event.name(), to_string(event.args()));
         _endpoint.publish(format("/zeek-agent/response/all/{}", options().agent_id), std::move(event));
     }
 }
