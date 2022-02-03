@@ -6,7 +6,7 @@ repos:
   hooks:
   - id: autogen-readme
     name: Update README
-    entry: ./aux/update-readme
+    entry: ./auxil/update-readme
     language: script
     pass_filenames: false
 

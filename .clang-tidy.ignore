@@ -1,5 +1,5 @@
 # Paths to source files to ignore when running clang-tidy. This is
-# evaluated by aux/run-clang-tidy.
+# evaluated by auxil/run-clang-tidy.
 #
 # Note that this doesn't catch header files to ignore. We use a
 # combination of HeaderFilterRegex and file names starting with "__" to

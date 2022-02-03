@@ -11,7 +11,7 @@ if [ -n "${zeek_dist}" ]; then
     elif [ "$1" = "zeek_plugin_path" ]; then
         ( cd ${base}/../.. && pwd )
     elif [ "$1" = "path" ]; then
-        echo ${zeek_dist}/build/src:${zeek_dist}/aux/btest:${base}/:${zeek_dist}/aux/zeek-cut:$PATH
+        echo ${zeek_dist}/build/src:${zeek_dist}/auxil/btest:${base}/:${zeek_dist}/auxil/zeek-cut:$PATH
     else
         echo "usage: $(basename $0) <var>" >&2
         exit 1

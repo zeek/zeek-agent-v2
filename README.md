@@ -1,5 +1,5 @@
 
-![Zeek Agent deployment overview](/aux/zeek-agent.png)
+![Zeek Agent deployment overview](/auxil/zeek-agent.png)
 
 # Zeek Agent README
 

@@ -100,7 +100,7 @@ if(NUM_CPUS EQUAL 0)
 endif()
 
 # Create a target for running clang-tidy through our helper script.
-add_custom_target(tidy COMMAND ${CMAKE_SOURCE_DIR}/aux/run-clang-tidy -j ${NUM_CPUS} ${CMAKE_BINARY_DIR})
+add_custom_target(tidy COMMAND ${CMAKE_SOURCE_DIR}/auxil/run-clang-tidy -j ${NUM_CPUS} ${CMAKE_BINARY_DIR})
 
 ### Add subdirectories.
 
