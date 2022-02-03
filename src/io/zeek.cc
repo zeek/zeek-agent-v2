@@ -463,7 +463,7 @@ void BrokerConnection::processStatus(const broker::status& status) {
 }
 
 void BrokerConnection::transmitResult(const std::string& zeek_id, const query::Result& result) {
-    if ( _endpoint.is_shutdown() || _endpoint.peers().empty() )
+    if ( _endpoint.is_shutdown() )
         // Nothing connected.
         return;
 
@@ -477,12 +477,14 @@ void BrokerConnection::transmitResult(const std::string& zeek_id, const query::R
 
         for ( auto i = 0U; i < result.columns.size(); i++ ) {
             broker::data value;
-            switch ( result.columns[i].type ) {
-                case value::Type::Blob:
-                case value::Type::Text: value = std::get<std::string>(row.values[i]); break;
-                case value::Type::Integer: value = std::get<int64_t>(row.values[i]); break;
-                case value::Type::Null: value = broker::data(); break;
-                case value::Type::Real: value = std::get<double>(row.values[i]); break;
+            if ( std::get_if<std::monostate>(&row.values[i]) == nullptr ) {
+                switch ( result.columns[i].type ) {
+                    case value::Type::Blob:
+                    case value::Type::Text: value = std::get<std::string>(row.values[i]); break;
+                    case value::Type::Integer: value = std::get<int64_t>(row.values[i]); break;
+                    case value::Type::Null: value = broker::data(); break;
+                    case value::Type::Real: value = std::get<double>(row.values[i]); break;
+                }
             }
 
             columns.push_back(std::move(value));
