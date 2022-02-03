@@ -1,7 +1,7 @@
+# Zeek Agent
 
 ![Zeek Agent deployment overview](/auxil/zeek-agent.png)
-
-# Zeek Agent README
+![Zeek Agent log example](/auxil/log-example.png)
 
 The *Zeek Agent* is an endpoint agent that sends host information to
 [Zeek](http://zeek.org) for central monitoring. Inside Zeek, the host
@@ -21,6 +21,7 @@ This is a new version of the Zeek Agent that supersedes a couple of
 older implementations (see the [history](#history)). It remains
 experimental and in development for now, but we're working on making
 it stable. We are interested in any feedback you may have.
+
 
 #### Contents
 <!-- begin table of contents -->
