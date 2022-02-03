@@ -3,6 +3,6 @@
 add_subdirectory(files)
 add_subdirectory(processes)
 add_subdirectory(sockets)
-add_subdirectory(system-logs)
+add_subdirectory(system_logs)
 add_subdirectory(users)
 add_subdirectory(zeek_agent)
