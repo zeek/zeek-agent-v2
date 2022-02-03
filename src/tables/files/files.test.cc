@@ -41,9 +41,9 @@ TEST_CASE_FIXTURE(test::TableFixture, "files" * doctest::test_suite("Tables")) {
 
     // files_lines
     useTable("files_lines");
-    result = query(format("SELECT data from files_lines WHERE path GLOB \"{}\"", (dir / "*").native()));
+    result = query(format("SELECT content from files_lines WHERE path GLOB \"{}\"", (dir / "*").native()));
     REQUIRE_EQ(result.rows.size(), 3);
-    CHECK_EQ(*result.get<std::string>(0, "data"), "AAA1");
-    CHECK_EQ(*result.get<std::string>(1, "data"), "AAA2");
-    CHECK_EQ(*result.get<std::string>(2, "data"), "BBB1");
+    CHECK_EQ(*result.get<std::string>(0, "content"), "AAA1");
+    CHECK_EQ(*result.get<std::string>(1, "content"), "AAA2");
+    CHECK_EQ(*result.get<std::string>(2, "content"), "BBB1");
 }
