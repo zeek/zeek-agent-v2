@@ -97,16 +97,19 @@ std::vector<std::vector<Value>> FilesLinesPosix::snapshot(const std::vector<tabl
     for ( auto p : expandPaths(wheres) ) {
         std::ifstream in(p);
         if ( in.fail() ) {
-            // As an error indicator, we add one row with `line` unset.
-            rows.push_back({p, {}, "<failed to open file>"});
+            // If file simply doesn't exist, we silently ignore the error.
+            // Otherwise we add one row with `line` unset as an error indicator.
+            if ( filesystem::exists(p) )
+                rows.push_back({p, {}, "<failed to open file>"});
+
             continue;
         }
 
-        int64_t line = 0;
-        std::string data;
-        // TODO: We should use a version of geline() that can abort at a given max-size.
-        while ( std::getline(in, data) )
-            rows.push_back({p, ++line, trim(data)});
+        int64_t number = 0;
+        std::string content;
+        // TODO: We should use a version of getline() that can abort at a given max-size.
+        while ( std::getline(in, content) )
+            rows.push_back({p, ++number, trim(content)});
 
         in.close();
     }

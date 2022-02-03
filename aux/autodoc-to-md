@@ -35,7 +35,7 @@ def renderTable(name, meta):
             platforms.append(p)
 
     print("<details>")
-    print("<summary><tt>{}:</tt> {} [{}]</summary>".format(name, meta["summary"], ", ".join(sorted(platforms))))
+    print("<summary><tt>{}:</tt> {} [{}]</summary><br />".format(name, meta["summary"], ", ".join(sorted(platforms))))
     print()
 
     description = fmtDoc(meta["description"])
@@ -48,10 +48,11 @@ def renderTable(name, meta):
 
     for column in meta["columns"]:
         name = column["name"]
-        comment = column["summary"]
         type = column["type"]
+        comment = column["summary"]
+        constraint = (" (`WHERE` required)" if column["mandatory_constraint"] else "")
 
-        print("| `{}` | {} | {} |".format(name, type, comment))
+        print("| `{}` | {} | {}{} |".format(name, type, comment, constraint))
 
     print("</details>")
     print()

@@ -12,15 +12,25 @@ public:
         return {
             // clang-format off
             .name = "system_logs_events",
-            .summary = "Logs recorded by the operating system",
+            .summary = "log messages recorded by the operating systems",
             .description = R"(
+                The table provides access to log messages recorded by the
+                operating system.
+
+                On Linux, the table requires `systemd` and hooks into its journal.
+
+                On macOS, the tables hooks into the unified logging system
+                (`OSLog`).
+
+                This is an evented table that captures log messages as they
+                appear. New messages will be returned with the next query.
                 )",
             .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
-                {.name = "time", .type = value::Type::Integer, .summary = "unix timestamp"},
-                {.name = "process", .type = value::Type::Text, .summary = ""},
-                {.name = "level", .type = value::Type::Text, .summary = ""},
-                {.name = "message", .type = value::Type::Text, .summary = ""}
+                {.name = "time", .type = value::Type::Integer, .summary = "timestamp as seconds since epoch"},
+                {.name = "process", .type = value::Type::Text, .summary = "process name"},
+                {.name = "level", .type = value::Type::Text, .summary = "severity level"},
+                {.name = "message", .type = value::Type::Text, .summary = "log message"}
             }
             // clang-format on
         };

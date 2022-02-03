@@ -149,31 +149,52 @@ better? We'd like to hear from you!
 
 <!-- begin table reference -->
 <details>
-<summary><tt>files_lines:</tt> Report lines of text files matching glob pattern, with leading and trailing whitespace stripped. [Linux, macOS]</summary>
+<summary><tt>files_lines:</tt> line of selected ASCII files [Linux, macOS]</summary><br />
+
+The table returns lines from selected ASCII files as table
+rows. The files of interest get specified through a mandatory
+`WHERE` constraint on the `path` column. At the time of query,
+the table reads in all matching files and returns one row per
+line, with any leading/trailing whitespace stripped. For
+example, `SELECT * FROM files_lines WHERE path GLOB
+"/home/*/.ssh/authorized_keys" `, will return any SSH keys that
+users have authorized to access their accounts.`
 
 | Column | Type | Description
 | --- | --- | --- |
-| `path` | text |  |
-| `line` | int |  |
-| `data` | blob |  |
+| `path` | text | absolute path (`WHERE` required) |
+| `number` | int | line number |
+| `content` | blob | content of line |
 </details>
 
 <details>
-<summary><tt>files_list:</tt> List files matching glob pattern [Linux, macOS]</summary>
+<summary><tt>files_list:</tt> file system paths matching a pattern [Linux, macOS]</summary><br />
+
+The table provides a list of all files on the endpoint's file
+system that match a custom glob pattern. The pattern gets
+specified through a mandatory `WHERE` constraint on the `path`
+column. For example, on a traditional Linux system, `SELECT *
+from files_list WHERE path GLOB "/etc/init.d/*"` will fill the
+table with all files inside that directory. If you then watch
+for changes to that list, you'll be notified for any changes in
+system services.
+
+The list of files is generated at query time. The `path` glob needs to
+match on absolute file paths.
 
 | Column | Type | Description
 | --- | --- | --- |
-| `path` | text |  |
-| `type` | text |  |
-| `uid` | int |  |
-| `gid` | int |  |
-| `mode` | text |  |
-| `mtime` | int |  |
-| `size` | int |  |
+| `path` | text | full path (`WHERE` required) |
+| `type` | text | textual description of the path's type (e.g., `file`, `dir`, `socket`) |
+| `uid` | int | ID of user owning file |
+| `gid` | int | ID if group owning file |
+| `mode` | text | octal permission mode |
+| `mtime` | int | time of last modification as seconds since epoch |
+| `size` | int | file size in bytes |
 </details>
 
 <details>
-<summary><tt>processes:</tt> current processes [Linux, macOS]</summary>
+<summary><tt>processes:</tt> current processes [Linux, macOS]</summary><br />
 
 The table provides a list of all processes that are running on
 the endpoint at the time of the query.
@@ -196,38 +217,51 @@ the endpoint at the time of the query.
 </details>
 
 <details>
-<summary><tt>sockets:</tt> List of sockets open on system [Linux, macOS]</summary>
+<summary><tt>sockets:</tt> open network sockets [Linux, macOS]</summary><br />
+
+The table provides a list of all IP sockets that are open on
+the endpoint at the time of the query.
 
 | Column | Type | Description
 | --- | --- | --- |
-| `pid` | int |  |
-| `process` | text |  |
-| `family` | text |  |
-| `protocol` | int |  |
-| `local_port` | int |  |
-| `remote_port` | int |  |
-| `local_addr` | text |  |
-| `remote_addr` | text |  |
-| `state` | text |  |
+| `pid` | int | ID of process holding socket |
+| `process` | text | name of process holding socket |
+| `family` | text | `IPv4` or `IPv6` |
+| `protocol` | int | transport protocol |
+| `local_port` | int | local port number |
+| `remote_port` | int | remote port number |
+| `local_addr` | text | local IP address |
+| `remote_addr` | text | remote IP address |
+| `state` | text | state of socket |
 </details>
 
 <details>
-<summary><tt>system_logs_events:</tt> Logs recorded by the operating system [Linux, macOS]</summary>
+<summary><tt>system_logs_events:</tt> log messages recorded by the operating systems [Linux, macOS]</summary><br />
+
+The table provides access to log messages recorded by the
+operating system.
+
+On Linux, the table requires `systemd` and hooks into its journal.
+
+On macOS, the tables hooks into the unified logging system (`OSLog`).
+
+This is an evented table that captures log messages as they appear.
+New messages will be returned with the next query.
 
 | Column | Type | Description
 | --- | --- | --- |
-| `time` | int | unix timestamp |
-| `process` | text |  |
-| `level` | text |  |
-| `message` | text |  |
+| `time` | int | timestamp as seconds since epoch |
+| `process` | text | process name |
+| `level` | text | severity level |
+| `message` | text | log message |
 </details>
 
 <details>
-<summary><tt>users:</tt> user accounts [Linux, macOS]</summary>
+<summary><tt>users:</tt> user accounts [Linux, macOS]</summary><br />
 
 The table provides a list of all user accounts that exist on
 the endpoint, retrieved at the time of the query from the
-operation system.
+operating system.
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -243,22 +277,25 @@ operation system.
 </details>
 
 <details>
-<summary><tt>zeek_agent:</tt> Information about the current Zeek Agent process [Linux, macOS]</summary>
+<summary><tt>zeek_agent:</tt> Zeek Agent information [Linux, macOS]</summary><br />
+
+An internal table providing information about the Zeek
+Agent process and the endpoint it's running on.
 
 | Column | Type | Description
 | --- | --- | --- |
-| `id` | text | unique agent ID |
-| `instance` | text | unique ID for agent process instance |
-| `hostname` | text |  |
-| `address` | text |  |
-| `platform` | text |  |
-| `os_name` | text |  |
-| `kernel_name` | text |  |
-| `kernel_version` | text |  |
-| `kernel_arch` | text |  |
+| `id` | text | unique agent ID (stable across restarts) |
+| `instance` | text | unique ID for agent process (reset on restart) |
+| `hostname` | text | name of endpoint |
+| `address` | text | IP address of endpoint |
+| `platform` | text | `Darwin` or `Linux` |
+| `os_name` | text | name of operating system |
+| `kernel_name` | text | name of OS kernel |
+| `kernel_version` | text | version of OS kernel |
+| `kernel_arch` | text | build architecture |
 | `agent_version` | int | agent version |
-| `broker` | text | agent version |
-| `uptime` | int | process uptime in seconds |
+| `broker` | text | Broker version |
+| `uptime` | int | agent uptime in seconds |
 | `tables` | text | tables available to queries |
 </details>
 

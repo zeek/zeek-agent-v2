@@ -17,18 +17,29 @@ public:
         return {
             // clang-format off
             .name = "files_list",
-            .summary = "List files matching glob pattern",
+            .summary = "file system paths matching a pattern",
             .description = R"(
+                The table provides a list of all files on the endpoint's file
+                system that match a custom glob pattern. The pattern gets
+                specified through a mandatory `WHERE` constraint on the `path`
+                column. For example, on a traditional Linux system, `SELECT *
+                from files_list WHERE path GLOB "/etc/init.d/*"` will fill the
+                table with all files inside that directory. If you then watch
+                for changes to that list, you'll be notified for any changes in
+                system services.
+
+                The list of files is generated at query time. The `path` glob
+                needs to match on absolute file paths.
                 )",
             .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
-                {.name = "path", .type = value::Type::Text, .summary = "", .mandatory_constraint = true },
-                {.name = "type", .type = value::Type::Text, .summary = ""},
-                {.name = "uid", .type = value::Type::Integer, .summary = ""},
-                {.name = "gid", .type = value::Type::Integer, .summary = ""},
-                {.name = "mode", .type = value::Type::Text, .summary = ""},
-                {.name = "mtime", .type = value::Type::Integer, .summary = ""},
-                {.name = "size", .type = value::Type::Integer, .summary = ""},
+                {.name = "path", .type = value::Type::Text, .summary = "full path", .mandatory_constraint = true },
+                {.name = "type", .type = value::Type::Text, .summary = "textual description of the path's type (e.g., `file`, `dir`, `socket`)"},
+                {.name = "uid", .type = value::Type::Integer, .summary = "ID of user owning file"},
+                {.name = "gid", .type = value::Type::Integer, .summary = "ID if group owning file"},
+                {.name = "mode", .type = value::Type::Text, .summary = "octal permission mode"},
+                {.name = "mtime", .type = value::Type::Integer, .summary = "time of last modification as seconds since epoch"},
+                {.name = "size", .type = value::Type::Integer, .summary = "file size in bytes"},
         }
             // clang-format on
         };
@@ -41,12 +52,22 @@ public:
         return {
             // clang-format off
             .name = "files_lines",
-            .summary = "Report lines of text files matching glob pattern, with leading and trailing whitespace stripped.",
+            .summary = "line of selected ASCII files",
+            .description = R"(
+                The table returns lines from selected ASCII files as table
+                rows. The files of interest get specified through a mandatory
+                `WHERE` constraint on the `path` column. At the time of query,
+                the table reads in all matching files and returns one row per
+                line, with any leading/trailing whitespace stripped. For
+                example, `SELECT * FROM files_lines WHERE path GLOB
+                "/home/*/.ssh/authorized_keys" `, will return any SSH keys that
+                users have authorized to access their accounts.`
+                )",
             .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
-                {.name = "path", .type = value::Type::Text, .summary = "", .mandatory_constraint = true },
-                {.name = "line", .type = value::Type::Integer, .summary = ""},
-                {.name = "data", .type = value::Type::Blob, .summary = ""},
+                {.name = "path", .type = value::Type::Text, .summary = "absolute path", .mandatory_constraint = true },
+                {.name = "number", .type = value::Type::Integer, .summary = "line number"},
+                {.name = "content", .type = value::Type::Blob, .summary = "content of line"},
         }
             // clang-format on
         };

@@ -14,24 +14,28 @@ public:
     Schema schema() const override {
         return {
             .name = "zeek_agent",
-            .summary = "Information about the current Zeek Agent process",
+            .summary = "Zeek Agent information",
             .description = R"(
+                An internal table providing information about the Zeek
+                Agent process and the endpoint it's running on.
                 )",
             .platforms = {Platform::Darwin, Platform::Linux},
-            .columns = {{.name = "id", .type = value::Type::Text, .summary = "unique agent ID"},
+            .columns = {{.name = "id",
+                         .type = value::Type::Text,
+                         .summary = "unique agent ID (stable across restarts)"},
                         {.name = "instance",
                          .type = value::Type::Text,
-                         .summary = "unique ID for agent process instance"},
-                        {.name = "hostname", .type = value::Type::Text, .summary = ""},
-                        {.name = "address", .type = value::Type::Text, .summary = ""},
-                        {.name = "platform", .type = value::Type::Text, .summary = ""},
-                        {.name = "os_name", .type = value::Type::Text, .summary = ""},
-                        {.name = "kernel_name", .type = value::Type::Text, .summary = ""},
-                        {.name = "kernel_version", .type = value::Type::Text, .summary = ""},
-                        {.name = "kernel_arch", .type = value::Type::Text, .summary = ""},
+                         .summary = "unique ID for agent process (reset on restart)"},
+                        {.name = "hostname", .type = value::Type::Text, .summary = "name of endpoint"},
+                        {.name = "address", .type = value::Type::Text, .summary = "IP address of endpoint"},
+                        {.name = "platform", .type = value::Type::Text, .summary = "`Darwin` or `Linux`"},
+                        {.name = "os_name", .type = value::Type::Text, .summary = "name of operating system"},
+                        {.name = "kernel_name", .type = value::Type::Text, .summary = "name of OS kernel"},
+                        {.name = "kernel_version", .type = value::Type::Text, .summary = "version of OS kernel"},
+                        {.name = "kernel_arch", .type = value::Type::Text, .summary = "build architecture"},
                         {.name = "agent_version", .type = value::Type::Integer, .summary = "agent version"},
-                        {.name = "broker", .type = value::Type::Text, .summary = "agent version"},
-                        {.name = "uptime", .type = value::Type::Integer, .summary = "process uptime in seconds"},
+                        {.name = "broker", .type = value::Type::Text, .summary = "Broker version"},
+                        {.name = "uptime", .type = value::Type::Integer, .summary = "agent uptime in seconds"},
                         {.name = "tables", .type = value::Type::Text, .summary = "tables available to queries"}},
         };
     }
