@@ -35,6 +35,7 @@ it stable. We are interested in any feedback you may have.
         - [Usage](#usage)
 - [Getting in Touch](#getting-in-touch)
 - [Zeek API](#zeek-api)
+- [Interactive Usage](#interactive-usage)
 - [Table Reference](#table-reference)
 - [Caveats](#caveats)
 - [Versioning](#versioning)
@@ -144,6 +145,39 @@ better? We'd like to hear from you!
 ## Zeek API
 
 [More to come here.]
+
+## Interactive Usage
+
+The Zeek Agent provides an interactive console to explore the data it
+provides through SQL queries:
+
+```
+# zeek-agent -i
+
+Welcome to Zeek Agent v2.
+
+Enter query or command to execute. Type `.help` for help, and `.quit` for exit.
+
+> .tables
+       Name                          Description
+------------------  ----------------------------------------------
+   files_lines               line of selected ASCII files
+    files_list           file system paths matching a pattern
+    processes                     current processes
+     sockets                     open network sockets
+system_logs_events  log messages recorded by the operating systems
+      users                         user accounts
+    zeek_agent                  Zeek Agent information
+
+> SELECT * FROM sockets WHERE process = "zeek"
+ pid   process  family  protocol  local_port  remote_port   local_addr    remote_addr  state
+-----  -------  ------  --------  ----------  -----------  -------------  -----------  ------
+72892   zeek     IPv4      17       65059         53       192.168.7.212    1.1.1.2    (null)
+72892   zeek     IPv6      6         9999          0            ::            ::       LISTEN
+```
+
+The output of such SQL queries is what gets sent to Zeek as events.
+More documentation on that forthcoming.
 
 ## Table Reference
 
