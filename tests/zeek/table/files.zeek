@@ -1,12 +1,12 @@
-# @TEST-DOC: Test the `system-logs` table script end-to-end with mock data.
+# @TEST-DOC: Test the `files` table script end-to-end with mock data.
 #
 # @TEST-PORT: ZEEK_PORT
 #
-# @TEST-EXEC: btest-bg-run zeek  zeek ${FRAMEWORK} ${PACKAGE}/table/system-logs.zeek %INPUT
+# @TEST-EXEC: btest-bg-run zeek  zeek ${FRAMEWORK} ${PACKAGE}/table/files.zeek %INPUT
 # @TEST-EXEC: btest-bg-run agent zeek-agent -M -N -L info -z localhost:${ZEEK_PORT}
 # @TEST-EXEC: btest-bg-wait 30
-# @TEST-EXEC: cat zeek/zeek-agent-system-logs.log | zeek-cut -cn host >tmp && mv tmp zeek/zeek-agent-system-logs.log
-# @TEST-EXEC: btest-diff zeek/zeek-agent-system-logs.log
+# @TEST-EXEC: cat zeek/zeek-agent-files.log | zeek-cut -cn host >tmp && mv tmp zeek/zeek-agent-files.log
+# @TEST-EXEC: btest-diff zeek/zeek-agent-files.log
 
 @if ( getenv("ZEEK_PORT") != "" )
 redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
@@ -16,7 +16,7 @@ redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
 # runtime duration.
 global already_logged = F;
 
-hook ZeekAgent_SystemLogs::log_policy(rec: any, id: Log::ID, filter: Log::Filter)
+hook ZeekAgent_Files::log_policy(rec: any, id: Log::ID, filter: Log::Filter)
         {
 	if ( already_logged )
 		break;
