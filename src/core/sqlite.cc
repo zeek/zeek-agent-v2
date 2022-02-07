@@ -239,11 +239,12 @@ static int onxBestIndexCallback(::sqlite3_vtab* pvtab, ::sqlite3_index_info* inf
 
             switch ( c.op ) {
                 case SQLITE_INDEX_CONSTRAINT_EQ: constraint.op = table::Operator::Equal; break;
-                case SQLITE_INDEX_CONSTRAINT_NE: constraint.op = table::Operator::Unequal; break;
-                case SQLITE_INDEX_CONSTRAINT_GE: constraint.op = table::Operator::GreaterEqual; break;
-                case SQLITE_INDEX_CONSTRAINT_LT: constraint.op = table::Operator::LowerThan; break;
+                // case SQLITE_INDEX_CONSTRAINT_NE: constraint.op = table::Operator::Unequal; break;
+                // case SQLITE_INDEX_CONSTRAINT_GE: constraint.op = table::Operator::GreaterEqual; break;
+                // case SQLITE_INDEX_CONSTRAINT_LT: constraint.op = table::Operator::LowerThan; break;
                 case SQLITE_INDEX_CONSTRAINT_GLOB: constraint.op = table::Operator::Glob; break;
-                default: return sqliteError(vtab, format("unsupported WHERE operator ({})", c.op));
+                default:
+                    return sqliteError(vtab, format("unsupported WHERE operator for mandatory constraint ({})", c.op));
             }
 
             ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] - providing constraint: {} {} EXPR", cookie->table->name(),
@@ -257,7 +258,8 @@ static int onxBestIndexCallback(::sqlite3_vtab* pvtab, ::sqlite3_index_info* inf
     }
 
     if ( required_constraints.size() )
-        return sqliteError(vtab, format("missing WHERE constraint: {}", join(required_constraints, ", ")));
+        return sqliteError(vtab,
+                           format("cannot extract mandatory WHERE constraint: {}", join(required_constraints, ", ")));
 
     return SQLITE_OK;
 }

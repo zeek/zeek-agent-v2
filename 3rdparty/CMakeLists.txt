@@ -27,6 +27,11 @@ add_library(pathfind::pathfind ALIAS pathfind)
 # sqlite doesn't have a cmake config.
 add_library(sqlite STATIC sqlite/sqlite3.c)
 target_include_directories(sqlite PUBLIC sqlite)
+# TODO: The following should help us receiving the original WHERE constraints
+# instead of the optimizer mangling them, but it doesn't seem to have an effect.
+target_compile_definitions(sqlite PRIVATE SQLITE_OMIT_LIKE_OPTIMIZATION)
+target_compile_definitions(sqlite PRIVATE SQLITE_OMIT_OR_OPTIMIZATION)
+target_compile_definitions(sqlite PRIVATE SQLITE_OMIT_BETWEEN_OPTIMIZATION)
 add_library(sqlite::sqlite ALIAS sqlite)
 
 # adapted from Spicy
