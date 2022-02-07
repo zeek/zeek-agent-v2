@@ -29,8 +29,8 @@ def fmtComment(txt, prefix, single_line=False):
         return textwrap.fill(txt, initial_indent=prefix, subsequent_indent=prefix)
 
 def fmtID(id):
-    if id == "time":
-        return "time_"
+    if id in ("time", "type"):
+        return "%s_" % id
 
     return id
 
@@ -78,6 +78,6 @@ for column in table["columns"]:
     else:
         fatalError("unknown column type '{}'".format(type))
 
-    print("{}{}{}: {} &optional &log;{}".format(indent, indent, name, type, fmtComment(comment, "\t##<")))
+    print("{}{}{}: {} &optional &log;{}".format(indent, indent, name, type, fmtComment(comment, "\t##<", True)))
 
 print("{}}};".format(indent))
