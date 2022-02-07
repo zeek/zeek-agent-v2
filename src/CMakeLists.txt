@@ -9,7 +9,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(CheckCompiler)
 
-add_compile_options(-Wall -Wextra)
+if ( CMAKE_BUILD_TYPE STREQUAL "Debug" )
+    add_compile_options(-O0)
+endif()
 
 add_compile_options(-Wno-unused-parameter)
 add_compile_options($<$<BOOL:${USE_WERROR}>:-Werror>)
@@ -31,7 +33,7 @@ endif ()
 if ( USE_SANITIZERS )
     # Recommended flags per https://github.com/google/sanitizers/wiki/AddressSanitizer
     # GCC vs clang: https://stackoverflow.com/a/47022141
-    add_compile_options(-fsanitize=${USE_SANITIZERS} -fno-omit-frame-pointer -fno-optimize-sibling-calls -O1)
+    add_compile_options(-fsanitize=${USE_SANITIZERS} -fno-omit-frame-pointer -fno-optimize-sibling-calls) # Removed -O1
     add_link_options(-fsanitize=${USE_SANITIZERS})
 
     if ( HAVE_CLANG )
