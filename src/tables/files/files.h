@@ -34,7 +34,7 @@ public:
                 )",
             .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
-                {.name = "_pattern", .type = value::Type::Text, .is_parameter = true, .summary = "glob matching all files of interest" },
+                {.name = "_pattern", .type = value::Type::Text, .summary = "glob matching all files of interest", .is_parameter = true },
                 {.name = "path", .type = value::Type::Text, .summary = "full path" },
                 {.name = "type", .type = value::Type::Text, .summary = "textual description of the path's type (e.g., `file`, `dir`, `socket`)"},
                 {.name = "uid", .type = value::Type::Integer, .summary = "ID of user owning file"},
@@ -67,7 +67,7 @@ public:
                 )",
             .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
-                {.name = "_pattern", .type = value::Type::Text, .is_parameter = true, .summary = "glob matching all files of interest" },
+                {.name = "_pattern", .type = value::Type::Text, .summary = "glob matching all files of interest", .is_parameter = true },
                 {.name = "path", .type = value::Type::Text, .summary = "absolute path" },
                 {.name = "number", .type = value::Type::Integer, .summary = "line number"},
                 {.name = "content", .type = value::Type::Blob, .summary = "content of line"},
