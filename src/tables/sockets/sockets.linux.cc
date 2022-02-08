@@ -17,7 +17,7 @@ namespace zeek::agent::table {
 
 class SocketsLinux : public SocketsCommon {
 public:
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override;
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
 };
 
 namespace {
@@ -68,7 +68,7 @@ static void addSockets(std::vector<std::vector<Value>>* rows, const std::vector<
     }
 }
 
-std::vector<std::vector<Value>> SocketsLinux::snapshot(const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> SocketsLinux::snapshot(const std::vector<table::Argument>& args) {
     std::vector<std::vector<Value>> rows;
 
     try {

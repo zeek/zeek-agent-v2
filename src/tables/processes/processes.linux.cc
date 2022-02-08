@@ -15,14 +15,14 @@ namespace zeek::agent::table {
 
 class ProcessesLinux : public ProcessesCommon {
 public:
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override;
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
 };
 
 namespace {
 database::RegisterTable<ProcessesLinux> _;
 }
 
-std::vector<std::vector<Value>> ProcessesLinux::snapshot(const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> ProcessesLinux::snapshot(const std::vector<table::Argument>& args) {
     std::vector<std::vector<Value>> rows;
 
     try {

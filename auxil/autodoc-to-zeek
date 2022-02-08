@@ -62,6 +62,9 @@ print("{}{}".format(indent, fmtComment(summary, "##")))
 print("{}type Columns: record {{".format(indent))
 
 for column in table["columns"]:
+    if column["is_parameter"]:
+        continue
+
     name = fmtID(column["name"])
     comment = column["summary"]
     type = column["type"]

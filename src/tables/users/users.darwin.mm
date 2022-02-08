@@ -22,7 +22,7 @@ namespace zeek::agent::table {
 class UsersDarwin : public UsersCommon {
 public:
     UsersDarwin();
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override;
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
     void addUser(std::vector<std::vector<Value>>* rows, const CBIdentity* identity);
 
     std::vector<char> _buffer;
@@ -41,7 +41,7 @@ UsersDarwin::UsersDarwin() {
     _buffer.resize(bufsize);
 }
 
-std::vector<std::vector<Value>> UsersDarwin::snapshot(const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> UsersDarwin::snapshot(const std::vector<table::Argument>& args) {
     std::vector<std::vector<Value>> rows;
 
     auto defaultAuthority = CSGetLocalIdentityAuthority();

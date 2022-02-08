@@ -27,18 +27,17 @@ struct Cookie {
     Table* table = nullptr;
 };
 
-// Our representation of the LHS of an SQLite WHERE constraint.
-struct Constraint {
+// Represents a table parameter
+struct Parameter {
     std::string column; // column name
-    table::Operator op; // operation
     int argv_index;     // index specifying how to access the corresponding value in the SQLite filter vector
 };
 
 // Captures one of our virtual tables.
 struct VTab {
-    struct ::sqlite3_vtab vtab;          // SQLite data structure for virtual table; must be 1st field
-    struct Cookie cookie;                // Cookie for access by  SQLite callbacks
-    std::vector<Constraint> constraints; // Set of WHERE constraints relevant during processing
+    struct ::sqlite3_vtab vtab;        // SQLite data structure for virtual table; must be 1st field
+    struct Cookie cookie;              // Cookie for access by  SQLite callbacks
+    std::vector<Parameter> parameters; // Set of table parameters relevant during processing
 };
 
 // Captures the current position in a result set.
@@ -154,12 +153,13 @@ static int onTableConnect(::sqlite3* db, void* paux, int argc, const char* const
                        join(transform(cookie->table->schema().columns,
                                       [&table_name](const auto& c) {
                                           std::string name = c.name + " ";
+                                          std::string hidden = (c.is_parameter ? " HIDDEN" : "");
 
                                           switch ( c.type ) {
-                                              case value::Type::Blob: return name + "TEXT";
-                                              case value::Type::Integer: return name + "INTEGER";
-                                              case value::Type::Real: return name + "REAL";
-                                              case value::Type::Text: return name + "TEXT";
+                                              case value::Type::Blob: return name + "TEXT" + hidden;
+                                              case value::Type::Integer: return name + "INTEGER" + hidden;
+                                              case value::Type::Real: return name + "REAL" + hidden;
+                                              case value::Type::Text: return name + "TEXT" + hidden;
                                               case value::Type::Null:
                                                   logger()->error(format("table {} uses NULL in schema", table_name));
                                                   return name + "NULL";
@@ -202,65 +202,48 @@ static int onxBestIndexCallback(::sqlite3_vtab* pvtab, ::sqlite3_index_info* inf
 
     ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] best-index", cookie->table->name());
 
-    // Track all constraints that the statement must provide.
-    std::set<std::string> required_constraints;
+    // Extract table parameters.
+    std::set<std::string> required_parameters;
     for ( const auto& c : cookie->table->schema().columns ) {
-        if ( c.mandatory_constraint )
-            required_constraints.insert(c.name);
+        if ( c.is_parameter )
+            required_parameters.insert(c.name);
     }
 
-    if ( info->nConstraint > 0 ) {
-        std::vector<Constraint> constraints;
-        constraints.reserve(info->nConstraint);
+    std::vector<Parameter> parameters;
+    parameters.reserve(info->nConstraint);
 
-        for ( auto i = 0; i < info->nConstraint; i++ ) {
-            const auto& c = info->aConstraint[i];
-            if ( ! c.usable )
-                continue;
+    for ( auto i = 0; i < info->nConstraint; i++ ) {
+        const auto& c = info->aConstraint[i];
 
-            if ( c.iColumn < 0 )
-                // -1 for ROWID
-                continue;
+        if ( c.iColumn < 0 )
+            // -1 for ROWID
+            continue;
 
-            auto column = cookie->table->schema().columns[c.iColumn];
-            if ( ! column.mandatory_constraint ) {
-                // Let SQLite handle this constraint.
-                info->aConstraintUsage[i].argvIndex = 0;
-                continue;
-            }
-
-            Constraint constraint;
-            constraint.column = column.name;
-            constraint.argv_index = static_cast<int>(constraints.size() + 1);
-
-            info->aConstraintUsage[i].argvIndex =
-                constraint.argv_index;             // pass expression value for this constraint to filter()
-            info->aConstraintUsage[i].omit = true; // the table is in charge of filtering, not SQLite
-
-            switch ( c.op ) {
-                case SQLITE_INDEX_CONSTRAINT_EQ: constraint.op = table::Operator::Equal; break;
-                // case SQLITE_INDEX_CONSTRAINT_NE: constraint.op = table::Operator::Unequal; break;
-                // case SQLITE_INDEX_CONSTRAINT_GE: constraint.op = table::Operator::GreaterEqual; break;
-                // case SQLITE_INDEX_CONSTRAINT_LT: constraint.op = table::Operator::LowerThan; break;
-                case SQLITE_INDEX_CONSTRAINT_GLOB: constraint.op = table::Operator::Glob; break;
-                default:
-                    return sqliteError(vtab, format("unsupported WHERE operator for mandatory constraint ({})", c.op));
-            }
-
-            ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] - providing constraint: {} {} EXPR", cookie->table->name(),
-                             constraint.column, to_string(constraint.op));
-
-            required_constraints.erase(constraint.column);
-            constraints.push_back(std::move(constraint));
+        auto column = cookie->table->schema().columns[c.iColumn];
+        if ( ! column.is_parameter ) {
+            // Let SQLite handle this constraint.
+            info->aConstraintUsage[i].argvIndex = 0;
+            continue;
         }
 
-        vtab->constraints = std::move(constraints);
+        if ( ! c.usable )
+            // Mandatory argument not usable, docs say to return SQLITE_CONSTRAINT.
+            return SQLITE_CONSTRAINT;
+
+        ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] -  table parameter: {}", cookie->table->name(), column.name);
+        Parameter param{.column = column.name, .argv_index = static_cast<int>(parameters.size() + 1)};
+
+        info->aConstraintUsage[i].argvIndex = param.argv_index; // pass argument value for this parameter to filter()
+        info->aConstraintUsage[i].omit = true;                  // the table is in charge of filtering, not SQLite
+
+        required_parameters.erase(param.column);
+        parameters.push_back(std::move(param));
     }
 
-    if ( required_constraints.size() )
-        return sqliteError(vtab,
-                           format("cannot extract mandatory WHERE constraint: {}", join(required_constraints, ", ")));
+    if ( ! required_parameters.empty() )
+        return sqliteError(vtab, format("mandatory table parameter '{}' is missing", join(required_parameters, ", ")));
 
+    vtab->parameters = std::move(parameters);
     return SQLITE_OK;
 }
 
@@ -300,25 +283,27 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
 
     ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] filter", cookie->table->name());
 
-    std::vector<table::Where> wheres;
-    for ( const auto& c : cursor->vtab->constraints ) {
+    std::vector<table::Argument> args;
+    for ( const auto& c : cursor->vtab->parameters ) {
         auto expr = sqliteConvertValue(c.column, argv[c.argv_index - 1]);
         if ( ! expr )
-            return sqliteError(cursor->vtab, "unsupported WHERE constraint");
+            return sqliteError(cursor->vtab, "unsupported argument type");
 
-        auto where = table::Where{.column = c.column, .op = c.op, .expression = std::move(*expr)};
-        ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] - with constraint: {}", cookie->table->name(), to_string(where));
-        wheres.push_back(std::move(where));
+        auto arg = table::Argument{.column = c.column, .expression = std::move(*expr)};
+        ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] - with argument: {}", cookie->table->name(), to_string(arg));
+        args.push_back(std::move(arg));
     }
 
     auto t = cookie->sqlite->_stmt_t;
     assert(t);
-    cursor->rows = cookie->table->rows(*t, wheres);
+    cursor->rows = cookie->table->rows(*t, args);
     cursor->current = 0;
 
     // Double check that the returned rows match our schema.
     for ( const auto& row : cursor->rows ) {
-        if ( row.size() != cursor->schema.columns.size() )
+        auto query_columns = cursor->schema.columns;
+
+        if ( row.size() != query_columns.size() )
             return sqliteError(cursor->vtab, format("wrong row size returned by table {}", cookie->table->name()));
 
         for ( size_t i = 0; i < row.size(); i++ ) {
@@ -335,7 +320,7 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
                     case value::Type::Text: return std::holds_alternative<std::string>(value);
                 }
                 cannot_be_reached(); // thanks GCC
-            }(cursor->schema.columns[i].type, row[i]);
+            }(query_columns[i].type, row[i]);
 
             if ( ! is_correct )
                 return sqliteError(cursor->vtab, format("unexpected value type at index {} in row returned by table {}",
@@ -373,20 +358,21 @@ static int onColumn(::sqlite3_vtab_cursor* pcursor, ::sqlite3_context* context, 
     const auto cursor = reinterpret_cast<Cursor*>(pcursor);
     auto cookie = &cursor->cookie;
 
-    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] get-column {}", cookie->table->name(), i);
 
     assert(cursor->current < cursor->rows.size());
     assert(i >= 0 && i < static_cast<int>(cursor->rows[cursor->current].size()));
 
-    auto type = cursor->schema.columns[i].type;
+    const auto& column = cursor->schema.columns[i];
     const auto& value = cursor->rows[cursor->current][i];
+
+    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] get-column {} ({})", cookie->table->name(), column.name, i);
 
     if ( std::holds_alternative<std::monostate>(value) ) {
         ::sqlite3_result_null(context);
         return SQLITE_OK;
     }
 
-    switch ( type ) {
+    switch ( column.type ) {
         case value::Type::Real: ::sqlite3_result_double(context, std::get<double>(value)); break;
         case value::Type::Integer: ::sqlite3_result_int64(context, std::get<int64_t>(value)); break;
         case value::Type::Null: ::sqlite3_result_null(context); break;
@@ -651,7 +637,7 @@ TEST_SUITE("SQLite") {
             void activate() override { active += 1; }
             void deactivate() override { active -= 1; }
 
-            std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
+            std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override {
                 int64_t counter = 0;
                 std::vector<std::vector<Value>> x;
                 x.push_back({{++counter}, {"foo"}});
@@ -680,7 +666,7 @@ TEST_SUITE("SQLite") {
 
             ~TestTable2() override {}
 
-            std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
+            std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override {
                 int64_t counter = 0;
                 std::vector<std::vector<Value>> x;
                 x.push_back({{++counter}, {"foo1"}, {3.14}, {"blobA"}});
@@ -879,28 +865,34 @@ TEST_SUITE("SQLite") {
         }
     }
 
-    TEST_CASE("statement with where constraints") {
+    TEST_CASE("statement with table arguments") {
         class TestTable : public SnapshotTable {
         public:
             Schema schema() const override {
                 return {.name = "test_table",
-                        .columns = {{.name = "i", .type = value::Type::Integer},
-                                    {.name = "c", .type = value::Type::Text, .mandatory_constraint = true}}};
+                        .columns = {
+                            {.name = "i", .type = value::Type::Integer},
+                            {.name = "c", .type = value::Type::Text},
+                            {.name = "_arg", .type = value::Type::Text, .is_parameter = true},
+                        }};
             }
 
             ~TestTable() override {}
 
-            std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
-                REQUIRE_EQ(wheres.size(), 1);
+            std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override {
+                REQUIRE_EQ(args.size(), 1);
 
-                auto where = wheres[0];
-                CHECK_EQ(where.column, "c");
+                auto arg = args[0];
+                CHECK_EQ(arg.column, "_arg");
 
-                auto val = std::get<std::string>(where.expression);
+                auto val = std::get<std::string>(arg.expression);
+                CHECK_EQ(val, "ARG");
+
                 std::vector<std::vector<Value>> x;
-                x.push_back({{1L}, val});
-                x.push_back({{2L}, val});
-                x.push_back({{3L}, val});
+                x.push_back({{1L}, "X", val});
+                x.push_back({{2L}, "X", val});
+                x.push_back({{3L}, "X", val});
+                x.push_back({{4L}, "Y", val});
                 return x;
             }
         };
@@ -910,7 +902,7 @@ TEST_SUITE("SQLite") {
         sql.addTable(&t);
 
         SUBCASE("prefilter with WHERE") {
-            auto statement = sql.prepareStatement("SELECT * from test_table WHERE c == 'X'");
+            auto statement = sql.prepareStatement("SELECT * from test_table(\"ARG\") WHERE c == 'X'");
             REQUIRE(statement);
 
             auto result = sql.runStatement(**statement);
@@ -939,7 +931,7 @@ TEST_SUITE("SQLite") {
 
             ~BrokenTable() override {}
 
-            std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
+            std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override {
                 std::vector<std::vector<Value>> x;
 
                 if ( error_type == 1 )

@@ -11,29 +11,22 @@
 using namespace zeek::agent;
 
 #ifdef HAVE_POSIX
-
 #include <glob.h>
 
 bool platform::isTTY() { return ::isatty(1); }
 
-std::vector<filesystem::path> platform::glob(const std::vector<filesystem::path>& patterns, size_t max) {
+std::vector<filesystem::path> platform::glob(const filesystem::path& pattern, size_t max) {
     std::vector<filesystem::path> result;
 
-    for ( const auto& p : patterns ) {
-        ::glob_t paths;
-        memset(&paths, 0, sizeof(paths));
+    ::glob_t paths;
+    memset(&paths, 0, sizeof(paths));
 
-        if ( auto rc = glob(p.c_str(), 0, nullptr, &paths); rc == 0 ) {
-            for ( auto i = 0U; i < paths.gl_pathc && result.size() < max; i++ )
-                result.emplace_back(paths.gl_pathv[i]);
-        }
-
-        globfree(&paths);
-
-        if ( result.size() == max )
-            break;
+    if ( auto rc = glob(pattern.c_str(), 0, nullptr, &paths); rc == 0 ) {
+        for ( auto i = 0U; i < paths.gl_pathc && result.size() < max; i++ )
+            result.emplace_back(paths.gl_pathv[i]);
     }
 
+    globfree(&paths);
     return result;
 }
 #endif

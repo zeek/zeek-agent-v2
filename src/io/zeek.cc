@@ -647,7 +647,7 @@ TEST_SUITE("Zeek") {
 
         ~TestTable() override {}
 
-        std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
+        std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override {
             int64_t counter = 0;
             std::vector<std::vector<Value>> x;
             x.push_back({{++counter}, {"foo1"}, {3.14}, {"blobA"}});

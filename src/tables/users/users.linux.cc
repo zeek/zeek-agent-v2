@@ -17,14 +17,14 @@ namespace zeek::agent::table {
 
 class UsersLinux : public UsersCommon {
 public:
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override;
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
 };
 
 namespace {
 database::RegisterTable<UsersLinux> _;
 }
 
-std::vector<std::vector<Value>> UsersLinux::snapshot(const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> UsersLinux::snapshot(const std::vector<table::Argument>& args) {
     std::vector<std::vector<Value>> rows;
 
     setpwent();

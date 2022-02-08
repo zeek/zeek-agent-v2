@@ -13,17 +13,6 @@
 
 using namespace zeek::agent;
 
-std::string zeek::agent::table::to_string(table::Operator op) {
-    switch ( op ) {
-        case table::Operator::Equal: return "==";
-        case table::Operator::Unequal: return "!=";
-        case table::Operator::LowerThan: return "<";
-        case table::Operator::GreaterEqual: return ">=";
-        case table::Operator::Glob: return "GLOB";
-    }
-    cannot_be_reached(); // thanks GCC
-}
-
 std::string zeek::agent::to_string(value::Type type) {
     switch ( type ) {
         case value::Type::Real: return "real";
@@ -50,14 +39,24 @@ std::string zeek::agent::to_string(const std::vector<Value>& values) {
     return join(transform(values, [](const auto& x) { return to_string(x); }), " ");
 }
 
-std::string table::Where::str() const {
-    return format("{} {} {}", column, to_string(op), zeek::agent::to_string(expression));
-}
-
 std::string schema::Column::str() const { return format("{}: {}", name, type); }
 
 std::string zeek::agent::to_string(const std::vector<schema::Column>& values) {
     return join(transform(values, [](const auto& x) { return zeek::agent::to_string(x); }), ", ");
+}
+
+std::string zeek::agent::table::to_string(const Argument& arg) {
+    return format("{}={}", arg.column, ::zeek::agent::to_string(arg.expression));
+}
+
+std::vector<schema::Column> zeek::agent::Schema::parameters() const {
+    std::vector<schema::Column> result;
+    for ( auto c : columns ) {
+        if ( c.is_parameter )
+            result.push_back(std::move(c));
+    }
+
+    return result;
 }
 
 Table::~Table() {
@@ -120,7 +119,7 @@ void Table::sqliteUntrackStatement() {
     }
 }
 
-std::vector<std::vector<Value>> SnapshotTable::rows(Time t, const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> SnapshotTable::rows(Time t, const std::vector<table::Argument>& args) {
     // We ignore the given time in this method because snapshot() will always
     // be reflecting *now*, and *now* is must be older or equal to *now*, and
     // *now* is always larger or equal any valid t.
@@ -135,7 +134,7 @@ std::vector<std::vector<Value>> SnapshotTable::rows(Time t, const std::vector<ta
         return result;
     }
     else
-        return snapshot(wheres);
+        return snapshot(args);
 }
 
 void EventTable::newEvent(std::vector<Value> row) {
@@ -149,7 +148,7 @@ void EventTable::newEvent(Time t, std::vector<Value> row) {
     _events.emplace_back(Event{.time = t, .row = std::move(row)});
 }
 
-std::vector<std::vector<Value>> EventTable::rows(Time t, const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> EventTable::rows(Time t, const std::vector<table::Argument>& args) {
     // We ignore the WHERE constraints in this implementation.
     std::vector<std::vector<Value>> result;
 
@@ -182,7 +181,7 @@ TEST_SUITE("Table") {
             return {.name = name, .columns = {schema::Column{.name = "x", .type = value::Type::Integer}}};
         }
 
-        std::vector<std::vector<Value>> rows(Time t, const std::vector<table::Where>& wheres) override { return {}; }
+        std::vector<std::vector<Value>> rows(Time t, const std::vector<table::Argument>& args) override { return {}; }
 
         std::string name;
     };
@@ -206,9 +205,7 @@ TEST_SUITE("Table") {
                 return {.name = "test_table", .columns = {schema::Column{.name = "x", .type = value::Type::Integer}}};
             }
 
-            std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override {
-                CHECK_EQ(wheres.size(), 1);
-                CHECK_EQ(wheres[0].column, "x");
+            std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override {
                 return {{10L}, {20L}, {30L}, {40L}, {50L}};
             }
 
@@ -218,7 +215,7 @@ TEST_SUITE("Table") {
         TestTable t;
 
         SUBCASE("real data") {
-            auto rows = t.rows(0_time, {table::Where{.column = "x", .op = table::Operator::Equal, .expression = {}}});
+            auto rows = t.rows(0_time, {});
             REQUIRE_EQ(rows.size(), 5);
             CHECK_EQ(std::get<int64_t>(rows[0][0]), 10);
             CHECK_EQ(std::get<int64_t>(rows[1][0]), 20);

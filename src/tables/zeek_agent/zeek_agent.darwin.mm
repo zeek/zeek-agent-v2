@@ -20,7 +20,7 @@ namespace {
 
 class ZeekAgentDarwin : public ZeekAgent {
 public:
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres);
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args);
 };
 
 database::RegisterTable<ZeekAgentDarwin> _;
@@ -65,7 +65,7 @@ static Value primaryAddress() {
     return ipv4.size() ? ipv4 : ipv6;
 }
 
-std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<table::Argument>& args) {
     std::vector<char> hostname_buffer(1024);
     gethostname(hostname_buffer.data(), static_cast<int>(hostname_buffer.size()));
     hostname_buffer.push_back(0);

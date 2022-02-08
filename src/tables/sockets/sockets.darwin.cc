@@ -20,7 +20,7 @@ namespace zeek::agent::table {
 
 class SocketsDarwin : public SocketsCommon {
 public:
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override;
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
 
     void addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, const std::string& process);
     void addSocket(std::vector<std::vector<Value>>* rows, int pid, const std::string& process,
@@ -31,7 +31,7 @@ namespace {
 database::RegisterTable<SocketsDarwin> _;
 }
 
-std::vector<std::vector<Value>> SocketsDarwin::snapshot(const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> SocketsDarwin::snapshot(const std::vector<table::Argument>& args) {
     // TODO: The following is replicated from proceeses.darwin.cc, could merge.
     auto buffer_size = proc_listpids(PROC_ALL_PIDS, 0, nullptr, 0);
     pid_t pids[buffer_size / sizeof(pid_t)];

@@ -83,8 +83,9 @@ struct Column {
     /** short human-readable summary of the column's semantics for documentation */
     std::string summary;
 
-    /**< true if queries on the table *require* a WHERE constraint on this column  */
-    bool mandatory_constraint = false;
+    /**< true if this is a hidden column representing a parameter to the table; if so, the name should start with an
+     * underscore */
+    bool is_parameter = false;
 
     /** Returns a human-readable representation of the column definition. */
     std::string str() const;
@@ -104,6 +105,9 @@ struct Schema {
                                                 table for documentation */
     std::vector<Platform> platforms;     /**< platform that support the table */
     std::vector<schema::Column> columns; /**< the table's columns */
+
+    /** Helper returning just the parameter columns. */
+    std::vector<schema::Column> parameters() const;
 };
 
 /** Renders a table's schema into a string representation for display. */
@@ -111,28 +115,14 @@ extern std::string to_string(const std::vector<schema::Column>& values);
 
 namespace table {
 
-/**
- * Operators supported by WHERE constraints.
- *
- * Behind the scenes, these map 1:1 to the set of operators that SQLite
- * supports, and they carry the same semantics.
- *
- * TODO: Not yet, add missing operators.
- */
-enum class Operator { Equal, Unequal, GreaterEqual, LowerThan, Glob };
-
-/** Returns a human-readable representation of an operator. */
-extern std::string to_string(table::Operator op);
-
-/** Representation of a WHERE constraint in a table query. */
-struct Where {
+/** Captures a table argument as passed into a SQLite "table-valued function". */
+struct Argument {
     std::string column; /**< colum being constrained */
-    Operator op;        /**< operator in use */
     Value expression;   /**< value to compare againt */
-
-    /** Returns a human-readable representation of the WHERE constraint. */
-    std::string str() const;
 };
+
+/** Renders an argument into a string representation for display. */
+extern std::string to_string(const Argument& arg);
 
 } // namespace table
 
@@ -174,7 +164,7 @@ public:
      * non-zero time is given, the table must only return rows associated with
      * activity from that point onwards. The table may also need to pre-filter rows
      * according to a provided list of WHERE constraints. The filtering must be
-     * performed for columns defined as `mandatory_constraint` in the schema.
+     * performed for columns defined as `is_parameter` in the schema.
      * For all other columns, filtering is optional; SQLite will do it later
      * anyways.
      *
@@ -185,9 +175,9 @@ public:
      *
      * @param wheres constraints coming with the query that is requesting the
      * rows; the implementation may rely on all columns marked as
-     * `mandatory_constraint` in the schema, to be present in this list
+     * `is_parameter` in the schema, to be present in this list
      */
-    virtual std::vector<std::vector<Value>> rows(Time t, const std::vector<table::Where>& wheres) = 0;
+    virtual std::vector<std::vector<Value>> rows(Time t, const std::vector<table::Argument>& args) = 0;
 
     /**
      * Hook that's called once when tables gets registered with a `Database`.
@@ -337,10 +327,10 @@ public:
      * @returns a vector of rows, each describing on element of the current
      * snapshot and matching the tables schema
      */
-    virtual std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) = 0;
+    virtual std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) = 0;
 
     /** Implements the parent class' corresponding method. */
-    std::vector<std::vector<Value>> rows(Time t, const std::vector<table::Where>& wheres) override;
+    std::vector<std::vector<Value>> rows(Time t, const std::vector<table::Argument>& args) override;
 };
 
 /**
@@ -369,7 +359,7 @@ public:
     void expire(Time t) override;
 
     /** Implements the parent class' corresponding method. */
-    std::vector<std::vector<Value>> rows(Time t, const std::vector<table::Where>& wheres) override;
+    std::vector<std::vector<Value>> rows(Time t, const std::vector<table::Argument>& args) override;
 
 protected:
     /**

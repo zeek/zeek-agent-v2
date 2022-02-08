@@ -15,7 +15,7 @@ namespace zeek::agent::table {
 
 class ProcessesDarwin : public ProcessesCommon {
 public:
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override;
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
     void addProcess(std::vector<std::vector<Value>>* rows, const struct proc_bsdinfo* p,
                     const struct proc_taskinfo* ti);
 };
@@ -24,7 +24,7 @@ namespace {
 database::RegisterTable<ProcessesDarwin> _;
 }
 
-std::vector<std::vector<Value>> ProcessesDarwin::snapshot(const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> ProcessesDarwin::snapshot(const std::vector<table::Argument>& args) {
     auto buffer_size = proc_listpids(PROC_ALL_PIDS, 0, nullptr, 0);
     pid_t pids[buffer_size / sizeof(pid_t)];
     buffer_size = proc_listpids(PROC_ALL_PIDS, 0, pids, static_cast<int>(sizeof(pids)));

@@ -22,7 +22,7 @@ namespace {
 
 class ZeekAgentLinux : public ZeekAgent {
 public:
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override;
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
 };
 
 database::RegisterTable<ZeekAgentLinux> _;
@@ -128,7 +128,7 @@ Value distribution() {
     return {};
 }
 
-std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table::Argument>& args) {
     std::vector<char> hostname_buffer(1024);
     gethostname(hostname_buffer.data(), static_cast<int>(hostname_buffer.size()));
     hostname_buffer.push_back(0);

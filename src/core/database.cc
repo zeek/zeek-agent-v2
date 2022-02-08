@@ -431,7 +431,7 @@ std::string Database::documentRegisteredTables() {
             column["name"] = c.name;
             column["type"] = to_string(c.type);
             column["summary"] = c.summary;
-            column["mandatory_constraint"] = c.mandatory_constraint;
+            column["is_parameter"] = c.is_parameter;
             columns.emplace_back(std::move(column));
         }
 
@@ -479,7 +479,7 @@ TEST_SUITE("Database") {
             return true;
         }
 
-        std::vector<std::vector<Value>> rows(Time since, const std::vector<table::Where>& wheres) override {
+        std::vector<std::vector<Value>> rows(Time since, const std::vector<table::Argument>& args) override {
             if ( ! usesMockData() ) {
                 CHECK(initialized);
             }

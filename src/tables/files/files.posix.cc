@@ -15,12 +15,12 @@ namespace zeek::agent::table {
 
 class FilesListPosix : public FilesListCommon {
 public:
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override;
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
 };
 
 class FilesLinesPosix : public FilesLinesCommon {
 public:
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Where>& wheres) override;
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
 };
 
 namespace {
@@ -28,31 +28,27 @@ database::RegisterTable<FilesListPosix> _1;
 database::RegisterTable<FilesLinesPosix> _2;
 } // namespace
 
-std::vector<filesystem::path> FilesBase::expandPaths(const std::vector<table::Where>& wheres) {
-    std::vector<filesystem::path> paths;
-    std::vector<filesystem::path> patterns;
+std::pair<std::string, std::vector<filesystem::path>> FilesBase::expandPaths(const std::vector<table::Argument>& args) {
+    std::pair<std::string, std::vector<filesystem::path>> result;
 
-    for ( const auto& where : wheres ) {
-        if ( where.column == "path" && where.op == table::Operator::Equal )
-            paths.emplace_back(std::get<std::string>(where.expression));
-
-        if ( where.column == "path" && where.op == table::Operator::Glob )
-            patterns.emplace_back(std::get<std::string>(where.expression));
-
-        // TODO: we can't enforce use of specific operators currently, so if
-        // somebody uses, e.g., LIKE, we'll end up without a pattern.
+    for ( const auto& a : args ) {
+        if ( a.column == "_pattern" ) {
+            auto glob = std::get<std::string>(a.expression);
+            result.first = glob;
+            for ( auto p : platform::glob(glob) )
+                result.second.push_back(std::move(p));
+        }
     }
 
-    for ( auto p : platform::glob(patterns) )
-        paths.push_back(std::move(p));
-
-    return paths;
+    return result;
 }
 
-std::vector<std::vector<Value>> FilesListPosix::snapshot(const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> FilesListPosix::snapshot(const std::vector<table::Argument>& args) {
     std::vector<std::vector<Value>> rows;
 
-    for ( auto p : expandPaths(wheres) ) {
+    auto [pattern, paths] = expandPaths(args);
+
+    for ( const auto& p : paths ) {
         Value path = p;
         Value type;
         Value uid;
@@ -85,16 +81,18 @@ std::vector<std::vector<Value>> FilesListPosix::snapshot(const std::vector<table
                 type = "other";
         }
 
-        rows.push_back({path, type, uid, gid, mode, mtime, size});
+        rows.push_back({pattern, path, type, uid, gid, mode, mtime, size});
     }
 
     return rows;
 }
 
-std::vector<std::vector<Value>> FilesLinesPosix::snapshot(const std::vector<table::Where>& wheres) {
+std::vector<std::vector<Value>> FilesLinesPosix::snapshot(const std::vector<table::Argument>& args) {
     std::vector<std::vector<Value>> rows;
 
-    for ( auto p : expandPaths(wheres) ) {
+    auto [pattern, paths] = expandPaths(args);
+
+    for ( const auto& p : paths ) {
         std::ifstream in(p);
         if ( in.fail() ) {
             // If file simply doesn't exist, we silently ignore the error.
@@ -109,7 +107,7 @@ std::vector<std::vector<Value>> FilesLinesPosix::snapshot(const std::vector<tabl
         std::string content;
         // TODO: We should use a version of getline() that can abort at a given max-size.
         while ( std::getline(in, content) )
-            rows.push_back({p, ++number, trim(content)});
+            rows.push_back({pattern, p, ++number, trim(content)});
 
         in.close();
     }

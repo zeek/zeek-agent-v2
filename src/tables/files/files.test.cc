@@ -29,19 +29,19 @@ TEST_CASE_FIXTURE(test::TableFixture, "files" * doctest::test_suite("Tables")) {
 
     // files_list
     useTable("files_list");
-    auto result = query(format("SELECT type from files_list WHERE path = \"{}\"", (dir / "file2").native()));
+    auto result = query(format("SELECT type from files_list(\"{}\")", (dir / "file2").native()));
     REQUIRE_EQ(result.rows.size(), 1);
     CHECK_EQ(*result.get<std::string>(0, "type"), "file");
 
-    result = query(format("SELECT path from files_list WHERE path GLOB \"{}\"", (dir / "*").native()));
+    result = query(format("SELECT path from files_list(\"{}\")", (dir / "*").native()));
     REQUIRE_EQ(result.rows.size(), 3);
 
-    result = query(format("SELECT path from files_list WHERE path GLOB \"{}\"", (dir / "sub" / "*").native()));
+    result = query(format("SELECT path from files_list(\"{}\")", (dir / "sub" / "*").native()));
     REQUIRE_EQ(result.rows.size(), 2);
 
     // files_lines
     useTable("files_lines");
-    result = query(format("SELECT content from files_lines WHERE path GLOB \"{}\"", (dir / "*").native()));
+    result = query(format("SELECT content from files_lines(\"{}\")", (dir / "*").native()));
     REQUIRE_EQ(result.rows.size(), 3);
     CHECK_EQ(*result.get<std::string>(0, "content"), "AAA1");
     CHECK_EQ(*result.get<std::string>(1, "content"), "AAA2");

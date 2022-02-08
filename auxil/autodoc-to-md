@@ -4,6 +4,7 @@
 # must be piped in on stdin.
 
 import json
+import re
 import sys
 import textwrap
 
@@ -43,16 +44,31 @@ def renderTable(name, meta):
         print(description)
         print()
 
+
+    params = [c for c in meta["columns"] if c["is_parameter"]]
+    if params:
+        print("| Parameter | Description |")
+        print("| --- | --- |")
+
+        for column in params:
+            name = re.sub("^_+", "", column["name"])
+            type = column["type"]
+            comment = column["summary"]
+
+            print("| `{}` | {} | {} |".format(name, type, comment))
+
+        print()
+
+
     print("| Column | Type | Description")
     print("| --- | --- | --- |")
 
-    for column in meta["columns"]:
+    for column in [c for c in meta["columns"] if not c["is_parameter"]]:
         name = column["name"]
         type = column["type"]
         comment = column["summary"]
-        constraint = (" (`WHERE` required)" if column["mandatory_constraint"] else "")
 
-        print("| `{}` | {} | {}{} |".format(name, type, comment, constraint))
+        print("| `{}` | {} | {} |".format(name, type, comment))
 
     print("</details>")
     print()

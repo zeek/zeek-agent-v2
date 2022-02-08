@@ -23,9 +23,9 @@ extern filesystem::path dataDirectory();
 extern bool isTTY();
 
 /**
- * Expands shell-style globs to return all existing paths mattern any of a set
- * of globs, up to a given maximum number.
+ * Expands a shell-style glob to return all existing paths matching it, up to a
+ * given maximum number.
  */
-extern std::vector<filesystem::path> glob(const std::vector<filesystem::path>& patterns, size_t max = 100);
+extern std::vector<filesystem::path> glob(const filesystem::path& pattern, size_t max = 100);
 
 } // namespace zeek::agent::platform

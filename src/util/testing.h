@@ -65,7 +65,7 @@ public:
                    }};
 
         auto rc = db.query(q);
-        REQUIRE(rc);
+        REQUIRE_MESSAGE(rc, rc.error());
 
         scheduler.advance(scheduler.currentTime() + 1s); // this will execute the query
         cv.wait();                                       // probably unnecessary to deploy a CV here, but safer
