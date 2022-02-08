@@ -21,7 +21,7 @@ if ( HAVE_DARWIN )
     set(CPACK_SYSTEM_NAME "macos${DARWIN_MAJOR_VERSION}")
 
     configure_file("darwin/org.zeek.zeek-agent.plist.in" "org.zeek.zeek-agent.plist")
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.zeek.zeek-agent.plist" DESTINATION "Library/LaunchDaemons/")
+    # install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.zeek.zeek-agent.plist" DESTINATION "Library/LaunchDaemons/")
 elseif ( HAVE_LINUX )
     set(CPACK_GENERATOR "TGZ")
     set(CPACK_SYSTEM_NAME "linux-${CMAKE_HOST_SYSTEM_PROCESSOR}")

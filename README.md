@@ -191,12 +191,12 @@ More documentation on that forthcoming.
 
 The table returns lines from selected ASCII files as table
 rows. The files of interest get specified through a mandatory
-table argument. At the time of query, the table reads in all
+table parameter. At the time of query, the table reads in all
 matching files and returns one row per line, with any
 leading/trailing whitespace stripped. For example, `SELECT *
-FROM files_lines WHERE path GLOB "/home/*/.ssh/authorized_keys"
-`, will return any SSH keys that users have authorized to
-access their accounts.`
+FROM files_lines("/home/*/.ssh/authorized_keys")`, will return
+any SSH keys that users have authorized to access their
+accounts.`
 
 | Parameter | Description |
 | --- | --- |
@@ -214,14 +214,14 @@ access their accounts.`
 
 The table provides a list of all files on the endpoint's file
 system that match a custom glob pattern. The pattern gets
-specified through a mandatory table argument. For example, on a
-traditional Linux system, `SELECT * from files_list WHERE path
-GLOB "/etc/init.d/*"` will fill the table with all files inside
-that directory. If you then watch for changes to that list,
-you'll be notified for any changes in system services.
+specified through a mandatory table parameter. For example, on
+a traditional Linux system, `SELECT * from
+files_list("/etc/init.d/*")` will fill the table with all files
+inside that directory. If you then watch for changes to that
+list, you'll be notified for any changes in system services.
 
-The list of files is generated at query time. The `path` glob needs to
-match on absolute file paths.
+The list of files is generated at query time. The `pattern` glob needs
+to match on absolute file paths.
 
 | Parameter | Description |
 | --- | --- |
