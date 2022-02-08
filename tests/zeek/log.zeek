@@ -12,8 +12,7 @@
 redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
 @endif
 
-hook ZeekAgent::log_policy(rec: ZeekAgent::Info, id: Log::ID, filter: Log::Filter)
-	{
+hook ZeekAgent::log_policy(rec: ZeekAgent::Info, id: Log::ID, filter: Log::Filter) {
 	if ( rec$type_ == "join" )
 		terminate();
-	}
+}

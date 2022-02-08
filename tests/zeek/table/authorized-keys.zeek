@@ -16,17 +16,17 @@ redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
 # runtime duration.
 global already_logged = F;
 
-hook ZeekAgent_AuthorizedKeys::log_policy(rec: any, id: Log::ID, filter: Log::Filter)
-        {
+hook ZeekAgent_AuthorizedKeys::log_policy(rec: any, id: Log::ID, filter: Log::Filter) {
 	if ( already_logged )
 		break;
 	else
 		already_logged = T;
-        }
+}
 
-event do_terminate() { terminate(); }
+event do_terminate() {
+	terminate();
+}
 
-event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context, columns: ZeekAgentAPI::HelloV1)
-	{
-	schedule 2secs { do_terminate() };
-	}
+event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context, columns: ZeekAgentAPI::HelloV1) {
+	schedule 2 secs { do_terminate() };
+}

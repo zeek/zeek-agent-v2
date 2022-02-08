@@ -7,34 +7,32 @@
 # @TEST-EXEC: btest-bg-wait 30
 # @TEST-EXEC: btest-diff zeek/.stdout
 
-@if ( getenv("ZEEK_PORT") != "" ) redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
+@if ( getenv("ZEEK_PORT") != "" )
+redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
 @endif
 
-type Columns : record {
+type Columns: record {
 	id: string;
 	version: int;
 };
 
-event do_terminate() { terminate(); }
+event do_terminate() {
+	terminate();
+}
 
-global query_id : string;
+global query_id: string;
 global n = 0;
 
-event got_result(ctx : ZeekAgent::Context, data : Columns)
-	{
+event got_result(ctx: ZeekAgent::Context, data: Columns) {
 	print "got result:", data;
 
 	if ( ++n == 2 ) {
 		ZeekAgent::cancel(query_id);
 		print "terminating soon - there should not be another 'got result' after this";
-		schedule 5secs {do_terminate()};
+		schedule 5 secs { do_terminate() };
 	}
 }
 
-event zeek_init()
-	{
-	query_id = ZeekAgent::query([
-		$sql_stmt = "SELECT id, agent_version FROM zeek_agent", $event_ = got_result, $cookie = "Hurz",
-		$schedule_ = 3secs
-	]);
-	}
+event zeek_init() {
+	query_id = ZeekAgent::query([$sql_stmt = "SELECT id, agent_version FROM zeek_agent", $event_ = got_result, $cookie = "Hurz", $schedule_ = 3 secs]);
+}

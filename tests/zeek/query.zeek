@@ -15,13 +15,11 @@ type Columns: record {
 	version: int;
 };
 
-event got_result(ctx: ZeekAgent::Context, data: Columns)
-	{
+event got_result(ctx: ZeekAgent::Context, data: Columns) {
 	print ctx$cookie, data;
 	terminate();
-	}
+}
 
-event zeek_init()
-	{
-	ZeekAgent::query([$sql_stmt="SELECT agent_version FROM zeek_agent", $event_=got_result, $cookie="Hurz", $schedule_=10secs]);
-	}
+event zeek_init() {
+	ZeekAgent::query([$sql_stmt = "SELECT agent_version FROM zeek_agent", $event_ = got_result, $cookie = "Hurz", $schedule_ = 10 secs]);
+}

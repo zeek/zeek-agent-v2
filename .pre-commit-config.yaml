@@ -10,6 +10,14 @@ repos:
     language: script
     pass_filenames: false
 
+- repo: local
+  hooks:
+  - id: zeek-script
+    name: Format Zeek scripts
+    entry: zeek-agent/auxil/format-zeek-script
+    files: \.zeek$
+    language: script
+
 - repo: https://github.com/pre-commit/mirrors-clang-format
   rev: 'v13.0.0'
   hooks:

@@ -12,14 +12,12 @@
 redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
 @endif
 
-event got_result() {}
+event got_result() { }
 
-event zeek_init()
-	{
-	ZeekAgent::query([$sql_stmt="SELECT foo FROM bar", $event_=got_result]);
-	}
+event zeek_init() {
+	ZeekAgent::query([$sql_stmt = "SELECT foo FROM bar", $event_ = got_result]);
+}
 
-event ZeekAgentAPI::agent_error_v1(ctx: ZeekAgent::Context, msg: string)
-	{
+event ZeekAgentAPI::agent_error_v1(ctx: ZeekAgent::Context, msg: string) {
 	terminate();
-	}
+}
