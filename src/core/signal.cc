@@ -120,7 +120,12 @@ TEST_SUITE("Signal manager") {
         int count1 = 0;
         int count2 = 0;
 
-        SignalManager mgr({SIGUSR1, SIGUSR2});
+        // TODO: For unknown reasons, the first kill() below sometimes gets
+        // lost, at least on macOS (sigwait() returns, but it doesn't set a
+        // signal). To work-around that, we add SIGHUP to our set and send
+        // that one first; we don't care if that gets dropped.
+
+        SignalManager mgr({SIGUSR1, SIGUSR2, SIGHUP});
         ConditionVariable cv1;
         ConditionVariable cv2;
 
@@ -134,6 +139,7 @@ TEST_SUITE("Signal manager") {
                 cv2.notify();
             });
 
+            kill(getpid(), SIGHUP);
             kill(getpid(), SIGUSR1);
             kill(getpid(), SIGUSR2);
             cv1.wait();
