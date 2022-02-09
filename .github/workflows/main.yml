@@ -37,9 +37,9 @@ jobs:
           ./configure --prefix=/tmp/zeek-agent --enable-debug --enable-sanitizer --enable-ccache --enable-werror --generator=Ninja
           ninja -C build
 
-      - name: Test
-        run: |
-          make -C tests test
+          #- name: Test
+          #run: |
+          #make -C tests test
 
       - name: Check code
         run: |
