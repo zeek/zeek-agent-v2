@@ -634,33 +634,7 @@ void Zeek::poll() {
 }
 
 TEST_SUITE("Zeek") {
-    class TestTable : public SnapshotTable {
-    public:
-        TestTable() {}
-        Schema schema() const override {
-            return {.name = "test_table",
-                    .columns = {{.name = "i", .type = value::Type::Integer},
-                                {.name = "t", .type = value::Type::Text},
-                                {.name = "r", .type = value::Type::Real},
-                                {.name = "b", .type = value::Type::Blob}}};
-        }
-
-        ~TestTable() override {}
-
-        std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override {
-            int64_t counter = 0;
-            std::vector<std::vector<Value>> x;
-            x.push_back({{++counter}, {"foo1"}, {3.14}, {"blobA"}});
-            x.push_back({{++counter}, {"foo2"}, {4.14}, {"blobB"}});
-            x.push_back({{++counter}, {"foo3"}, {5.14}, {"blobC"}});
-            return x;
-        }
-
-        int64_t counter = 0;
-    };
-
     TEST_CASE("connect/hello/disconnect/reconnect") {
-        TestTable t;
         Configuration cfg;
         Scheduler tmgr;
         Database db(&cfg, &tmgr);
