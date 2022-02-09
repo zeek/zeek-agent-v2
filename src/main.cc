@@ -32,7 +32,6 @@ int main(int argc, char** argv) {
 
         if ( cfg.options().mode == options::Mode::AutoDoc ) {
             std::cout << Database::documentRegisteredTables() << std::endl;
-            ;
             exit(0);
         }
 

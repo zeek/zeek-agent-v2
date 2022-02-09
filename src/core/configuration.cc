@@ -99,6 +99,10 @@ void Options::debugDump() {
                      (log_level ? spdlog::level::to_short_c_str(*log_level) : "<not set>"));
     ZEEK_AGENT_DEBUG("configuration", "[option] use-mock-data: {}", use_mock_data);
     ZEEK_AGENT_DEBUG("configuration", "[option] terminate-on-disconnect: {}", terminate_on_disconnect);
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_groups: {}", join(zeek_groups, ", "));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_hello_interval: {}", to_string(zeek_hello_interval));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_reconnect_interval: {}", to_string(zeek_reconnect_interval));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_timeout: {}", to_string(zeek_timeout));
     ZEEK_AGENT_DEBUG("configuration", "[option] zeeks: {}", join(zeeks, ", "));
 }
 
@@ -169,7 +173,7 @@ Options Configuration::Implementation::default_() {
 
 void Configuration::Implementation::apply(Options options) {
     // Set options level first so that the new value is active for subsequent
-    // operation.s
+    // operations.
     if ( options.log_level )
         logger()->set_level(*options.log_level);
     else
@@ -264,8 +268,9 @@ Result<Nothing> Configuration::Implementation::initFromArgv(std::vector<std::str
         if ( ! rc )
             return result::Error(format("error reading {}: {}", config->config_file->native(), rc.error()));
     }
+    else
+        apply(std::move(*config));
 
-    apply(std::move(*config));
     return Nothing();
 }
 
