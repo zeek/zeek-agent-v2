@@ -43,7 +43,7 @@ jobs:
 
       - name: Check code
         run: |
-          pre-commit run -a --show-diff-on-failure
+          #pre-commit run -a --show-diff-on-failure
           ninja -C build tidy
 
   # TODO: Install Zeek and run Zeek tests.
