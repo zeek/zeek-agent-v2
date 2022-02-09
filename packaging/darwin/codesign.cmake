@@ -7,13 +7,25 @@ if (NOT $ENV{CPACK_BUNDLE_APPLE_CERT_APP} STREQUAL "")
 
     foreach (target ${CODESIGN_TARGETS})
         execute_process(COMMAND codesign
-                --force
-                --identifier "org.zeek.zeek-agent"
-                --sign "Developer ID Application: Robin Sommer (JHQJS8VH7W)"
-                --timestamp
-                ${target})
-        execute_process(COMMAND codesign -dv ${target})
+                            --force
+                            --identifier "org.zeek.zeek-agent"
+                            --sign "$ENV{CPACK_BUNDLE_APPLE_CERT_APP}"
+                            --timestamp
+                            ${target}
+                        RESULT_VARIABLE STATUS)
+
+        if (STATUS AND NOT STATUS EQUAL 0)
+            message(FATAL_ERROR "codesign failed: ${STATUS}")
+        endif()
+
+        execute_process(COMMAND codesign -dv ${target}
+                        RESULT_VARIABLE STATUS)
+
+        if (STATUS AND NOT STATUS EQUAL 0)
+            message(FATAL_ERROR "codesign could not verify: ${STATUS}")
+        endif()
+
     endforeach()
 else()
-    message(WARNING "Cannot run codesign: CPACK_BUNDLE_APPLE_CERT_APP is not set")
+    message(STATUS "Not running codesign: CPACK_BUNDLE_APPLE_CERT_APP is not set")
 endif()

@@ -58,6 +58,7 @@ jobs:
   # TODO: Install Zeek and run Zeek tests.
   release_alpine_3_15_static:
     runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'release' || '' }}
 
     container:
       image: alpine:3.15
@@ -105,6 +106,7 @@ jobs:
   # TODO: Install Zeek and run Zeek tests.
   release_macos_11:
     runs-on: macos-11
+    environment: ${{ github.ref_name == 'main' && 'release' || '' }}
 
     steps:
       - name: Prepare
@@ -150,10 +152,46 @@ jobs:
           ninja -C build install
           find ${{runner.temp}}/zeek-agent -exec ls -ald '{}' ';'
 
-      - name: Package
+      ### Only on topic branches
+
+      - name: Package (without codesign)
+        if: github.ref_name != 'main'
         run: |
           ninja -C build package
           (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV && echo "ZA_DMG=$(echo *.dmg)" >>$GITHUB_ENV)
+
+      ### Only on the main branch
+
+      - name: Set up keychain for code signing
+        if: github.ref_name == 'main'
+        env:
+          MACOS_CERTIFICATE_PEM: ${{ secrets.MACOS_CERTIFICATE_PEM }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        run: |
+          echo -n "${MACOS_CERTIFICATE_PEM}" >${RUNNER_TEMP}/cert.pem
+          security create-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
+          security set-keychain-settings -lut 100 ${RUNNER_TEMP}/keychain-db
+          security default-keychain -s ${RUNNER_TEMP}/keychain-db
+          security unlock-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
+          security import ${RUNNER_TEMP}/cert.pem -P "${MACOS_CERTIFICATE_PASSWORD}" -x -T /usr/bin/codesign -k ${RUNNER_TEMP}/keychain-db
+          security set-key-partition-list -S apple-tool:,apple: -s -k "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
+
+      - name: Package (with codesign)
+        if: github.ref_name == 'main'
+        env:
+          CPACK_BUNDLE_APPLE_CERT_APP: ${{ secrets.MACOS_CERTIFICATE_ID }}
+        run: |
+          test -n "${CPACK_BUNDLE_APPLE_CERT_APP}" || (echo "Codesign certificate not set" >&2; false)
+          ninja -C build package
+          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV && echo "ZA_DMG=$(echo *.dmg)" >>$GITHUB_ENV)
+
+      - name: Clean up keychain
+        if: always() && github.ref_name == 'main'
+        run: |
+          security delete-keychain ${RUNNER_TEMP}/keychain-db
+
+      ### Back to running on all branches
 
       - uses: actions/upload-artifact@v2
         with:
@@ -164,3 +202,33 @@ jobs:
         with:
           name: ${{env.ZA_DMG}}
           path: build/dist/${{env.ZA_DMG}}
+
+  release_source:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'release' || '' }}
+    if: github.ref_name == 'main'
+
+    steps:
+      - name: Prepare
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get install -y ninja-build ccache curl ca-certificates
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Configure
+        run: |
+          ./configure --generator=Ninja
+
+      - name: Package source code
+        run: |
+          ninja -C build package_source
+          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.ZA_TGZ}}
+          path: build/dist/${{env.ZA_TGZ}}
