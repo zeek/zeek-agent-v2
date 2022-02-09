@@ -4,7 +4,7 @@
 #
 # @TEST-EXEC: btest-bg-run zeek  zeek ${FRAMEWORK} %INPUT
 # @TEST-EXEC: btest-bg-run agent zeek-agent -c ${CONFIG} -L info -N -z localhost:${ZEEK_PORT}
-# @TEST-EXEC: btest-bg-wait 10
+# @TEST-EXEC: btest-bg-wait 20
 # @TEST-EXEC: btest-diff zeek/.stdout
 
 @if ( getenv("ZEEK_PORT") != "" )
@@ -21,5 +21,5 @@ event got_result(ctx: ZeekAgent::Context, data: Columns) {
 }
 
 event zeek_init() {
-	ZeekAgent::query([$sql_stmt = "SELECT agent_version FROM zeek_agent", $event_ = got_result, $cookie = "Hurz", $schedule_ = 10 secs]);
+	ZeekAgent::query([$sql_stmt = "SELECT agent_version FROM zeek_agent", $event_ = got_result, $cookie = "Hurz", $schedule_ = 20 secs]);
 }

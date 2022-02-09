@@ -4,7 +4,7 @@
 #
 # @TEST-EXEC: btest-bg-run zeek  zeek ${FRAMEWORK} ${PACKAGE}/table/processes.zeek %INPUT
 # @TEST-EXEC: btest-bg-run agent zeek-agent -c ${CONFIG} -M -N -L info -z localhost:${ZEEK_PORT}
-# @TEST-EXEC: btest-bg-wait 10
+# @TEST-EXEC: btest-bg-wait 20
 # @TEST-EXEC: cat zeek/zeek-agent-processes.log | zeek-cut -cn host >tmp && mv tmp zeek/zeek-agent-processes.log
 # @TEST-EXEC: btest-diff zeek/zeek-agent-processes.log
 
