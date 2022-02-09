@@ -3,8 +3,8 @@
 # @TEST-PORT: ZEEK_PORT
 #
 # @TEST-EXEC: btest-bg-run zeek  zeek ${FRAMEWORK} %INPUT
-# @TEST-EXEC: btest-bg-run agent zeek-agent -L info -N -z localhost:${ZEEK_PORT} >output
-# @TEST-EXEC: btest-bg-wait 30
+# @TEST-EXEC: btest-bg-run agent zeek-agent -c ${CONFIG} -L info -N -z localhost:${ZEEK_PORT} >output
+# @TEST-EXEC: btest-bg-wait 10
 # @TEST-EXEC: btest-diff zeek/.stdout
 
 @if ( getenv("ZEEK_PORT") != "" )
@@ -29,7 +29,7 @@ event got_result(ctx: ZeekAgent::Context, data: Columns) {
 	if ( ++n == 2 ) {
 		ZeekAgent::cancel(query_id);
 		print "terminating soon - there should not be another 'got result' after this";
-		schedule 5 secs { do_terminate() };
+		schedule 2 secs { do_terminate() };
 	}
 }
 

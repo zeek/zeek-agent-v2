@@ -3,8 +3,8 @@
 # @TEST-PORT: ZEEK_PORT
 #
 # @TEST-EXEC: btest-bg-run zeek  zeek ${FRAMEWORK} %INPUT
-# @TEST-EXEC: btest-bg-run agent zeek-agent -L info -N -z localhost:${ZEEK_PORT}
-# @TEST-EXEC: btest-bg-wait 30
+# @TEST-EXEC: btest-bg-run agent zeek-agent -c ${CONFIG} -L debug -N -z localhost:${ZEEK_PORT}
+# @TEST-EXEC: btest-bg-wait 10
 # @TEST-EXEC: cat zeek/reporter.log | zeek-cut -n location >reporter.log
 # @TEST-EXEC: btest-diff reporter.log
 
