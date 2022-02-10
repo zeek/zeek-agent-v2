@@ -155,7 +155,7 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
             format("/zeek-agent/query/group/{}/{}", options().agent_id, group)); // group msg to individual host
     }
 
-    _endpoint.subscribe(
+    _endpoint.subscribe_nosync(
         topics, []() { /* nop */ },
         [this](const broker::data_message& msg) {
             if ( broker::get_topic(msg) == broker::topic::statuses_str ) {
@@ -571,9 +571,21 @@ broker::configuration Zeek::Implementation::brokerConfig() {
     options.ignore_broker_conf = true;
 
     broker::configuration config(options);
+
+#if 1
     config.set("caf.scheduler.policy", "sharing");
     config.set("caf.scheduler.max-threads", 1);
     config.set("caf.middleman.workers", 0);
+#else
+    // Use Zeek's stealing configuration.
+    config.set("caf.work-stealing.moderate-sleep-duration", broker::timespan{16'000});
+    config.set("caf.work-stealing.relaxed-sleep-duration", broker::timespan{64'000});
+    config.set("caf.work-stealing.aggressive-poll-attempts", 5);
+    config.set("caf.work-stealing.moderate-poll-attempts", 5);
+    config.set("caf.work-stealing.aggressive-steal-interval", 4);
+    config.set("caf.work-stealing.moderate-steal-interval", 2);
+    config.set("caf.work-stealing.relaxed-steal-interval", 1);
+#endif
 
 #if 0
     // TODO: Add options to config file.
@@ -634,7 +646,7 @@ void Zeek::poll() {
 }
 
 TEST_SUITE("Zeek") {
-    TEST_CASE("connect/hello/disconnect/reconnect") {
+    TEST_CASE("connect/hello/disconnect/reconnect" * doctest::timeout(10.0)) {
         Configuration cfg;
         Scheduler tmgr;
         Database db(&cfg, &tmgr);
@@ -649,7 +661,7 @@ TEST_SUITE("Zeek") {
         broker::endpoint receiver;
         auto subscriber = receiver.make_subscriber({"/zeek-agent/response/"});
         auto status_subscriber = receiver.make_status_subscriber(true);
-        auto port = receiver.listen("localhost");
+        auto port = receiver.listen("127.0.0.1", 0);
 
         // Initiate connection.
         zeek.start({format("localhost:{}", port)});

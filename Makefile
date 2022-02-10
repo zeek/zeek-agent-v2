@@ -13,7 +13,8 @@ install:
 	@if [ -e build/build.ninja ]; then ninja -C build install; else true; fi
 
 test:
-	@if command -v zeek 2>/dev/null; then \
+	@if command -v zeek >/dev/null 2>&1; then \
+		$(MAKE) -C zeek-agent test; \
 		$(MAKE) -C tests test; \
 	else \
 		$(MAKE) -C tests test-no-zeek; \
