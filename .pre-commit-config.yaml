@@ -14,7 +14,7 @@ repos:
   hooks:
   - id: zeek-script
     name: Format Zeek scripts
-    entry: zeek-agent/auxil/format-zeek-script
+    entry: auxil/format-zeek-script
     files: \.zeek$
     language: script
 
