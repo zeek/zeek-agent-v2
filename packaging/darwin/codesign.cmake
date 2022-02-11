@@ -8,6 +8,8 @@ if (NOT $ENV{CPACK_BUNDLE_APPLE_CERT_APP} STREQUAL "")
     foreach (target ${CODESIGN_TARGETS})
         execute_process(COMMAND codesign
                             --force
+                            --strict
+                            --options=runtime
                             --identifier "org.zeek.zeek-agent"
                             --sign "$ENV{CPACK_BUNDLE_APPLE_CERT_APP}"
                             --timestamp

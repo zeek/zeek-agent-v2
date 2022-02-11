@@ -158,7 +158,7 @@ jobs:
         if: github.ref_name != 'main'
         run: |
           ninja -C build package
-          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV && echo "ZA_DMG=$(echo *.dmg)" >>$GITHUB_ENV)
+          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
       ### Only on the main branch
 
@@ -184,7 +184,7 @@ jobs:
         run: |
           test -n "${CPACK_BUNDLE_APPLE_CERT_APP}" || (echo "Codesign certificate not set" >&2; false)
           ninja -C build package
-          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV && echo "ZA_DMG=$(echo *.dmg)" >>$GITHUB_ENV)
+          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
       - name: Clean up keychain
         if: always() && github.ref_name == 'main'
@@ -197,11 +197,6 @@ jobs:
         with:
           name: ${{env.ZA_TGZ}}
           path: build/dist/${{env.ZA_TGZ}}
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: ${{env.ZA_DMG}}
-          path: build/dist/${{env.ZA_DMG}}
 
   release_source:
     runs-on: ubuntu-latest

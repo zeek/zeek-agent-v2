@@ -17,8 +17,12 @@ set(CPACK_SOURCE_IGNORE_FILES "build[^/]*/;\.cache/;\.clangd;\.git;compile_comma
 if ( HAVE_DARWIN )
     set (CPACK_PRE_BUILD_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/darwin/codesign.cmake")
 
-    set(CPACK_GENERATOR "TGZ;DragNDrop")
-    set(CPACK_DMG_DISABLE_APPLICATIONS_SYMLINK yes)
+    # We generate TGZs for now, because for ZIP/DMG one needs to notarize the
+    # container to let Gatekeeper accept the executable. With a tarball, it's
+    # sufficient to sign the binary itself.
+    #
+    # set(CPACK_GENERATOR "ZIP;DragNDrop")
+    # set(CPACK_DMG_DISABLE_APPLICATIONS_SYMLINK yes)
 
     execute_process(COMMAND sw_vers -productVersion OUTPUT_VARIABLE DARWIN_VERSION)
     string(REGEX MATCH "[0-9]+" DARWIN_MAJOR_VERSION "${DARWIN_VERSION}")
