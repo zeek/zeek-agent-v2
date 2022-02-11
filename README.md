@@ -67,7 +67,7 @@ it stable. We are interested in any feedback you may have.
 
 - macOS: We are providing a binary that works on Big Sur and newer.
 
-    - Download [Zeek Agent for macOS](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-macos11.dmg.zip).
+    - Download [Zeek Agent for macOS](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-macos11.tar.gz.zip).
 
     - We don't sign the macOS binary yet, so you may need to remove
       the quarantine bit after downloading before you can run it:
