@@ -59,34 +59,33 @@ it stable. We are interested in any feedback you may have.
 
 #### Installation
 
-- Linux: We are providing a static binary that should run on most
-  distributions.
+- **Linux**: We are providing a static binary that should work on most
+  systems.
 
     - Download [Zeek Agent for
-      Linux](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-linux-x86_64.tar.gz.zip).
+      Linux](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-linux-x86_64.tar.gz.zip?status=completed).
 
-- macOS: We are providing a binary that works on Big Sur and newer.
+- **macOS**: We are providing a signed binary that works on Big Sur and newer.
 
-    - Download [Zeek Agent for macOS](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-macos11.tar.gz.zip).
+    - Download [Zeek Agent for macOS](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-macos11.tar.gz.zip?status=completed).
 
-    - We don't sign the macOS binary yet, so you may need to remove
-      the quarantine bit after downloading before you can run it:
-      `xattr -r -d com.apple.quarantine bin/zeek-agent`.
+- **Build yourself**:
 
-You can alternatively compile the agent from source yourself:
+  - Download [Zeek Agent source
+    code](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre.tar.gz.zip?status=completed). You can also get it directly from git, of course.
 
-```
-# git clone --recursive https://github.com/zeek/zeek-agent-v2
-# cd zeek-agent-v2
-# ./configure [<options>] && make -j 4 && make test && make install
-```
+  To build from source, use:
 
-Selected `configure` options:
+    ```
+    # ./configure [<options>] && make -j 4 && make test && make install
+    ```
 
-- `--prefix=<path>`: installation prefix
-- `--with-openssl=<path>`: path to OpenSSL installation.
+  Selected `configure` options:
 
-On macOS with Homebrew, use `--with-openssl={/usr/local,/opt/homebrew}/opt/openssl@1.1`
+    - `--prefix=<path>`: installation prefix
+    - `--with-openssl=<path>`: path to OpenSSL installation.
+
+  On macOS with Homebrew, use `--with-openssl={/usr/local,/opt/homebrew}/opt/openssl@1.1`
 
 #### Usage
 
