@@ -24,20 +24,36 @@ list(APPEND CPACK_SOURCE_IGNORE_FILES "^${CMAKE_SOURCE_DIR}.*/\.pyc$")
 list(APPEND CPACK_SOURCE_IGNORE_FILES "^${CMAKE_BINARY_DIR}/")
 
 if ( HAVE_DARWIN )
-    set (CPACK_PRE_BUILD_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/darwin/codesign.cmake")
+    execute_process(COMMAND sw_vers -buildVersion OUTPUT_VARIABLE DARWIN_BUILD_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set(MACOS_APP_ID "$ENV{MACOS_APP_ID}") # must be set for codesigning/notarization already
 
-    # We generate TGZs for now, because for ZIP/DMG one needs to notarize the
-    # container to let Gatekeeper accept the executable. With a tarball, it's
-    # sufficient to sign the binary itself.
-    #
-    # set(CPACK_GENERATOR "ZIP;DragNDrop")
-    # set(CPACK_DMG_DISABLE_APPLICATIONS_SYMLINK yes)
+    configure_file("darwin/Info.plist.in" "Info.plist")
 
-    execute_process(COMMAND sw_vers -productVersion OUTPUT_VARIABLE DARWIN_VERSION)
+    set (CPACK_PRE_BUILD_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/darwin/pre-build.cmake")
+    set (CPACK_POST_BUILD_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/darwin/post-build.cmake")
+
+    execute_process(COMMAND sw_vers -productVersion OUTPUT_VARIABLE DARWIN_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
     string(REGEX MATCH "[0-9]+" DARWIN_MAJOR_VERSION "${DARWIN_VERSION}")
     set(CPACK_SYSTEM_NAME "macos${DARWIN_MAJOR_VERSION}")
 
-    configure_file("darwin/org.zeek.zeek-agent.plist.in" "org.zeek.zeek-agent.plist")
+    set(CPACK_GENERATOR "Bundle")
+    set(CPACK_DMG_DISABLE_APPLICATIONS_SYMLINK yes)
+
+    set(CPACK_BUNDLE_NAME "ZeekAgent")
+    set(CPACK_APPLE_BUNDLE_ID "org.zeek.zeek-agent")
+    set(CPACK_BUNDLE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/darwin/ZeekAgent.icns")
+    set(CPACK_BUNDLE_PLIST "${CMAKE_CURRENT_BINARY_DIR}/Info.plist")
+    set(CPACK_BUNDLE_APPLE_CODESIGN_PARAMETER "--force --options=runtime --strict --timestamp")
+    set(CPACK_BUNDLE_APPLE_CERT_APP "$ENV{MACOS_CERTIFICATE_APPLICATION_ID}")
+    set(CPACK_BUNDLE_APPLE_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/darwin/entitlements.plist")
+    #set(CPACK_BUNDLE_STARTUP_COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/darwin/startup.sh")
+    #set(CPACK_BUNDLE_APPLE_CODESIGN_FILES "/Contents/MacOS/ZeekAgent;/Contents/MacOS/zeek-agent")
+    #set(CPACK_BUNDLE_APPLE_CODESIGN_FILES "/Contents/MacOS/ZeekAgent")
+
+    # set(CPACK_COMMAND_CODESIGN "${CMAKE_CURRENT_SOURCE_DIR}/darwin/test-codesign")
+
+    #target_link_options(zeek-agent PRIVATE LINKER:-sectcreate,__TEXT,__info_plist,${CMAKE_CURRENT_BINARY_DIR}/Info.plist)
+    # configure_file("darwin/org.zeek.zeek-agent.plist.in" "org.zeek.zeek-agent.plist")
     # install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.zeek.zeek-agent.plist" DESTINATION "Library/LaunchDaemons/")
 elseif ( HAVE_LINUX )
     set(CPACK_GENERATOR "TGZ")

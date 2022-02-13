@@ -1,0 +1,26 @@
+<plist version="1.0">
+<dict>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleName</key>
+    <string>ZeekAgent</string>
+    <key>CFBundleDisplayName</key>
+    <string>Zeek&#x2007;Agent</string>
+    <key>CFBundleIdentifier</key>
+    <string>${MACOS_APP_ID}</string>
+    <key>CFBundleVersion</key>
+    <string>${ZEEK_AGENT_VERSION}</string>
+    <key>CFBundleExecutable</key>
+    <string>ZeekAgent</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${ZEEK_AGENT_VERSION}></string>
+    <key>CFBundleIconFile</key>
+    <string>ZeekAgent</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>BuildMachineOSBuild</key>
+    <string>${DARWIN_BUILD_VERSION}</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>English</string>
+</dict>
+</plist>
