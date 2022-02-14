@@ -1,4 +1,4 @@
-name: Build, test, package, and release
+name: CI pipeline
 
 on: push
 
