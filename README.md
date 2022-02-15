@@ -58,7 +58,8 @@ pre-built agent versions for:
 - **Linux**: We are providing static binaries that work on all recent
   x86_64 systems.
 
-- **macOS**: We are providing signed binaries that work on Big Sur and newer.
+- **macOS**: We are providing signed, universal binaries that work on
+  Big Sur and newer.
 
 To build the agent yourself, download the source distribution for the
 current release, or clone the code directly from git (make sure to include
