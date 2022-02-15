@@ -58,7 +58,7 @@ jobs:
   # TODO: Install Zeek and run Zeek tests.
   release_alpine_3_15_static:
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'release' || '' }}
+    environment: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     container:
       image: alpine:3.15
@@ -106,7 +106,7 @@ jobs:
   # TODO: Install Zeek and run Zeek tests.
   release_macos_11:
     runs-on: macos-11
-    environment: ${{ github.ref_name == 'main' && 'release' || '' }}
+    environment: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     steps:
       - name: Prepare
@@ -155,7 +155,7 @@ jobs:
       ### Only on topic branches
 
       - name: Package (without codesign)
-        if: github.ref_name != 'main'
+        if: github.ref_name != 'main' && !startsWith(github.ref, 'refs/tags/v')
         run: |
           ninja -C build package
           (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
@@ -163,7 +163,7 @@ jobs:
       ### Only on the main branch
 
       - name: Set up keychain for code signing
-        if: github.ref_name == 'main'
+        if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
         env:
           MACOS_CERTIFICATE_PEM: ${{ secrets.MACOS_CERTIFICATE_PEM }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -178,7 +178,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
 
       - name: Package (with codesign)
-        if: github.ref_name == 'main'
+        if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
         env:
           CPACK_BUNDLE_APPLE_CERT_APP: ${{ secrets.MACOS_CERTIFICATE_ID }}
         run: |
@@ -187,7 +187,7 @@ jobs:
           (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
       - name: Clean up keychain
-        if: always() && github.ref_name == 'main'
+        if: always() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
         run: |
           security delete-keychain ${RUNNER_TEMP}/keychain-db
 
@@ -200,7 +200,7 @@ jobs:
 
   release_source:
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'release' || '' }}
+    environment: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     steps:
       - name: Prepare
@@ -229,7 +229,7 @@ jobs:
 
   publish_release:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref_name, 'v')
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: [debug_ubuntu_latest, release_alpine_3_15_static, release_macos_11, release_source]
     steps:
       - name: Checkout code
