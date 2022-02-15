@@ -13,6 +13,7 @@
 #include "util/platform.h"
 #include "util/testing.h"
 
+#include <functional>
 #include <iostream>
 #include <map>
 #include <stdexcept>
@@ -111,7 +112,24 @@ private:
     std::optional<broker::status_subscriber> _status_subscriber;
 
     std::map<std::string, ZeekQuery> _zeek_queries; // currently active queries
-    std::map<std::string, Time> _zeek_instances;    // currently active Zeek instances, w/ last seen
+
+    // Zeek instance state
+    struct ZeekInstance {
+        Time last_seen = 0_time;               // last time we saw an event from this instance
+        std::string version_string;            // Zeek version string, from instance's hello
+        uint64_t version_number = 0;           // Zeek version number, from instance's hello
+        std::string package_version = "<n/a>"; // Zeek agent package version, from instance's hello
+
+        bool operator==(const ZeekInstance& other) const {
+            // Ignore last seen, we're interested only in semantic changes.
+            return version_string == other.version_string && version_number == other.version_number &&
+                   package_version == other.package_version;
+        }
+
+        bool operator!=(const ZeekInstance& other) const { return ! (*this == other); }
+    };
+
+    std::map<std::string, ZeekInstance> _zeek_instances; // currently active Zeek instances
 };
 
 Result<Nothing> BrokerConnection::connect(const std::string& destination) {
@@ -220,7 +238,7 @@ void BrokerConnection::poll() {
     // Expire any state from Zeek instances we haven't seen in a while.
     std::vector<std::string> to_remove;
     for ( const auto& z : _zeek_instances ) {
-        if ( z.second + options().zeek_timeout < _scheduler->currentTime() )
+        if ( z.second.last_seen + options().zeek_timeout < _scheduler->currentTime() )
             to_remove.emplace_back(z.first);
     }
 
@@ -310,34 +328,60 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
     broker::zeek::Event event(std::get<1>(msg.data()));
     auto args = event.args();
 
-    std::string zeek_instance;
+    std::string zeek_instance_id = "<unknown-zeek>";
+    auto zeek_instance = _zeek_instances.end();
 
     try {
         if ( args.empty() )
             throw std::runtime_error("argument error");
 
-        zeek_instance = broker::get<std::string>(args[0]);
+        zeek_instance_id = broker::get<std::string>(args[0]);
+        zeek_instance = _zeek_instances.find(zeek_instance_id);
 
-        if ( auto z = _zeek_instances.find(zeek_instance); z == _zeek_instances.end() ) {
-            ZEEK_INSTANCE_DEBUG(zeek_instance, "new Zeek instance");
-            _zeek_instances[zeek_instance] = _scheduler->currentTime();
+        if ( zeek_instance != _zeek_instances.end() )
+            zeek_instance->second.last_seen = _scheduler->currentTime();
+
+        else {
+            ZEEK_INSTANCE_DEBUG(zeek_instance_id, "new Zeek instance");
+            zeek_instance =
+                _zeek_instances.emplace(zeek_instance_id, ZeekInstance{.last_seen = _scheduler->currentTime()}).first;
         }
-        else
-            z->second = _scheduler->currentTime();
 
     } catch ( const std::exception& e ) {
-        unexpectedEventArguments(zeek_instance, event);
+        unexpectedEventArguments(zeek_instance_id, event);
         return;
     }
 
-    ZEEK_INSTANCE_DEBUG(zeek_instance, "got event: {}{}", event.name(), broker::to_string(event.args()));
+    ZEEK_INSTANCE_DEBUG(zeek_instance_id, "got event: {}{}", event.name(), broker::to_string(event.args()));
+
+    assert(zeek_instance != _zeek_instances.end());
 
     if ( event.name() == "ZeekAgentAPI::zeek_hello_v1" ) {
-        // nothing to do
+        if ( args.size() >= 2 ) { // TODO: make two args mandatory eventually
+            try {
+                auto old_hello_record = zeek_instance->second;
+
+                auto hello_record = broker::get<broker::vector>(args[1]);
+                zeek_instance->second.version_string = broker::get<std::string>(hello_record[0]);
+                zeek_instance->second.version_number = broker::get<uint64_t>(hello_record[1]);
+
+                if ( auto pkg_version = broker::get<std::string>(hello_record[2]); ! pkg_version.empty() )
+                    zeek_instance->second.package_version = pkg_version;
+
+                if ( zeek_instance->second != old_hello_record ) {
+                    ZEEK_INSTANCE_DEBUG(zeek_instance_id, "Zeek version: {} ({}), package {}",
+                                        zeek_instance->second.version_string, zeek_instance->second.version_number,
+                                        zeek_instance->second.package_version);
+                }
+            } catch ( const std::exception& e ) {
+                unexpectedEventArguments(zeek_instance_id, event);
+                return;
+            }
+        }
     }
 
     else if ( event.name() == "ZeekAgentAPI::zeek_shutdown_v1" ) {
-        removeZeekInstance(zeek_instance);
+        removeZeekInstance(zeek_instance_id);
     }
 
     else if ( event.name() == "ZeekAgentAPI::install_query_v1" ) {
@@ -349,7 +393,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
 
             auto zeek_id = broker::get<std::string>(args[1]);
             if ( lookupQuery(zeek_id) ) {
-                ZEEK_INSTANCE_DEBUG(zeek_instance, "ignoring already known query {}", zquery.zeek_id);
+                ZEEK_INSTANCE_DEBUG(zeek_instance_id, "ignoring already known query {}", zquery.zeek_id);
                 return;
             }
 
@@ -374,7 +418,8 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
                 else if ( enum_.name == "ZeekAgent::Differences" )
                     subscription = query::SubscriptionType::Differences;
                 else
-                    ZEEK_INSTANCE_DEBUG(zeek_instance, "ignoring event with unknown subscription type: {}", enum_.name);
+                    ZEEK_INSTANCE_DEBUG(zeek_instance_id, "ignoring event with unknown subscription type: {}",
+                                        enum_.name);
             }
 
             auto event_name = broker::get<std::string>(broker::get<broker::vector>(query_record[3])[0]);
@@ -384,7 +429,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
             if ( query_record[4] != broker::data() )
                 cookie = broker::get<std::string>(query_record[4]);
 
-            zquery = ZeekQuery{.zeek_instance = std::move(zeek_instance),
+            zquery = ZeekQuery{.zeek_instance = std::move(zeek_instance_id),
                                .zeek_id = zeek_id,
                                .event_name = std::move(event_name),
                                .zeek_cookie = cookie,
@@ -396,7 +441,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
                                    .cookie = *cookie,
                                }};
         } catch ( const std::exception& e ) {
-            unexpectedEventArguments(zeek_instance, event);
+            unexpectedEventArguments(zeek_instance_id, event);
             return;
         }
 
@@ -411,7 +456,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
 
             zeek_id = broker::get<std::string>(args[1]);
         } catch ( const std::exception& e ) {
-            unexpectedEventArguments(zeek_instance, event);
+            unexpectedEventArguments(zeek_instance_id, event);
             return;
         }
 

@@ -8,11 +8,9 @@
 # @TEST-EXEC: cat zeek/zeek-agent-processes.log | zeek-cut -cn host >tmp && mv tmp zeek/zeek-agent-processes.log
 # @TEST-EXEC: btest-diff zeek/zeek-agent-processes.log
 
-@if ( getenv("ZEEK_PORT") != "" )
+@if(getenv("ZEEK_PORT") != "")
 redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
 @endif
-
-global seen: set[Log::ID];
 
 # We only accept the 1st write writer so that our output doesn't depend on
 # runtime duration.
@@ -29,6 +27,6 @@ event do_terminate() {
 	terminate();
 }
 
-event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context, columns: ZeekAgentAPI::HelloV1) {
+event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context, columns: ZeekAgentAPI::AgentHelloV1) {
 	schedule 2 secs { do_terminate() };
 }
