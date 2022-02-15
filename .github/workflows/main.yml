@@ -1,4 +1,4 @@
-name: build-and-test
+name: CI pipeline
 
 on: push
 
@@ -201,7 +201,6 @@ jobs:
   release_source:
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'release' || '' }}
-    if: github.ref_name == 'main'
 
     steps:
       - name: Prepare
@@ -227,3 +226,35 @@ jobs:
         with:
           name: ${{env.ZA_TGZ}}
           path: build/dist/${{env.ZA_TGZ}}
+
+  publish_release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref_name, 'v')
+    needs: [debug_ubuntu_latest, release_alpine_3_15_static, release_macos_11, release_source]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Prepare release message
+        run: |
+          cat CHANGES | awk '/^[0-9]+\./{ n++; next; } n < 2 { print }' >${{ runner.temp }}/release-msg
+
+      - uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+
+      - name: Display artifacts
+        run: ls -al artifacts/*/*
+
+      - name: Upload artifacts
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          draft: true
+          prerelease: true
+          body_path: ${{ runner.temp }}/release-msg
+          files: |
+            artifacts/*/*.tar.gz

@@ -22,24 +22,16 @@ older implementations (see the [history](#history)). It remains
 experimental and in development for now, but we're working on making
 it stable. We are interested in any feedback you may have.
 
-
 #### Contents
 <!-- begin table of contents -->
 - [Getting Started](#getting-started)
     - [Zeek Agent](#zeek-agent)
-        - [Prerequisites](#prerequisites)
-        - [Installation](#installation)
-        - [Usage](#usage)
     - [Zeek Package](#zeek-package)
-        - [Prerequisites](#prerequisites)
-        - [Installation](#installation)
-        - [Usage](#usage)
-- [Getting in Touch](#getting-in-touch)
 - [Zeek API](#zeek-api)
 - [Interactive Usage](#interactive-usage)
 - [Table Reference](#table-reference)
-- [Caveats](#caveats)
-- [Versioning](#versioning)
+- [Status](#status)
+- [Getting in Touch](#getting-in-touch)
 - [License](#license)
 - [History](#history)
 <!-- end table of contents -->
@@ -57,35 +49,30 @@ it stable. We are interested in any feedback you may have.
   system libraries. (Individual tables may not be available if they
   don't find on the system what they need.)
 
-#### Installation
 
-- **Linux**: We are providing a static binary that should work on most
-  systems.
+#### Download & Installation
 
-    - Download [Zeek Agent for
-      Linux](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-linux-x86_64.tar.gz.zip?status=completed).
+On our [releases
+page](https://github.com/zeek/zeek-agent-v2/releases), you will find
+pre-built agent versions for:
 
-- **macOS**: We are providing a signed binary that works on Big Sur and newer.
+- **Linux**: We are providing static binaries that work on all recent
+  x86_64 systems.
 
-    - Download [Zeek Agent for macOS](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre-macos11.tar.gz.zip?status=completed).
+- **macOS**: We are providing signed binaries that work on Big Sur and newer.
 
-- **Build yourself**:
+To build the agent yourself, download the source distribution for the
+current release, or clone the code directly from git (make sure to include
+submodules through `--recursive`). Then run:
 
-  - Download [Zeek Agent source
-    code](https://nightly.link/zeek/zeek-agent-v2/workflows/main/main/zeek-agent-2.0.0-pre.tar.gz.zip?status=completed). You can also get it directly from git, of course.
-
-  To build from source, use:
-
-    ```
     # ./configure [<options>] && make -j 4 && make test && make install
-    ```
 
-  Selected `configure` options:
+Selected `configure` options (see `--help` for more):
 
     - `--prefix=<path>`: installation prefix
     - `--with-openssl=<path>`: path to OpenSSL installation.
 
-  On macOS with Homebrew, use `--with-openssl={/usr/local,/opt/homebrew}/opt/openssl@1.1`
+On macOS with Homebrew, use `--with-openssl={/usr/local,/opt/homebrew}/opt/openssl@1.1`
 
 #### Usage
 
@@ -133,17 +120,6 @@ You should now see new log files recording endpoint activity:
 - `zeek-agent-users.log:`: Users available on endpoints.
 
 You will also find a new `zeek-agent.log` tracking agent connectivity.
-
-## Getting in Touch
-
-Having trouble using the agent? Have ideas how to make the agent
-better? We'd like to hear from you!
-
-- Report problems on the [GitHub issue
-  tracker](https://github.com/zeek/zeek-agent-v2/issues).
-
-- Ask the `#zeek-agent` channel [on Zeek's
-  Slack](https://zeek.org/connect).
 
 ## Zeek API
 
@@ -345,29 +321,33 @@ Agent process and the endpoint it's running on.
 
 <!-- end table reference -->
 
-## Caveats
+## Status
 
-- The supply of tables and Zeek logs is currently limited; we are
-  planning to add more in the future.
+- The agent remains experimental for now, and APIs and table schemas
+  are still evolving. Specifics may still change without much notice.
+
+- The supply of tables and Zeek logs is still limited; we are
+  planning to add more in the future (contributions welcome!).
 
 - Currently, most data is collected in regular intervals only, meaning
   that short-lived activity happening between the agent’s regular
   snapshots might be missed (e.g., a process terminating quickly after
-  it started up). The agent’s internal infrastructure supports “event
-  tables” that don’t have that limitation, and we plan to make more
-  use of that in the future. Doing so typically requires usage of
+  it started up). The agent’s internal infrastructure already supports
+  “event tables” that don’t have that limitation, and we plan to make
+  more use of that in the future. Doing so typically requires usage of
   OS-specific APIs, which makes these tables more complex to
   implement.
 
-## Versioning
+## Getting in Touch
 
-We do not provide stable/tagged releases yet, there’s just a `main`
-branch in Git; binaries are cut from there. We also still commit
-directly to `main`, so things may occasionally break for a little
-while. APIs and table schemas are still evolving as well and may
-change without much notice.
+Having trouble using the agent? Have ideas how to make the agent
+better? We'd like to hear from you!
 
-We will move to more stable processes as the agent matures.
+- Report problems on the [GitHub issue
+  tracker](https://github.com/zeek/zeek-agent-v2/issues).
+
+- Ask the `#zeek-agent` channel [on Zeek's
+  Slack](https://zeek.org/connect).
 
 ## License
 

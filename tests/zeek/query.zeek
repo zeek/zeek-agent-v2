@@ -5,7 +5,8 @@
 # @TEST-EXEC: btest-bg-run zeek  zeek ${FRAMEWORK} %INPUT
 # @TEST-EXEC: btest-bg-run agent zeek-agent -c ${CONFIG} -L info -N -z localhost:${ZEEK_PORT}
 # @TEST-EXEC: btest-bg-wait 20
-# @TEST-EXEC: btest-diff zeek/.stdout
+# @TEST-EXEC: cat zeek/.stdout | sed 's/version=[0-9]\{1,\}/version=<version>/g' >zeek/output
+# @TEST-EXEC: btest-diff zeek/output
 
 @if ( getenv("ZEEK_PORT") != "" )
 redef Broker::default_port = to_port(getenv("ZEEK_PORT"));

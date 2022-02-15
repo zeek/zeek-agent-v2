@@ -11,5 +11,5 @@ function fmt_entry(prefix, line) {
 /^#.* Contents/             { next; }
 /^## /                      { fmt_entry("-", $0); }
 /^### /                     { fmt_entry("    -", $0); }
-/^#### /                    { fmt_entry("        -", $0); }
+#/^#### /                    { fmt_entry("        -", $0); }
 '
