@@ -15,6 +15,7 @@
 
 #include <iostream>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -248,7 +249,7 @@ void BrokerConnection::installQuery(ZeekQuery zquery) {
     };
 
     if ( auto rc = _db->query(zquery.query) ) {
-        zquery.query_id = *rc;
+        zquery.query_id = *rc; // could be unset
         _zeek_queries.emplace(zeek_id, std::move(zquery));
     }
     else if ( zquery.zeek_instance )
@@ -263,8 +264,9 @@ void BrokerConnection::cancelQuery(const std::string& zeek_id) {
         // already gone
         return;
 
-    assert(i->second.query_id);
-    _db->cancel(*i->second.query_id);
+    if ( i->second.query_id )
+        _db->cancel(*i->second.query_id);
+
     _zeek_queries.erase(i);
 }
 
@@ -354,7 +356,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
             }
 
             auto query_record = broker::get<broker::vector>(args[2]);
-            if ( query_record.size() != 5 )
+            if ( query_record.size() != 7 )
                 throw std::runtime_error("argument error");
 
             auto sql_stmt = broker::get<std::string>(query_record[0]);
@@ -384,6 +386,14 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
             if ( query_record[4] != broker::data() )
                 cookie = broker::get<std::string>(query_record[4]);
 
+            std::set<std::string> requires_tables;
+            for ( const auto& t : broker::get<broker::set>(query_record[5]) )
+                requires_tables.emplace(broker::get<std::string>(t));
+
+            std::set<std::string> if_missing_tables;
+            for ( const auto& t : broker::get<broker::set>(query_record[6]) )
+                if_missing_tables.emplace(broker::get<std::string>(t));
+
             zquery = ZeekQuery{.zeek_instance = std::move(zeek_instance),
                                .zeek_id = zeek_id,
                                .event_name = std::move(event_name),
@@ -392,6 +402,8 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
                                    .sql_stmt = std::move(sql_stmt),
                                    .subscription = subscription,
                                    .schedule = schedule_,
+                                   .requires_tables = std::move(requires_tables),
+                                   .if_missing_tables = std::move(if_missing_tables),
                                    .terminate = false,
                                    .cookie = *cookie,
                                }};

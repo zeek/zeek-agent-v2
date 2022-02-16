@@ -9,6 +9,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -101,7 +102,9 @@ enum class SubscriptionType {
 struct Query {
     std::string sql_stmt;                                /**< SQL statement to execute */
     std::optional<query::SubscriptionType> subscription; /**< enable subscription to updates of given type */
-    Interval schedule = 0s; /**< for subscriptions, reschedule in such intervals until canceled */
+    Interval schedule = 0s;                  /**< for subscriptions, reschedule in such intervals until canceled */
+    std::set<std::string> requires_tables;   /**< names of tables that must be present for this query */
+    std::set<std::string> if_missing_tables; /**< names of tables that must *not* be present for this query */
     bool terminate = false; /**< if true, terminate the Zeek Agent after this query's callback has executed */
     bool cancelled = false; /**< if true, cancelled and scheduled to be removed */
     std::string cookie;     /**< arbitrary user-chosen string that will be copied into the result */
@@ -164,9 +167,11 @@ public:
      * @param q query to run
      * @returns if succesful, a unique ID for the query, will be passed to the
      * callback; or an error if there was a problem with the query (such as an
-     * error with the SQL statement)
-     **/
-    Result<query::ID> query(const Query& q);
+     * error with the SQL statement). The ID may be unset if the DB decided to
+     * not process the query, without than being an error situation (e.g.,
+     * because it requires certain tables.)
+     */
+    Result<std::optional<query::ID>> query(const Query& q);
 
     /**
      * Cancels a previous scheduled query, both standard and subscription. The
