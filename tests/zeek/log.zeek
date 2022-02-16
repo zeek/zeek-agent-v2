@@ -9,7 +9,7 @@
 # @TEST-EXEC: btest-diff changes
 
 @if ( getenv("ZEEK_PORT") != "" )
-redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
+redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
 @endif
 
 hook ZeekAgent::log_policy(rec: ZeekAgent::Info, id: Log::ID, filter: Log::Filter) {
