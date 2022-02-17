@@ -228,7 +228,8 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
         // already gone, or will be cleaned up shortly
         return 0s;
 
-    auto sql_result = _synchronized->unlockWhile([&]() { return _sqlite->runStatement(*(*i)->prepared_query); });
+    auto sql_result = _synchronized->unlockWhile(
+        [&]() { return _sqlite->runStatement(*(*i)->prepared_query, (*i)->previous_execution); });
 
     // re-lookup because we released the lock
     i = lookupQuery(id);
@@ -474,10 +475,15 @@ TEST_SUITE("Database") {
             return true;
         }
 
+        std::vector<Time> expected_times;
+
         std::vector<std::vector<Value>> rows(Time since, const std::vector<table::Argument>& args) override {
             if ( ! usesMockData() ) {
                 CHECK(initialized);
             }
+
+            if ( ! expected_times.empty() )
+                CHECK_EQ(since, expected_times[counter]);
 
             ++counter;
             return {{counter}, {counter + 1}, {counter + 2}};
@@ -809,6 +815,8 @@ TEST_SUITE("Database") {
                 CHECK_EQ(id, *query_id);
             };
 
+            t.expected_times = {0_time, 1_time, 3_time};
+
             auto query = Query{.sql_stmt = "SELECT * from test_table",
                                .subscription = query::SubscriptionType::Differences,
                                .schedule = 2s,
@@ -823,6 +831,8 @@ TEST_SUITE("Database") {
             CHECK_EQ(num_callback_executions, 1);
             tmgr.advance(3_time);
             CHECK_EQ(num_callback_executions, 2);
+            tmgr.advance(5_time);
+            CHECK_EQ(num_callback_executions, 3);
         }
 
         SUBCASE("query - subscription - events") {

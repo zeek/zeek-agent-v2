@@ -100,7 +100,7 @@ public:
      * @returns the rows resulting from the statement's execution, or an error
      * if there was trouble
      */
-    Result<sqlite::Result> runStatement(const std::string& stmt, Time t = 0_time);
+    Result<sqlite::Result> runStatement(const std::string& stmt, std::optional<Time> t = {});
 
     /**
      * Execeutes a previously compiled SQL statement against the currently registered tables.
@@ -111,7 +111,7 @@ public:
      * @returns the rows resulting from the statement's execution, or an error
      * if there was trouble
      */
-    Result<sqlite::Result> runStatement(const sqlite::PreparedStatement& stmt, Time t = 0_time);
+    Result<sqlite::Result> runStatement(const sqlite::PreparedStatement& stmt, std::optional<Time> t = {});
 
     /**
      * Registers a table with the backend. Statements can only be run against

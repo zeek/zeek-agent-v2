@@ -13,7 +13,6 @@
 #include "util/platform.h"
 #include "util/testing.h"
 
-#include <iostream>
 #include <map>
 #include <stdexcept>
 #include <string>
