@@ -76,11 +76,6 @@ struct Pimpl<Database>::Implementation {
 std::map<std::string, std::unique_ptr<Table>> Database::Implementation::_registered_tables;
 
 void Database::Implementation::done() {
-    for ( auto&& i : _tables ) {
-        if ( i.second->isActive() && ! i.second->usesMockData() )
-            i.second->deactivate();
-    }
-
     _queries.clear();
     _sqlite.reset(); // ensure this gets released before the tables go away
 }
