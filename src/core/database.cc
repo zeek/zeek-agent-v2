@@ -23,11 +23,11 @@ using namespace zeek::agent;
 
 // State for a currently active query.
 struct ScheduledQuery {
-    timer::ID id;                                                 // query's unique ID
-    Query query;                                                  // query itself
-    std::unique_ptr<sqlite::PreparedStatement> prepared_query;    // pre-compiled query statement
-    std::optional<std::vector<std::vector<Value>>> previous_rows; // previous result set for subscription queries
-    std::optional<Time> previous_execution;                       // time when query was most recently run
+    timer::ID id;                                              // query's unique ID
+    Query query;                                               // query itself
+    std::unique_ptr<sqlite::PreparedStatement> prepared_query; // pre-compiled query statement
+    std::optional<sqlite::Result> previous_result;             // previous result set for subscription queries
+    std::optional<Time> previous_execution;                    // time when query was most recently run
 };
 
 template<>
@@ -90,7 +90,7 @@ Result<query::ID> Database::Implementation::query(Query query) {
     _queries.push_back({.id = id,
                         .query = std::move(query),
                         .prepared_query = std::move(*prepared_query),
-                        .previous_rows = {},
+                        .previous_result = {},
                         .previous_execution = {}});
     _queries_by_id[id] = --_queries.end();
 
@@ -243,26 +243,40 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
     if ( sql_result ) {
         std::vector<query::result::Row> rows;
 
-        if ( ! stype || *stype == query::SubscriptionType::Snapshots || ! (*i)->previous_rows ) {
+        if ( ! stype || *stype == query::SubscriptionType::Snapshots || ! (*i)->previous_result ) {
             for ( const auto& sql_row : sql_result->rows )
                 rows.push_back({.type = {}, .values = sql_row});
         }
 
         else if ( stype == query::SubscriptionType::Events )
-            rows = newRows(*(*i)->previous_rows, sql_result->rows);
+            rows = newRows((*i)->previous_result->rows, sql_result->rows);
 
         else if ( stype == query::SubscriptionType::Differences )
-            rows = diffRows(*(*i)->previous_rows, sql_result->rows);
+            rows = diffRows((*i)->previous_result->rows, sql_result->rows);
 
         else
             cannot_be_reached();
 
+        if ( sql_result->columns.empty() )
+            // If a result is empty, columns won't be set. Reuse the previous one then because for diffs we may still be
+            // sending (removed) rows back.
+            sql_result->columns = (*i)->previous_result->columns;
+
+#ifndef NDEBUG
+        else if ( (*i)->previous_result ) {
+            // Double check that old and new columns match.
+            assert(sql_result->columns.size() == (*i)->previous_result->columns.size());
+            for ( size_t j = 0; j < sql_result->columns.size(); j++ )
+                assert(sql_result->columns[j].type == (*i)->previous_result->columns[j].type);
+        }
+#endif
+
         if ( (*i)->query.callback_result ) {
             _synchronized->unlockWhile([&]() {
-                auto query_result = query::Result{.columns = std::move(sql_result->columns),
+                auto query_result = query::Result{.columns = sql_result->columns,
                                                   .rows = std::move(rows),
                                                   .cookie = (*i)->query.cookie,
-                                                  .initial_result = ! (*i)->previous_rows.has_value()};
+                                                  .initial_result = ! (*i)->previous_result.has_value()};
 
                 (*(*i)->query.callback_result)(id, query_result);
             });
@@ -274,7 +288,7 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
         (*i)->previous_execution = _scheduler->currentTime();
 
         if ( schedule > 0s )
-            (*i)->previous_rows = std::move(sql_result->rows);
+            (*i)->previous_result = std::move(sql_result);
     }
     else
         logger()->error(format("table error: {}", sql_result.error()));
@@ -482,6 +496,9 @@ TEST_SUITE("Database") {
                 CHECK(initialized);
             }
 
+            if ( empty_result )
+                return {};
+
             if ( ! expected_times.empty() )
                 CHECK_EQ(since, expected_times[counter]);
 
@@ -491,6 +508,7 @@ TEST_SUITE("Database") {
 
         bool initialized = false;
         int64_t counter = 0;
+        bool empty_result = false;
         std::string name_postfix;
     };
 
@@ -785,6 +803,7 @@ TEST_SUITE("Database") {
                 switch ( num_callback_executions ) {
                     case 1: // first result is snapshot
                         CHECK_EQ(result.rows.size(), 3);
+                        CHECK_EQ(result.columns.size(), 1);
                         CHECK(! result.rows[0].type.has_value());
                         CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 1);
                         CHECK(! result.rows[1].type.has_value());
@@ -795,6 +814,7 @@ TEST_SUITE("Database") {
 
                     case 2: // 2nd result is diff
                         CHECK_EQ(result.rows.size(), 2);
+                        CHECK_EQ(result.columns.size(), 1);
                         CHECK_EQ(result.rows[0].type, query::result::ChangeType::Delete);
                         CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 1);
                         CHECK_EQ(result.rows[1].type, query::result::ChangeType::Add);
@@ -803,10 +823,22 @@ TEST_SUITE("Database") {
 
                     case 3: // 3rd result is diff
                         CHECK_EQ(result.rows.size(), 2);
+                        CHECK_EQ(result.columns.size(), 1);
                         CHECK_EQ(result.rows[0].type, query::result::ChangeType::Delete);
                         CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 2);
                         CHECK_EQ(result.rows[1].type, query::result::ChangeType::Add);
                         CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 5);
+                        break;
+
+                    case 4: // 4th is diff, with no new results.
+                        CHECK_EQ(result.rows.size(), 3);
+                        CHECK_EQ(result.columns.size(), 1); // make sure this is set even without new results
+                        CHECK_EQ(result.rows[0].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 3);
+                        CHECK_EQ(result.rows[1].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 4);
+                        CHECK_EQ(result.rows[2].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[2].values[0]), 5);
                         break;
 
                     default: CHECK(! false);
@@ -833,6 +865,9 @@ TEST_SUITE("Database") {
             CHECK_EQ(num_callback_executions, 2);
             tmgr.advance(5_time);
             CHECK_EQ(num_callback_executions, 3);
+            t.empty_result = true;
+            tmgr.advance(7_time);
+            CHECK_EQ(num_callback_executions, 4);
         }
 
         SUBCASE("query - subscription - events") {
