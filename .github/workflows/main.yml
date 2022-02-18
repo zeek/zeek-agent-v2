@@ -213,6 +213,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1
+
       - name: Configure
         run: |
           ./configure --generator=Ninja
@@ -221,6 +224,12 @@ jobs:
         run: |
           ninja -C build package_source
           (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
+
+      - name: Test build of source code
+        run: |
+          mkdir -p ${{ runner.temp }}/test-build
+          cat build/dist/${{env.ZA_TGZ}} | (cd ${{ runner.temp }}/test-build && tar xzvf -)
+          (cd $(echo ${{ runner.temp }}/test-build/zeek-agent*) && ./configure --generator=Ninja --enable-ccache && ninja -C build && ninja -C build test)
 
       - uses: actions/upload-artifact@v2
         with:
