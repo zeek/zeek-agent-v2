@@ -118,7 +118,7 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
 
     // Parse "host[:port]".
     std::string address;
-    unsigned long port = 9999;
+    unsigned long port = 9999; // default Broker port
 
     try {
         auto m = split(trim(destination), ":");

@@ -9,7 +9,7 @@
 # @TEST-EXEC: btest-diff zeek/zeek-agent-processes.log
 
 @if ( getenv("ZEEK_PORT") != "" )
-redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
+redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
 @endif
 
 global seen: set[Log::ID];

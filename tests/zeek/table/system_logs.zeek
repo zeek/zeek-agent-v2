@@ -9,7 +9,7 @@
 # @TEST-EXEC: btest-diff zeek/zeek-agent-system-logs.log
 
 @if ( getenv("ZEEK_PORT") != "" )
-redef Broker::default_port = to_port(getenv("ZEEK_PORT"));
+redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
 @endif
 
 # We only accept the 1st write writer so that our output doesn't depend on
