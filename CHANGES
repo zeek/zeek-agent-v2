@@ -1,3 +1,22 @@
+2.0.1 | 2022-02-21 15:26:44 +0100
+
+  * Add a test build of the source code tarball to CI.
+
+  * Extend query API to allow specifying tables that must/must not be
+    present. Agents will ignore queries not meeting expectations.
+
+  * Extract version information from Zeek's hello message.
+
+  * Adapt to changes to options in the Zeek package.
+
+  * Fix differential queries returning empty removed rows.
+
+  * Fix time filtering for differential queries.
+
+  * Fix double table deactivation.
+
+  * Guard against an error case in Darwin system logs collector.
+
 2.0.0 | 2022-02-14 16:14:48 +0100
 
   * Initial release.

@@ -431,7 +431,6 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
             if ( query_record[4] != broker::data() )
                 cookie = broker::get<std::string>(query_record[4]);
 
-            zquery = ZeekQuery{.zeek_instance = std::move(zeek_instance_id),
             std::set<std::string> requires_tables;
             for ( const auto& t : broker::get<broker::set>(query_record[5]) )
                 requires_tables.emplace(broker::get<std::string>(t));
@@ -440,7 +439,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
             for ( const auto& t : broker::get<broker::set>(query_record[6]) )
                 if_missing_tables.emplace(broker::get<std::string>(t));
 
-            zquery = ZeekQuery{.zeek_instance = std::move(zeek_instance),
+            zquery = ZeekQuery{.zeek_instance = std::move(zeek_instance_id),
                                .zeek_id = zeek_id,
                                .event_name = std::move(event_name),
                                .zeek_cookie = cookie,
