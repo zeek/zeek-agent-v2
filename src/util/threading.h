@@ -14,39 +14,6 @@ using namespace std::literals::chrono_literals;
 namespace zeek::agent {
 
 /**
- * Base class providing a synchronizatun helpers for methods to lock against
- * mutual execution.
- */
-class SynchronizedBase {
-public:
-    /**
-     * Class to instantuate to aquire a lock for a given `SynchronizedBase`
-     * instance
-     **/
-    struct Synchronize {
-    public:
-        Synchronize(const SynchronizedBase* s) : _lock(s->_mutex) {}
-
-    private:
-        std::scoped_lock<std::mutex> _lock;
-    };
-
-    /** Returns the internal mutex for testing purposes. */
-    auto& mutex() const { return _mutex; };
-
-    /** Executes a callable with the mutex unlocked, and then reaquired. */
-    template<typename Body>
-    auto unlockWhile(Body f) {
-        _mutex.unlock();
-        ScopeGuard _([&]() { _mutex.lock(); });
-        return f();
-    }
-
-private:
-    mutable std::mutex _mutex;
-};
-
-/**
  * Wraps a `std::condition_variable` with built-in protection against spurious
  * wakeups.
  */
