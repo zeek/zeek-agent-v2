@@ -27,6 +27,6 @@ event do_terminate() {
 	terminate();
 }
 
-event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context, columns: ZeekAgentAPI::HelloV1) {
+event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context, columns: ZeekAgentAPI::AgentHelloV1) {
 	schedule 2 secs { do_terminate() };
 }
