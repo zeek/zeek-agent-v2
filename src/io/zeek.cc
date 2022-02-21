@@ -54,7 +54,7 @@ struct ZeekQuery {
 // more than one Zeek instance may be visible on this connection. The class
 // handles that correctly by tracking which Zeek instances it has seen (through
 // their instance IDs that the Zeek-side agent framework creates)
-class BrokerConnection : SynchronizedBase {
+class BrokerConnection {
 public:
     BrokerConnection(Database* db, Scheduler* scheduler, broker::configuration broker_config)
         : _db(db), _scheduler(scheduler), _endpoint(std::move(broker_config)) {}
@@ -134,8 +134,6 @@ private:
 };
 
 Result<Nothing> BrokerConnection::connect(const std::string& destination) {
-    Synchronize _(this);
-
     // Parse "host[:port]".
     std::string address;
     unsigned long port = 9999; // default Broker port
@@ -179,19 +177,16 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
         [this](const broker::data_message& msg) {
             _scheduler->schedule([this, msg]() { // process message on the main thread
                 if ( broker::get_topic(msg) == broker::topic::statuses_str ) {
-                    Synchronize _(this);
                     auto x = broker::to<broker::status>(broker::get_data(msg));
                     assert(x); // NOLINT(bugprone-lambda-function-name)
                     processStatus(*x);
                 }
                 else if ( broker::get_topic(msg) == broker::topic::errors_str ) {
-                    Synchronize _(this);
                     auto x = broker::to<broker::error>(broker::get_data(msg));
                     assert(x); // NOLINT(bugprone-lambda-function-name)
                     processError(*x);
                 }
                 else {
-                    Synchronize _(this);
                     processEvent(msg);
                 }
             });
@@ -214,8 +209,6 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
 }
 
 void BrokerConnection::disconnect() {
-    Synchronize _(this);
-
     if ( ! _destination )
         return;
 
@@ -236,8 +229,6 @@ void BrokerConnection::disconnect() {
 }
 
 void BrokerConnection::poll() {
-    Synchronize _(this);
-
     // Expire any state from Zeek instances we haven't seen in a while.
     std::vector<std::string> to_remove;
     for ( const auto& z : _zeek_instances ) {
@@ -258,12 +249,10 @@ void BrokerConnection::installQuery(ZeekQuery zquery) {
         return;
 
     zquery.query.callback_result = [this, zeek_id](query::ID /* query_id */, const query::Result& result) {
-        Synchronize _(this);
         transmitResult(zeek_id, result);
     };
 
     zquery.query.callback_done = [this, zeek_id](query::ID /* query_id */, bool /* cancelled */) {
-        Synchronize _(this);
         ZEEK_CONN_DEBUG("database done with query {}, removing", zeek_id);
         _zeek_queries.erase(zeek_id);
     };
@@ -688,19 +677,16 @@ Zeek::~Zeek() {
 
 void Zeek::start(const std::vector<std::string>& zeeks) {
     ZEEK_IO_DEBUG("starting");
-    Synchronize _(this);
     pimpl()->start(zeeks);
 }
 
 void Zeek::stop() {
     ZEEK_IO_DEBUG("stopping");
-    Synchronize _(this);
     pimpl()->stop();
 }
 
 void Zeek::poll() {
     ZEEK_IO_DEBUG("polling");
-    Synchronize _(this);
     pimpl()->poll();
 }
 

@@ -2,7 +2,6 @@
 
 #include "console.h"
 
-#include "core/configuration.h"
 #include "core/database.h"
 #include "core/logger.h"
 #include "core/signal.h"
@@ -10,10 +9,12 @@
 #include "util/color.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
+#include "util/threading.h"
 
 #include <algorithm>
 #include <csignal>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -25,6 +26,9 @@ using namespace zeek::agent;
 
 template<>
 struct Pimpl<Console>::Implementation {
+    // One time initialization from main thread.
+    void init();
+
     // Main interactive loop running inside thread.
     void repl();
 
@@ -61,11 +65,18 @@ struct Pimpl<Console>::Implementation {
 
     std::string _scheduled_statement; // pre-scheduled statement
 
-    ConditionVariable _query_done; // flags when a query has been fully processed
+    std::map<std::string, Schema> _tables; // copy of table schema for thread-safety
 
     std::unique_ptr<std::thread> _thread; // console's thread
+    ConditionVariable _query_done;        // flags when a query has been fully processed
     replxx::Replxx _rx;                   // instance of the REPL
 };
+
+void Console::Implementation::init() {
+    for ( auto t : _db->tables() )
+        // Create a copy of the table schema while we are in the main thread.
+        _tables.emplace(t->name(), t->schema());
+}
 
 void Console::Implementation::execute(const std::string& cmd, bool terminate) {
     ZEEK_AGENT_DEBUG("console", "executing: {}", cmd);
@@ -118,6 +129,7 @@ void Console::Implementation::execute(const std::string& cmd, bool terminate) {
 }
 
 void Console::Implementation::repl() {
+    // Runs in its own thread.
     auto history_path = platform::dataDirectory() / "history";
     _rx.history_load(history_path.native());
 
@@ -185,21 +197,21 @@ void Console::Implementation::printTables() {
     AsciiTable out;
     out.addHeader({"Name", "Description"});
 
-    for ( const auto& t : _db->tables() )
-        out.addRow({t->name(), t->schema().summary});
+    for ( const auto& [name, schema] : _tables )
+        out.addRow({name, schema.summary});
 
     out.print(std::cout);
 }
 
 Result<Nothing> Console::Implementation::printSchema(const std::string& table) {
-    auto t = _db->table(table);
-    if ( ! t )
+    auto t = _tables.find(table);
+    if ( t == _tables.end() )
         return result::Error("no such table");
 
     AsciiTable out;
     out.addHeader({"Column", "Type", "Description"});
 
-    for ( const auto& c : t->schema().columns )
+    for ( const auto& c : t->second.columns )
         out.addRow({c.name, to_string(c.type), c.summary});
 
     out.print(std::cout);
@@ -236,6 +248,7 @@ void Console::Implementation::query(const std::string& stmt, std::optional<query
     });
 
     _query_done.wait();
+    std::cout << std::endl;
 }
 
 void Console::Implementation::message(const std::string& msg) { _rx.print("%s\n", msg.c_str()); }
@@ -282,14 +295,13 @@ Console::~Console() {
     stop();
 }
 
-void Console::scheduleStatementWithTermination(std::string stmt) {
-    Synchronize _(this);
-    pimpl()->_scheduled_statement = std::move(stmt);
-}
+void Console::scheduleStatementWithTermination(std::string stmt) { pimpl()->_scheduled_statement = std::move(stmt); }
 
 void Console::start() {
     ZEEK_AGENT_DEBUG("console", "starting");
-    Synchronize _(this);
+
+    pimpl()->init();
+
     pimpl()->_thread = std::make_unique<std::thread>([this]() {
         if ( pimpl()->_scheduled_statement.size() )
             pimpl()->execute(pimpl()->_scheduled_statement, true);
@@ -299,8 +311,6 @@ void Console::start() {
 }
 
 void Console::stop() {
-    Synchronize _(this);
-
     if ( pimpl()->_thread ) {
         ZEEK_AGENT_DEBUG("console", "stopping");
         pimpl()->_query_done.notify();

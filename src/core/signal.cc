@@ -5,7 +5,6 @@
 #include "logger.h"
 #include "util/fmt.h"
 #include "util/testing.h"
-#include "util/threading.h"
 
 #include <algorithm>
 #include <csignal>

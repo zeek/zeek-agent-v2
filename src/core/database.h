@@ -5,7 +5,6 @@
 #include "table.h"
 #include "util/pimpl.h"
 #include "util/result.h"
-#include "util/threading.h"
 
 #include <map>
 #include <memory>
@@ -124,9 +123,9 @@ class Scheduler;
  * Tables are typically registered at agent startup, and then remain available
  * for querying through corresponding SQL statements.
  *
- * All public methods in this class are thread-safe.
+ * Note that database methods are not safe against access from different threads.
  */
-class Database : public Pimpl<Database>, public SynchronizedBase {
+class Database : public Pimpl<Database> {
 public:
     /**
      * Constructor.

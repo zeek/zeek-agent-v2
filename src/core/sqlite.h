@@ -6,7 +6,6 @@
 #include "table.h"
 #include "util/pimpl.h"
 #include "util/result.h"
-#include "util/threading.h"
 
 #include <memory>
 #include <set>
@@ -77,7 +76,7 @@ struct Result {
  *
  * All public methods are thread-safe.
  */
-class SQLite : public Pimpl<SQLite>, SynchronizedBase {
+class SQLite : public Pimpl<SQLite> {
 public:
     SQLite();
     ~SQLite();

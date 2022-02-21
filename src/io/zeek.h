@@ -3,7 +3,6 @@
 #pragma once
 
 #include "util/pimpl.h"
-#include "util/threading.h"
 
 #include <memory>
 #include <string>
@@ -22,7 +21,7 @@ class Scheduler;
  *
  * All public methods are thread-safe.
  */
-class Zeek : public Pimpl<Zeek>, SynchronizedBase {
+class Zeek : public Pimpl<Zeek> {
 public:
     /**
      * Constructor.

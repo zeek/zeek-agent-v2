@@ -11,7 +11,6 @@
 #include "io/zeek.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "util/threading.h"
 
 #include <csignal>
 #include <iostream>
