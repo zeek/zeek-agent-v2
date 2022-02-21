@@ -38,31 +38,36 @@ struct Pimpl<Scheduler>::Implementation {
     // Advances the current time, fireing all timers now expired.
     bool advance(Time now);
 
-    // Runs all update hooks.
+    // Signals an externally visible state change..
     void updated();
 
     // Executes scheduled activity up to current wall clock.
     bool loop();
 
-    SynchronizedBase* _synchronized =
-        nullptr;            // scheduler's synchronizer, so that we can release it for callback execution
-    timer::ID _next_id = 1; // counter for creating timer IDs
-    Time _now = 0_time;     // current time
+    timer::ID _next_id = 1;            // counter for creating timer IDs
+    Time _now = 0_time;                // current time
+    bool _terminating;                 // true once termination has been requested; ok to access wo/ lock
+    ConditionVariable _interrupt_loop; // notify to interrupt idnle waiting in loop()
+
+    mutable std::mutex
+        _timers_mutex; // mutex protecting access to the current set of timers (_timers_by_id and _timers)
     std::unordered_map<timer::ID, Timer> _timers_by_id;                        // maps IDs to their timers
     std::priority_queue<Timer*, std::vector<Timer*>, TimerComparator> _timers; // timers sorted by time
-    std::vector<std::function<void()>> _update_callbacks;                      // registered update callbacks
-    std::atomic<bool> _terminating; // true once termination has been requested; ok to access wo/ lock
-    ConditionVariable interrupt_loop;
 };
 
 timer::ID Scheduler::Implementation::schedule(timer::ID id, Time t, timer::Callback cb) {
+    std::scoped_lock lock(_timers_mutex);
+
     auto timer = Timer{.due = t, .id = id, .callback = std::move(cb)};
     auto x = _timers_by_id.emplace(id, std::move(timer));
     _timers.push(&x.first->second);
+    updated();
     return id;
 }
 
 void Scheduler::Implementation::cancel(timer::ID id) {
+    std::scoped_lock lock(_timers_mutex);
+
     if ( auto t = _timers_by_id.find(id); t != _timers_by_id.end() )
         // mark as canceled, expiration will eventually delete it
         t->second.canceled = true;
@@ -73,6 +78,7 @@ bool Scheduler::Implementation::advance(Time now) {
         return false;
 
     _now = now;
+    std::unique_lock lock(_timers_mutex);
 
     while ( _timers.size() && _timers.top()->due <= _now ) {
         auto t = std::move(*_timers.top()); // copy it out so that we can remove it before running the callback
@@ -83,123 +89,93 @@ bool Scheduler::Implementation::advance(Time now) {
         _timers_by_id.erase(t.id);
 
         if ( ! t.canceled ) {
-            // Release lock before running callback, so that that can access the scheduler.
-            if ( auto reschedule = _synchronized->unlockWhile([&]() { return t.callback(t.id); }); reschedule > 0s ) {
+            // Release lock before running callback
+            lock.unlock();
+
+            if ( auto reschedule = t.callback(t.id); reschedule > 0s ) {
                 auto due = _now + reschedule;
                 ZEEK_AGENT_DEBUG("scheduler", "rescheduling timer {} for t={}", t.id, to_string(due));
                 schedule(t.id, due, t.callback);
             }
+
+            lock.lock();
         }
     }
 
     return true;
 }
 
+void Scheduler::Implementation::updated() { _interrupt_loop.notify(); }
+
 bool Scheduler::Implementation::loop() {
     Interval timeout = 0s;
 
-    if ( _timers.empty() )
-        timeout = 15s; // TODO: Make max timoeut configurable
-    else
-        timeout = std::max(Interval(0s), _timers.top()->due - std::chrono::system_clock::now());
+    {
+        std::scoped_lock lock(_timers_mutex);
+
+        if ( _timers.empty() )
+            timeout = 5s; // TODO: Make max timeout configurable
+        else
+            timeout = std::max(Interval(0s), _timers.top()->due - std::chrono::system_clock::now());
+    }
 
     if ( timeout > 0s ) {
         ZEEK_AGENT_DEBUG("scheduler", "sleeping with timeout={}", to_string(timeout));
-        _synchronized->unlockWhile([&]() { interrupt_loop.wait(timeout); });
+        _interrupt_loop.wait(timeout);
     }
 
     advance(std::chrono::system_clock::now());
     return _terminating;
 }
 
-void Scheduler::Implementation::updated() {
-    _synchronized->unlockWhile([&]() {
-        for ( const auto& cb : _update_callbacks )
-            cb();
-    });
-
-    ZEEK_AGENT_DEBUG("scheduler", "updated");
-    interrupt_loop.notify();
-}
-
-Scheduler::Scheduler() {
-    ZEEK_AGENT_DEBUG("scheduler", "creating instance");
-    pimpl()->_synchronized = this;
-}
+Scheduler::Scheduler() { ZEEK_AGENT_DEBUG("scheduler", "creating instance"); }
 
 Scheduler::~Scheduler() { ZEEK_AGENT_DEBUG("scheduler", "destroying instance"); }
 
 timer::ID Scheduler::schedule(Time t, timer::Callback cb) {
-    Synchronize _(this);
     auto id = pimpl()->schedule(pimpl()->_next_id++, t, std::move(cb));
-    ZEEK_AGENT_DEBUG("scheduler", "scheduled timer {} for t={}", id, to_string(t));
-    pimpl()->updated();
+    ZEEK_AGENT_DEBUG("scheduler", "scheduling timer {} for t={}", id, to_string(t));
     return id;
 }
 
 void Scheduler::schedule(task::Callback cb) {
-    Synchronize _(this);
     auto id = pimpl()->schedule(pimpl()->_next_id++, currentTime(), [cb = std::move(cb)](timer::ID) -> Interval {
         cb();
         return Interval(0);
     });
 
-    ZEEK_AGENT_DEBUG("scheduler", "scheduled task {} for immediate execution", id);
-    pimpl()->updated();
+    ZEEK_AGENT_DEBUG("scheduler", "scheduling task {} for immediate execution", id);
 }
 
 void Scheduler::cancel(timer::ID id) {
-    Synchronize _(this);
     ZEEK_AGENT_DEBUG("scheduler", "canceling timer {}", id);
     pimpl()->cancel(id);
     pimpl()->updated();
 }
 
 bool Scheduler::loop() {
-    Synchronize _(this);
     ZEEK_AGENT_DEBUG("scheduler", "executing pending activity");
     return pimpl()->loop();
 }
 
 void Scheduler::advance(Time t) {
-    Synchronize _(this);
     ZEEK_AGENT_DEBUG("scheduler", "advancing time to t={}", to_string(t));
     if ( pimpl()->advance(t) )
         pimpl()->updated();
 }
 
-void Scheduler::registerUpdateCallback(std::function<void()> cb) {
-    Synchronize _(this);
-    pimpl()->_update_callbacks.push_back(std::move(cb));
-}
-
 void Scheduler::terminate() {
-    Synchronize _(this);
     ZEEK_AGENT_DEBUG("scheduler", "got request to terminate");
     pimpl()->_terminating = true;
     pimpl()->updated();
 }
 
-bool Scheduler::terminating() const {
-    // Synchronize _(this);
-    return pimpl()->_terminating;
-}
+bool Scheduler::terminating() const { return pimpl()->_terminating; }
 
-Time Scheduler::currentTime() const {
-    // Synchronize _(this);
-    return pimpl()->_now;
-}
-
-Time Scheduler::nextTimer() const {
-    Synchronize _(this);
-    if ( pimpl()->_timers.empty() )
-        return 0_time;
-    else
-        return pimpl()->_timers.top()->due;
-}
+Time Scheduler::currentTime() const { return pimpl()->_now; }
 
 size_t Scheduler::pendingTimers() const {
-    Synchronize _(this);
+    std::scoped_lock lock(pimpl()->_timers_mutex);
     return pimpl()->_timers_by_id.size();
 }
 
@@ -226,7 +202,6 @@ TEST_CASE("timer management") {
             return 0s;
         });
 
-        CHECK_EQ(scheduler.nextTimer(), 5_time);
         CHECK_EQ(scheduler.pendingTimers(), 2);
 
         scheduler.advance(3_time);
@@ -310,25 +285,5 @@ TEST_CASE("timer management") {
         CHECK(! scheduler.terminating());
         scheduler.terminate();
         CHECK(scheduler.terminating());
-    }
-
-    SUBCASE("update callback") {
-        // Checking all non-const methods here (except callback registration)
-        Scheduler scheduler;
-        uint64_t counter = 0;
-        scheduler.registerUpdateCallback([&]() { counter += 1; });
-
-        scheduler.advance(20_time);
-        scheduler.advance(40_time);
-        CHECK_EQ(counter, 2);
-
-        auto id = scheduler.schedule(50_time, [](timer::ID) { return 0s; });
-        CHECK_EQ(counter, 3);
-
-        scheduler.cancel(id);
-        CHECK_EQ(counter, 4);
-
-        scheduler.terminate();
-        CHECK_EQ(counter, 5);
     }
 }
