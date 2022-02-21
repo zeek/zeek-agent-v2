@@ -395,14 +395,9 @@ Configuration::~Configuration() {
     logger()->set_level(pimpl()->old_log_level);
 }
 
-const Options& Configuration::options() const {
-    Synchronize _(this);
-    return pimpl()->_options;
-}
+const Options& Configuration::options() const { return pimpl()->_options; }
 
 Result<Nothing> Configuration::initFromArgv(int argc, const char* const* argv) {
-    Synchronize _(this);
-
     std::vector<std::string> vargv;
     vargv.reserve(argc);
     for ( auto i = 0; i < argc; i++ )
@@ -413,13 +408,11 @@ Result<Nothing> Configuration::initFromArgv(int argc, const char* const* argv) {
 }
 
 Result<Nothing> Configuration::read(const filesystem::path& path) {
-    Synchronize _(this);
     ZEEK_AGENT_DEBUG("configuration", "reading file {}", path.native());
     return pimpl()->read(path);
 }
 
 Result<Nothing> Configuration::read(std::istream& in, const filesystem::path& path) {
-    Synchronize _(this);
     ZEEK_AGENT_DEBUG("configuration", "reading stream associated with file {}", path.native());
     return pimpl()->read(in, path);
 }

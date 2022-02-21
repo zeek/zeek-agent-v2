@@ -1,3 +1,12 @@
+2.0.2 | 2022-02-21 16:36:16 +0100
+
+  * Push all asynchronous activity to the main thread to avoid most
+    inter-thread locking.
+
+  * Fix configure's `--sanitizer` argument.
+
+  * In `.schema` output, break out table parameters separately.
+
 2.0.1 | 2022-02-21 15:26:44 +0100
 
   * Add a test build of the source code tarball to CI.

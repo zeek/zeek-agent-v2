@@ -7,7 +7,6 @@
 #include "sqlite.h"
 #include "util/helpers.h"
 #include "util/testing.h"
-#include "util/threading.h"
 
 #include <algorithm>
 #include <list>
@@ -59,8 +58,6 @@ struct Pimpl<Database>::Implementation {
     // Helper to lookup scheduled query.
     std::optional<std::list<ScheduledQuery>::iterator> lookupQuery(query::ID);
 
-    SynchronizedBase* _synchronized =
-        nullptr; // database's synchronizer, so that we can grab it during callback execution
     const Configuration* _configuration = nullptr; // configuration object, as passed into constructor
     Scheduler* _scheduler = nullptr;               // scheduler as passed into constructor
     std::unique_ptr<SQLite> _sqlite;               // SQLite backend for performing queries
@@ -127,9 +124,7 @@ void Database::Implementation::expire() {
             continue;
 
         if ( (*i)->query.callback_done )
-            _synchronized->unlockWhile([&, id = id, regular_shutdown = regular_shutdown]() {
-                (*(*i)->query.callback_done)(id, ! regular_shutdown);
-            });
+            (*(*i)->query.callback_done)(id, ! regular_shutdown);
     }
 
     for ( const auto& [id, regular_shutdown] : _cancelled_queries ) {
@@ -231,15 +226,12 @@ static auto newRows(std::vector<std::vector<Value>> old, std::vector<std::vector
 }
 
 Interval Database::Implementation::timerCallback(timer::ID id) {
-    SynchronizedBase::Synchronize _(_synchronized);
-
     auto i = lookupQuery(id);
     if ( ! i || (*i)->query.cancelled )
         // already gone, or will be cleaned up shortly
         return 0s;
 
-    auto sql_result = _synchronized->unlockWhile(
-        [&]() { return _sqlite->runStatement(*(*i)->prepared_query, (*i)->previous_execution); });
+    auto sql_result = _sqlite->runStatement(*(*i)->prepared_query, (*i)->previous_execution);
 
     // re-lookup because we released the lock
     i = lookupQuery(id);
@@ -282,14 +274,12 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
 #endif
 
         if ( (*i)->query.callback_result ) {
-            _synchronized->unlockWhile([&]() {
-                auto query_result = query::Result{.columns = sql_result->columns,
-                                                  .rows = std::move(rows),
-                                                  .cookie = (*i)->query.cookie,
-                                                  .initial_result = ! (*i)->previous_result.has_value()};
+            auto query_result = query::Result{.columns = sql_result->columns,
+                                              .rows = std::move(rows),
+                                              .cookie = (*i)->query.cookie,
+                                              .initial_result = ! (*i)->previous_result.has_value()};
 
-                (*(*i)->query.callback_result)(id, query_result);
-            });
+            (*(*i)->query.callback_result)(id, query_result);
 
             // repeat search in case map was modified by callback
             i = lookupQuery(id);
@@ -328,7 +318,6 @@ Table* Database::Implementation::table(const std::string& name) {
 
 Database::Database(Configuration* configuration, Scheduler* scheduler) {
     ZEEK_AGENT_DEBUG("database", "creating instance");
-    pimpl()->_synchronized = this;
     pimpl()->_configuration = configuration;
     pimpl()->_scheduler = scheduler;
     pimpl()->_sqlite = std::make_unique<SQLite>();
@@ -349,15 +338,9 @@ Time Database::currentTime() const {
     return pimpl()->_scheduler->currentTime();
 }
 
-size_t Database::numberQueries() const {
-    Synchronize _(this);
-    return pimpl()->_queries.size();
-}
+size_t Database::numberQueries() const { return pimpl()->_queries.size(); }
 
-Table* Database::table(const std::string& name) {
-    Synchronize _(this);
-    return pimpl()->table(name);
-}
+Table* Database::table(const std::string& name) { return pimpl()->table(name); }
 
 std::vector<const Table*> Database::tables() {
     std::vector<const Table*> out;
@@ -371,7 +354,6 @@ std::vector<const Table*> Database::tables() {
 
 Result<std::optional<query::ID>> Database::query(const Query& q) {
     ZEEK_AGENT_DEBUG("database", "new query: {} ", q.sql_stmt);
-    Synchronize _(this);
 
     auto id = pimpl()->query(q);
     if ( id ) {
@@ -388,26 +370,21 @@ Result<std::optional<query::ID>> Database::query(const Query& q) {
 
 void Database::cancel(query::ID id) {
     ZEEK_AGENT_DEBUG("database", "canceling query {}", id);
-    Synchronize _(this);
     return pimpl()->cancel(id, false);
 }
 
 void Database::poll() {
     ZEEK_AGENT_DEBUG("database", "polling database");
-    Synchronize _(this);
     pimpl()->poll();
     pimpl()->expire();
 }
 
 void Database::expire() {
     ZEEK_AGENT_DEBUG("database", "expiring database state");
-    Synchronize _(this);
     pimpl()->expire();
 }
 
 void Database::addTable(Table* t) {
-    Synchronize _(this);
-
     t->setDatabase(this);
 
     if ( configuration().options().use_mock_data )

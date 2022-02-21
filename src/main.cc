@@ -11,7 +11,6 @@
 #include "io/zeek.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "util/threading.h"
 
 #include <csignal>
 #include <iostream>
@@ -41,7 +40,6 @@ int main(int argc, char** argv) {
         if ( geteuid() != 0 && ! cfg.options().use_mock_data )
             logger()->warn("not running as root, information may be incomplete");
 
-        ConditionVariable main_loop;
         Scheduler scheduler;
         SignalManager signal_mgr({SIGINT});
         signal::Handler sigint(&signal_mgr, SIGINT, [&]() { scheduler.terminate(); });
@@ -68,29 +66,13 @@ int main(int argc, char** argv) {
 
         ZEEK_AGENT_DEBUG("main", "looping until terminated");
 
-        scheduler.registerUpdateCallback([&main_loop]() { main_loop.notify(); });
-
-        while ( ! scheduler.terminating() ) {
+        while ( ! scheduler.loop() ) {
             db.poll();
 
             if ( zeek )
                 zeek->poll();
 
-            if ( auto next_timer = scheduler.nextTimer(); next_timer == 0_time ) {
-                // TODO: make timeout configurable
-                auto t = Interval(15s);
-                ZEEK_AGENT_DEBUG("main", "completely idle, sleeping with timeout={}", to_string(t));
-                main_loop.wait(t);
-            }
-
-            else if ( auto t = next_timer - std::chrono::system_clock::now(); t > 0s ) {
-                ZEEK_AGENT_DEBUG("main", "sleeping with timeout={}", to_string(t));
-                main_loop.wait(t);
-            }
-
-            scheduler.advance(std::chrono::system_clock::now());
             db.expire();
-            main_loop.reset(); // clear any updates that were just flagged
         }
 
         return 0;

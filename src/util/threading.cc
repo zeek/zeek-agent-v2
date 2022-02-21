@@ -9,20 +9,6 @@
 using namespace zeek::agent;
 
 TEST_SUITE("Threading") {
-    TEST_CASE("synchronized") {
-        SynchronizedBase sync;
-        {
-            SynchronizedBase::Synchronize _(&sync);
-            CHECK_FALSE(sync.mutex().try_lock());
-
-            sync.unlockWhile([&]() {
-                CHECK(sync.mutex().try_lock());
-                sync.mutex().unlock();
-            });
-        }
-        CHECK(sync.mutex().try_lock());
-    }
-
     TEST_CASE("condition variable") {
         ConditionVariable cv;
 

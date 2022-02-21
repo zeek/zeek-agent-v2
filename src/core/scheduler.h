@@ -2,8 +2,8 @@
 
 #pragma once
 
+#include "util/helpers.h"
 #include "util/pimpl.h"
-#include "util/threading.h"
 
 #include <functional>
 
@@ -21,6 +21,11 @@ using ID = uint64_t;
 using Callback = std::function<Interval(ID)>;
 } // namespace timer
 
+namespace task {
+/** Callback for an operation queued for execution. */
+using Callback = std::function<void()>;
+} // namespace task
+
 /**
  * Manages a set of scheduled timers with associated callbacks to eventually
  * execute. The scheduler has an internal notion of time and will execute the
@@ -33,10 +38,9 @@ using Callback = std::function<Interval(ID)>;
  * for example through a deterministic sequence of fixed steps. The latter is
  * particularly useful for unit testing.
  *
- * All public methods in this class are thread-safe. Callbacks will run from
- * the inside the thread that advances the schedule's time.
+ * Note that methods of this class aren't thread-safe unless stated othewise.
  */
-class Scheduler : public Pimpl<Scheduler>, SynchronizedBase {
+class Scheduler : public Pimpl<Scheduler> {
 public:
     Scheduler();
     ~Scheduler();
@@ -44,12 +48,26 @@ public:
     /**
      * Schedules a new timer to a specific point of time in the future.
      *
+     * This method is thread-safe and may be called from any thread. The
+     * callback will always be executed on the main thread.
+     *
      * @param t time to schedule the timer for
      * @param cb callback to execute when `t` has been reached
      * @returns a unique ID for the scheduled timer, which will remain valid
      * until the timer fires or gets canceled
      */
     timer::ID schedule(Time t, timer::Callback cb);
+
+    /**
+     * Enqueues a callback to execute at the next possible opportunity fro the
+     * scheduler's thread.
+     *
+     * This method is thread-safe and may be called from any thread. The
+     * callback will always be executed on the main thread.
+     *
+     * @param cb callback to execute as soon as possible
+     */
+    void schedule(task::Callback cb);
 
     /**
      * Cancels a previously installed timer. The timer will be deleted without
@@ -80,12 +98,8 @@ public:
     Time currentTime() const;
 
     /**
-     * Returns the time that the most recent upcoming timer will fire at.
-     * Returns time zero if there's no timer currently scheduled.
+     * Returns the number of timers/tasks currently scheduled for execution.
      */
-    Time nextTimer() const;
-
-    /** Returns the number of timers currently scheduled for execution. */
     size_t pendingTimers() const;
 
     /**
@@ -100,15 +114,14 @@ public:
     bool terminating() const;
 
     /**
-     * Registers a callback to execute whenever something about the scheduler's
-     * state may have changed, including new or canceled timers, or advances in
-     * time. Callbacks will execute from inside the same thread that triggered
-     * the update. They may run in cases where there's no actual state
-     * change.
+     * Executes pending activity up to current wall clock. If nothing is
+     * pending, blocks for a  little while (with new activity interrupting the
+     * block).
      *
-     * @param callback callback to execute after any change in state
-     **/
-    void registerUpdateCallback(std::function<void()> cb);
+     * @return true if processing is to continue; false if the scheduler has
+     * been asked to terminate
+     */
+    bool loop();
 };
 
 } // namespace zeek::agent

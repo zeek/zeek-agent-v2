@@ -3,9 +3,9 @@
 #pragma once
 
 #include "util/filesystem.h"
+#include "util/helpers.h"
 #include "util/pimpl.h"
 #include "util/result.h"
-#include "util/threading.h"
 
 #include <optional>
 #include <string>
@@ -107,7 +107,7 @@ struct Options {
  *
  * All public methods in this class are thread-safe.
  */
-class Configuration : public Pimpl<Configuration>, protected SynchronizedBase {
+class Configuration : public Pimpl<Configuration> {
 public:
     Configuration();
     ~Configuration();

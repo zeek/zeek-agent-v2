@@ -3,7 +3,6 @@
 #pragma once
 
 #include "util/pimpl.h"
-#include "util/threading.h"
 
 #include <memory>
 #include <string>
@@ -24,7 +23,7 @@ class SignalManager;
  *
  * All public methods are thread-safe.
  */
-class Console : public Pimpl<Console>, SynchronizedBase {
+class Console : public Pimpl<Console> {
 public:
     /**
      * Constructor.

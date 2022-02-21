@@ -585,7 +585,6 @@ SQLite::~SQLite() {
 
 Result<std::unique_ptr<sqlite::PreparedStatement>> SQLite::prepareStatement(const std::string& stmt) {
     ZEEK_AGENT_DEBUG("sqlite", "preparing statement: \"{}\"", stmt);
-    Synchronize _(this);
     return pimpl()->prepareStatement(stmt);
 }
 
@@ -593,19 +592,16 @@ Result<sqlite::Result> SQLite::runStatement(const sqlite::PreparedStatement& stm
     ZEEK_AGENT_DEBUG("sqlite", "executing compiled statement: \"{}\"", ::sqlite3_sql(stmt.statement()));
     assert(stmt.statement());
 
-    Synchronize _(this);
     return pimpl()->runStatement(stmt, t);
 }
 
 Result<sqlite::Result> SQLite::runStatement(const std::string& stmt, std::optional<Time> t) {
-    Synchronize _(this);
     ZEEK_AGENT_DEBUG("sqlite", "executing statement: \"{}\"", stmt);
     return pimpl()->runStatement(stmt, t);
 }
 
 Result<Nothing> SQLite::addTable(Table* table) {
     ZEEK_AGENT_DEBUG("sqlite", "{} table {}", (pimpl()->table(table->name()) ? "replacing" : "adding"), table->name());
-    Synchronize _(this);
     return pimpl()->addTable(table);
 }
 
