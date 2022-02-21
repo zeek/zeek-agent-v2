@@ -7,6 +7,7 @@
 #include "util/testing.h"
 #include "util/threading.h"
 
+#include <algorithm>
 #include <queue>
 #include <unordered_map>
 #include <utility>
@@ -40,6 +41,9 @@ struct Pimpl<Scheduler>::Implementation {
     // Runs all update hooks.
     void updated();
 
+    // Executes scheduled activity up to current wall clock.
+    bool loop();
+
     SynchronizedBase* _synchronized =
         nullptr;            // scheduler's synchronizer, so that we can release it for callback execution
     timer::ID _next_id = 1; // counter for creating timer IDs
@@ -48,6 +52,7 @@ struct Pimpl<Scheduler>::Implementation {
     std::priority_queue<Timer*, std::vector<Timer*>, TimerComparator> _timers; // timers sorted by time
     std::vector<std::function<void()>> _update_callbacks;                      // registered update callbacks
     std::atomic<bool> _terminating; // true once termination has been requested; ok to access wo/ lock
+    ConditionVariable interrupt_loop;
 };
 
 timer::ID Scheduler::Implementation::schedule(timer::ID id, Time t, timer::Callback cb) {
@@ -90,11 +95,31 @@ bool Scheduler::Implementation::advance(Time now) {
     return true;
 }
 
+bool Scheduler::Implementation::loop() {
+    Interval timeout = 0s;
+
+    if ( _timers.empty() )
+        timeout = 15s; // TODO: Make max timoeut configurable
+    else
+        timeout = std::max(Interval(0s), _timers.top()->due - std::chrono::system_clock::now());
+
+    if ( timeout > 0s ) {
+        ZEEK_AGENT_DEBUG("scheduler", "sleeping with timeout={}", to_string(timeout));
+        _synchronized->unlockWhile([&]() { interrupt_loop.wait(timeout); });
+    }
+
+    advance(std::chrono::system_clock::now());
+    return _terminating;
+}
+
 void Scheduler::Implementation::updated() {
     _synchronized->unlockWhile([&]() {
         for ( const auto& cb : _update_callbacks )
             cb();
     });
+
+    ZEEK_AGENT_DEBUG("scheduler", "updated");
+    interrupt_loop.notify();
 }
 
 Scheduler::Scheduler() {
@@ -112,11 +137,28 @@ timer::ID Scheduler::schedule(Time t, timer::Callback cb) {
     return id;
 }
 
+void Scheduler::schedule(task::Callback cb) {
+    Synchronize _(this);
+    auto id = pimpl()->schedule(pimpl()->_next_id++, currentTime(), [cb = std::move(cb)](timer::ID) -> Interval {
+        cb();
+        return Interval(0);
+    });
+
+    ZEEK_AGENT_DEBUG("scheduler", "scheduled task {} for immediate execution", id);
+    pimpl()->updated();
+}
+
 void Scheduler::cancel(timer::ID id) {
     Synchronize _(this);
     ZEEK_AGENT_DEBUG("scheduler", "canceling timer {}", id);
     pimpl()->cancel(id);
     pimpl()->updated();
+}
+
+bool Scheduler::loop() {
+    Synchronize _(this);
+    ZEEK_AGENT_DEBUG("scheduler", "executing pending activity");
+    return pimpl()->loop();
 }
 
 void Scheduler::advance(Time t) {
@@ -139,12 +181,12 @@ void Scheduler::terminate() {
 }
 
 bool Scheduler::terminating() const {
-    Synchronize _(this);
+    // Synchronize _(this);
     return pimpl()->_terminating;
 }
 
 Time Scheduler::currentTime() const {
-    Synchronize _(this);
+    // Synchronize _(this);
     return pimpl()->_now;
 }
 

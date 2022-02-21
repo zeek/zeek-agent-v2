@@ -21,6 +21,11 @@ using ID = uint64_t;
 using Callback = std::function<Interval(ID)>;
 } // namespace timer
 
+namespace task {
+/** Callback for an operation queued for execution. */
+using Callback = std::function<void()>;
+} // namespace task
+
 /**
  * Manages a set of scheduled timers with associated callbacks to eventually
  * execute. The scheduler has an internal notion of time and will execute the
@@ -52,6 +57,13 @@ public:
     timer::ID schedule(Time t, timer::Callback cb);
 
     /**
+     * Enqueues a callback to execute at the next possible opportunity fro the scheduler's thread.
+
+     * @param cb callback to execute as soon as possible from the scheduler's thread.
+     */
+    void schedule(task::Callback cb);
+
+    /**
      * Cancels a previously installed timer. The timer will be deleted without
      * its callback executing.
      *
@@ -59,6 +71,16 @@ public:
      * methods; it's ok if the timer already doesn't exist anymore
      */
     void cancel(timer::ID id);
+
+    /**
+     * Executes pending activity up to current wall clock. If nothing is
+     * pending, blocks for a  little while (with new activity interrupting the
+     * block).
+     *
+     * @return true if processing is to continue; false if the scheduler has
+     * been asked to terminate
+     */
+    bool loop();
 
     /**
      * Advances to scheduler's notion of the current time. This will let all

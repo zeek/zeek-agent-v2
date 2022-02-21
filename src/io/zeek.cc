@@ -177,24 +177,26 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
     _endpoint.subscribe_nosync(
         topics, []() { /* nop */ },
         [this](const broker::data_message& msg) {
-            if ( broker::get_topic(msg) == broker::topic::statuses_str ) {
-                Synchronize _(this);
-                auto x = broker::to<broker::status>(broker::get_data(msg));
-                assert(x); // NOLINT(bugprone-lambda-function-name)
-                processStatus(*x);
-            }
-            else if ( broker::get_topic(msg) == broker::topic::errors_str ) {
-                Synchronize _(this);
-                auto x = broker::to<broker::error>(broker::get_data(msg));
-                assert(x); // NOLINT(bugprone-lambda-function-name)
-                processError(*x);
-            }
-            else {
-                Synchronize _(this);
-                processEvent(msg);
-            }
-        },                                       //
-        [](const broker::error&) { /* nop */ }); //
+            _scheduler->schedule([this, msg]() { // process message on the main thread
+                if ( broker::get_topic(msg) == broker::topic::statuses_str ) {
+                    Synchronize _(this);
+                    auto x = broker::to<broker::status>(broker::get_data(msg));
+                    assert(x); // NOLINT(bugprone-lambda-function-name)
+                    processStatus(*x);
+                }
+                else if ( broker::get_topic(msg) == broker::topic::errors_str ) {
+                    Synchronize _(this);
+                    auto x = broker::to<broker::error>(broker::get_data(msg));
+                    assert(x); // NOLINT(bugprone-lambda-function-name)
+                    processError(*x);
+                }
+                else {
+                    Synchronize _(this);
+                    processEvent(msg);
+                }
+            });
+        },
+        [](const broker::error&) { /* nop */ });
 
     _subscriber = _endpoint.make_subscriber(topics);
     _status_subscriber = _endpoint.make_status_subscriber(true);

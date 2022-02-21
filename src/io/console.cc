@@ -34,9 +34,6 @@ struct Pimpl<Console>::Implementation {
     // Performance a query against the database.
     void query(const std::string& stmt, std::optional<query::SubscriptionType> subscription, bool terminate = false);
 
-    // Cancels the current query.
-    void cancelQuery();
-
     // Prints a message to the console.
     void message(const std::string& msg);
 
@@ -69,11 +66,6 @@ struct Pimpl<Console>::Implementation {
     std::unique_ptr<std::thread> _thread; // console's thread
     replxx::Replxx _rx;                   // instance of the REPL
 };
-
-void Console::Implementation::cancelQuery() {
-    // Note we can come here from a signal handler.
-    _query_done.notify();
-}
 
 void Console::Implementation::execute(const std::string& cmd, bool terminate) {
     ZEEK_AGENT_DEBUG("console", "executing: {}", cmd);
@@ -234,20 +226,16 @@ void Console::Implementation::query(const std::string& stmt, std::optional<query
     std::unique_ptr<signal::Handler> sigint_handler;
     if ( ! terminate )
         // Temporarily install our our SIGINT handler while the query is running.
-        sigint_handler = std::make_unique<signal::Handler>(_signal_mgr, SIGINT, [this]() {
-            cancelQuery();
-            std::cout << std::endl;
-        });
+        sigint_handler = std::make_unique<signal::Handler>(_signal_mgr, SIGINT, [this]() { _query_done.notify(); });
 
     _query_done.reset();
-    if ( auto id = _db->query(query) ) {
-        _query_done.wait();
 
-        if ( *id )
-            _db->cancel(**id);
-    }
-    else
-        error(id.error());
+    _scheduler->schedule([this, query]() {
+        if ( auto id = _db->query(query); ! id )
+            error(id.error());
+    });
+
+    _query_done.wait();
 }
 
 void Console::Implementation::message(const std::string& msg) { _rx.print("%s\n", msg.c_str()); }
@@ -315,7 +303,7 @@ void Console::stop() {
 
     if ( pimpl()->_thread ) {
         ZEEK_AGENT_DEBUG("console", "stopping");
-        pimpl()->cancelQuery();
+        pimpl()->_query_done.notify();
         pimpl()->_thread->join();
     }
 }
