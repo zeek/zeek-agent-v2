@@ -82,11 +82,18 @@ void SystemLogsDarwin::activate() {
     };
 
     _activity_stream = os_activity_stream_for_pid(-1, OS_ACTIVITY_STREAM_BUFFERED, callback);
+    if ( ! _activity_stream ) {
+        ZEEK_AGENT_DEBUG("system_logs", "could not get OS log handle");
+        return;
+    }
+
     os_activity_stream_resume(_activity_stream);
 }
 
 void SystemLogsDarwin::deactivate() {
-    assert(_activity_stream);
+    if ( ! _activity_stream )
+        return;
+
     os_activity_stream_cancel(_activity_stream);
     _activity_stream = nullptr;
 }

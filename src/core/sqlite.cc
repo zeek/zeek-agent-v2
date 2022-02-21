@@ -68,15 +68,15 @@ struct Pimpl<SQLite>::Implementation {
     Result<std::unique_ptr<sqlite::PreparedStatement>> prepareStatement(std::string stmt);
 
     // Executes a statement.
-    Result<sqlite::Result> runStatement(const std::string& stmt, Time t = 0_time);
+    Result<sqlite::Result> runStatement(const std::string& stmt, std::optional<Time> t);
 
     // Executes a precompiled statement.
-    Result<sqlite::Result> runStatement(const sqlite::PreparedStatement& stmt, Time t = 0_time);
+    Result<sqlite::Result> runStatement(const sqlite::PreparedStatement& stmt, std::optional<Time> t);
 
-    ::sqlite3* _sqlite_db = nullptr;      // SQLite database handle
-    std::list<Cookie> _cookies;           // list containing one cookie per registered table
-    std::set<Table*> _stmt_tables;        // set of tables statement refers to; set during statement compilation
-    std::optional<Time> _stmt_t = 0_time; // earliest time of interest during statement execution
+    ::sqlite3* _sqlite_db = nullptr; // SQLite database handle
+    std::list<Cookie> _cookies;      // list containing one cookie per registered table
+    std::set<Table*> _stmt_tables;   // set of tables statement refers to; set during statement compilation
+    std::optional<Time> _stmt_t;     // earliest time of interest during statement execution
     std::map<std::string, Table*> _tables_by_name; // map of registered tables indexed by their names
 
     mutable std::mutex _stmt_mutex; // lock acquired during statement execution to prevent concurrent processing
@@ -295,8 +295,7 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
     }
 
     auto t = cookie->sqlite->_stmt_t;
-    assert(t);
-    cursor->rows = cookie->table->rows(*t, args);
+    cursor->rows = cookie->table->rows((t ? *t : 0_time), args);
     cursor->current = 0;
 
     // Double check that the returned rows match our schema.
@@ -475,12 +474,12 @@ Result<Nothing> SQLite::Implementation::addTable(Table* table) {
     // do create them so that one can introspect them through "sqlite_schema".
 
     if ( this->table(table->name()) ) {
-        auto result = runStatement(format("DROP TABLE {}", table->name()));
+        auto result = runStatement(format("DROP TABLE {}", table->name()), {});
         if ( ! result )
             return result.error();
     }
 
-    auto result = runStatement(format("CREATE VIRTUAL TABLE {} USING {}", table->name(), table->name()));
+    auto result = runStatement(format("CREATE VIRTUAL TABLE {} USING {}", table->name(), table->name()), {});
     if ( ! result )
         return result.error();
 
@@ -499,7 +498,8 @@ Result<std::unique_ptr<sqlite::PreparedStatement>> SQLite::Implementation::prepa
     return std::make_unique<sqlite::PreparedStatement>(prepared_stmt, std::move(_stmt_tables));
 }
 
-Result<sqlite::Result> SQLite::Implementation::runStatement(const sqlite::PreparedStatement& stmt, Time t) {
+Result<sqlite::Result> SQLite::Implementation::runStatement(const sqlite::PreparedStatement& stmt,
+                                                            std::optional<Time> t) {
     // We take a lock here so that we know that no other statement can interleave
     // while we're processing the current one. That way, we can ensure that the
     // virtual table can ask us for the 't' time (there isn't any more direct
@@ -565,7 +565,7 @@ Result<sqlite::Result> SQLite::Implementation::runStatement(const sqlite::Prepar
     }
 }
 
-Result<sqlite::Result> SQLite::Implementation::runStatement(const std::string& stmt, Time t) {
+Result<sqlite::Result> SQLite::Implementation::runStatement(const std::string& stmt, std::optional<Time> t) {
     auto prepared = prepareStatement(stmt);
     if ( ! prepared )
         return prepared.error();
@@ -589,7 +589,7 @@ Result<std::unique_ptr<sqlite::PreparedStatement>> SQLite::prepareStatement(cons
     return pimpl()->prepareStatement(stmt);
 }
 
-Result<sqlite::Result> SQLite::runStatement(const sqlite::PreparedStatement& stmt, Time t) {
+Result<sqlite::Result> SQLite::runStatement(const sqlite::PreparedStatement& stmt, std::optional<Time> t) {
     ZEEK_AGENT_DEBUG("sqlite", "executing compiled statement: \"{}\"", ::sqlite3_sql(stmt.statement()));
     assert(stmt.statement());
 
@@ -597,7 +597,7 @@ Result<sqlite::Result> SQLite::runStatement(const sqlite::PreparedStatement& stm
     return pimpl()->runStatement(stmt, t);
 }
 
-Result<sqlite::Result> SQLite::runStatement(const std::string& stmt, Time t) {
+Result<sqlite::Result> SQLite::runStatement(const std::string& stmt, std::optional<Time> t) {
     Synchronize _(this);
     ZEEK_AGENT_DEBUG("sqlite", "executing statement: \"{}\"", stmt);
     return pimpl()->runStatement(stmt, t);
