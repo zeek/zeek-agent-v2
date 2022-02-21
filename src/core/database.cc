@@ -39,7 +39,7 @@ struct Pimpl<Database>::Implementation {
     Table* table(const std::string& name);
 
     // Perform query of given type.
-    Result<query::ID> query(Query q);
+    Result<std::optional<query::ID>> query(Query q);
 
     // Cancel query.
     void cancel(query::ID id, bool regular_shutdown);
@@ -80,7 +80,17 @@ void Database::Implementation::done() {
     _sqlite.reset(); // ensure this gets released before the tables go away
 }
 
-Result<query::ID> Database::Implementation::query(Query query) {
+Result<std::optional<query::ID>> Database::Implementation::query(Query query) {
+    for ( const auto& t : query.requires_tables ) {
+        if ( ! table(t) )
+            return {std::nullopt};
+    }
+
+    for ( const auto& t : query.if_missing_tables ) {
+        if ( table(t) )
+            return {std::nullopt};
+    }
+
     auto prepared_query = _sqlite->prepareStatement(query.sql_stmt);
     if ( ! prepared_query )
         return prepared_query.error();
@@ -94,7 +104,7 @@ Result<query::ID> Database::Implementation::query(Query query) {
                         .previous_execution = {}});
     _queries_by_id[id] = --_queries.end();
 
-    return id;
+    return {id};
 }
 
 void Database::Implementation::cancel(query::ID id, bool regular_shutdown) {
@@ -359,13 +369,17 @@ std::vector<const Table*> Database::tables() {
     return out;
 }
 
-Result<query::ID> Database::query(const Query& q) {
+Result<std::optional<query::ID>> Database::query(const Query& q) {
     ZEEK_AGENT_DEBUG("database", "new query: {} ", q.sql_stmt);
     Synchronize _(this);
 
     auto id = pimpl()->query(q);
-    if ( id )
-        ZEEK_AGENT_DEBUG("database", "query id is {}", *id);
+    if ( id ) {
+        if ( *id )
+            ZEEK_AGENT_DEBUG("database", "query id is {}", **id);
+        else
+            ZEEK_AGENT_DEBUG("database", "query is skipped");
+    }
     else
         ZEEK_AGENT_DEBUG("database", "query error: {}", id.error());
 
@@ -693,7 +707,7 @@ TEST_SUITE("Database") {
         db.addTable(&t);
 
         SUBCASE("single-shot") {
-            Result<query::ID> query_id;
+            Result<std::optional<query::ID>> query_id;
             int num_callback_executions = 0;
             int num_done_executions = 0;
 
@@ -723,6 +737,7 @@ TEST_SUITE("Database") {
             auto query = Query{.sql_stmt = "SELECT * from test_table",
                                .subscription = {},
                                .schedule = 2s, // this should be ignored
+                               .requires_tables = {"test_table"},
                                .cookie = "Leibniz",
                                .callback_result = std::move(callback_result),
                                .callback_done = std::move(callback_done)};
@@ -743,7 +758,7 @@ TEST_SUITE("Database") {
         }
 
         SUBCASE("subscription - snapshots") {
-            Result<query::ID> query_id;
+            Result<std::optional<query::ID>> query_id;
             int num_callback_executions = 0;
             int num_done_executions = 0;
 
@@ -786,7 +801,7 @@ TEST_SUITE("Database") {
             tmgr.advance(3_time);
             CHECK_EQ(num_callback_executions, 2);
 
-            db.cancel(*query_id);
+            db.cancel(**query_id);
             tmgr.advance(5_time);
             db.expire();
             CHECK_EQ(num_callback_executions, 2);
@@ -794,7 +809,7 @@ TEST_SUITE("Database") {
         }
 
         SUBCASE("subscription - differences") {
-            Result<query::ID> query_id;
+            Result<std::optional<query::ID>> query_id;
             int num_callback_executions = 0;
 
             auto callback = [&](query::ID id, const query::Result& result) {
@@ -871,7 +886,7 @@ TEST_SUITE("Database") {
         }
 
         SUBCASE("query - subscription - events") {
-            Result<query::ID> query_id;
+            Result<std::optional<query::ID>> query_id;
             int num_callback_executions = 0;
 
             auto callback = [&](query::ID id, const query::Result& result) {
@@ -920,6 +935,40 @@ TEST_SUITE("Database") {
             CHECK_EQ(num_callback_executions, 1);
             tmgr.advance(3_time);
             CHECK_EQ(num_callback_executions, 2);
+        }
+
+        SUBCASE("query with required table missing") {
+            int num_callback_executions = 0;
+            int num_done_executions = 0;
+
+            auto callback_result = [&](query::ID id, const query::Result& result) { ++num_callback_executions; };
+
+            auto callback_done = [&](query::ID id, bool cancelled) { ++num_done_executions; };
+
+            auto query = Query{.sql_stmt = "SELECT * from test_table",
+                               .requires_tables = {"DOES_NOT_EXIST"},
+                               .callback_result = std::move(callback_result),
+                               .callback_done = std::move(callback_done)};
+
+            auto query_id = db.query(query);
+            REQUIRE(query_id);
+            CHECK(! *query_id);
+
+            query = Query{.sql_stmt = "SELECT * from test_table",
+                          .if_missing_tables = {"test_table"},
+                          .callback_result = std::move(callback_result),
+                          .callback_done = std::move(callback_done)};
+
+            query_id = db.query(query);
+            REQUIRE(query_id);
+            CHECK(! *query_id);
+
+            CHECK_EQ(num_callback_executions, 0);
+            tmgr.advance(1_time);
+            CHECK_EQ(num_callback_executions, 0);
+
+            db.expire();
+            CHECK_EQ(num_done_executions, 0);
         }
     }
 

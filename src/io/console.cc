@@ -242,7 +242,9 @@ void Console::Implementation::query(const std::string& stmt, std::optional<query
     _query_done.reset();
     if ( auto id = _db->query(query) ) {
         _query_done.wait();
-        _db->cancel(*id);
+
+        if ( *id )
+            _db->cancel(**id);
     }
     else
         error(id.error());
