@@ -116,8 +116,8 @@ SignalManager::~SignalManager() {
 
 TEST_SUITE("Signal manager") {
     TEST_CASE("signal callbacks") {
-        int count1 = 0;
-        int count2 = 0;
+        std::atomic<int> count1 = 0;
+        std::atomic<int> count2 = 0;
 
         // TODO: For unknown reasons, the first kill() below sometimes gets
         // lost, at least on macOS (sigwait() returns, but it doesn't set a
