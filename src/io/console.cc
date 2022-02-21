@@ -211,10 +211,31 @@ Result<Nothing> Console::Implementation::printSchema(const std::string& table) {
     AsciiTable out;
     out.addHeader({"Column", "Type", "Description"});
 
-    for ( const auto& c : t->second.columns )
-        out.addRow({c.name, to_string(c.type), c.summary});
+    bool has_parameters = false;
+    for ( const auto& c : t->second.columns ) {
+        if ( ! c.is_parameter )
+            out.addRow({c.name, to_string(c.type), c.summary});
+        else
+            has_parameters = true;
+    }
 
+    std::cout << std::endl;
     out.print(std::cout);
+    std::cout << std::endl;
+
+    if ( has_parameters ) {
+        AsciiTable out;
+        out.addHeader({"Table Parameter", "Type", "Description"});
+
+        for ( const auto& c : t->second.columns ) {
+            if ( c.is_parameter )
+                out.addRow({ltrim(c.name, "_"), to_string(c.type), c.summary});
+        }
+
+        out.print(std::cout);
+        std::cout << std::endl;
+    }
+
     return Nothing();
 }
 
