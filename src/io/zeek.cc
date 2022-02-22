@@ -136,7 +136,7 @@ private:
 Result<Nothing> BrokerConnection::connect(const std::string& destination) {
     // Parse "host[:port]".
     std::string address;
-    unsigned long port = 9999; // default Broker port
+    unsigned long port = 9998; // default port used by the zeek-agent package
 
     try {
         auto m = split(trim(destination), ":");
