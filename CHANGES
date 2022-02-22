@@ -1,3 +1,9 @@
+2.0.3 | 2022-02-22 13:36:47 +0100
+
+  * Adapt to package's new default listening port.
+
+  * Fix problem with column caching.
+
 2.0.2 | 2022-02-21 16:36:16 +0100
 
   * Push all asynchronous activity to the main thread to avoid most
