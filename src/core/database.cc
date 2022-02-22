@@ -259,10 +259,13 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
         else
             cannot_be_reached();
 
-        if ( sql_result->columns.empty() )
-            // If a result is empty, columns won't be set. Reuse the previous one then because for diffs we may still be
-            // sending (removed) rows back.
-            sql_result->columns = (*i)->previous_result->columns;
+        if ( sql_result->columns.empty() ) {
+            if ( (*i)->previous_result )
+                // If a result is empty, columns won't be set. Reuse the previous
+                // one then because for diffs we may still be
+                // sending (removed) rows back.
+                sql_result->columns = (*i)->previous_result->columns;
+        }
 
 #ifndef NDEBUG
         else if ( (*i)->previous_result ) {
