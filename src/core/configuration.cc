@@ -14,6 +14,7 @@
 #include <memory>
 #include <sstream>
 #include <system_error>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -103,7 +104,13 @@ void Options::debugDump() {
     ZEEK_AGENT_DEBUG("configuration", "[option] zeek_hello_interval: {}", to_string(zeek_hello_interval));
     ZEEK_AGENT_DEBUG("configuration", "[option] zeek_reconnect_interval: {}", to_string(zeek_reconnect_interval));
     ZEEK_AGENT_DEBUG("configuration", "[option] zeek_timeout: {}", to_string(zeek_timeout));
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeeks: {}", join(zeeks, ", "));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_destinations: {}", join(zeek_destinations, ", "));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_disable: {}", (zeek_ssl_disable ? "true" : "false"));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_cafile: {}", zeek_ssl_cafile);
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_capath: {}", zeek_ssl_capath);
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_certificate: {}", zeek_ssl_certificate);
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_keyfile: {}", zeek_ssl_keyfile);
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_passphrase: {}", zeek_ssl_passphrase);
 }
 
 template<>
@@ -247,7 +254,7 @@ Result<Options> Configuration::Implementation::addArgv(Options options) {
             case 'c': options.config_file = optarg; break;
             case 'e': options.execute = optarg; break;
             case 'i': options.interactive = true; break;
-            case 'z': options.zeeks.emplace_back(optarg); break;
+            case 'z': options.zeek_destinations.emplace_back(optarg); break;
 
             case 'v': std::cerr << "Zeek Agent v" << VersionLong << std::endl; exit(0);
             case 'h': usage(argv[0]); exit(0);
@@ -282,24 +289,50 @@ Result<Nothing> Configuration::Implementation::read(const filesystem::path& path
     return read(in, path);
 }
 
+// Get a value, typed correctly, if available.
 template<typename T>
-Result<T> tomlSafeGet(const toml::table& tbl, const std::string& key) {
-    if ( auto x = tbl[key].value<T>() )
-        return *x;
-    else
-        return result::Error(format("cannot parse value for configuration option '{}'", key));
-}
+bool tomlValue(const toml::table& t, std::string_view path, T* dst) {
+    using vtype = typename std::remove_reference_t<T>;
 
-// Also allows a single element not enclosed in brackets,
+    auto n = t.at_path(path);
+    if ( ! n )
+        return false;
+
+    if ( auto x = n.value<vtype>() ) {
+        *dst = *x;
+        return true;
+    }
+    else
+        throw result::Error(format("cannot parse value for configuration option '{}'", path));
+};
+
+// Get an array, typed correctly, if available. This allows single values, too.
 template<typename T>
-Result<toml::array> tomlSafeGetArray(const toml::table& tbl, std::string key) {
-    if ( auto x = tbl.get_as<toml::array>(key) )
-        return *x;
+bool tomlArray(const toml::table& t, std::string_view path, std::vector<T>* dst) {
+    using vtype = typename std::remove_reference_t<T>;
+
+    auto n = t.at_path(path);
+    if ( ! n )
+        return false;
+
+    if ( auto x = n.as_array() ) {
+        for ( const auto& i : *x ) {
+            if ( auto v = i.template value<vtype>() )
+                dst->push_back(*v);
+            else
+                throw result::Error(format("cannot parse value for configuration option '{}'", path));
+        }
+
+        return true;
+    }
+
     else {
-        if ( auto x = tomlSafeGet<T>(tbl, key) )
-            return toml::array{*x};
-        else
-            return x.error();
+        vtype v;
+        if ( ! tomlValue(t, path, &v) )
+            return false;
+
+        dst->push_back(v);
+        return true;
     }
 }
 
@@ -307,73 +340,43 @@ Result<Nothing> Configuration::Implementation::read(std::istream& in, const file
     auto options = default_();
     options.config_file = path;
 
-    toml::table tbl;
     try {
-        tbl = toml::parse(in, path.native());
+        auto tbl = toml::parse(in, path.native());
+        tomlValue(tbl, "agent-id", &options.agent_id);
+
+        std::string log_level;
+        if ( tomlValue(tbl, "log-level", &log_level) ) {
+            auto level = spdlog::level::from_str(log_level);
+            if ( level == spdlog::level::off )
+                return result::Error("unknown log level");
+
+            options.log_level = level;
+        }
+
+        tomlArray(tbl, "zeek.destination", &options.zeek_destinations);
+        tomlArray(tbl, "zeek.groups", &options.zeek_groups);
+
+        double interval;
+        if ( tomlValue(tbl, "zeek.hello_interval", &interval) )
+            options.zeek_hello_interval = to_interval(interval);
+
+        if ( tomlValue(tbl, "zeek.reconnect_interval", &interval) )
+            options.zeek_reconnect_interval = to_interval(interval);
+
+        tomlValue(tbl, "zeek.ssl_cafile", &options.zeek_ssl_cafile);
+        tomlValue(tbl, "zeek.ssl_capath", &options.zeek_ssl_capath);
+        tomlValue(tbl, "zeek.ssl_certificate", &options.zeek_ssl_certificate);
+        tomlValue(tbl, "zeek.ssl_disable", &options.zeek_ssl_disable);
+        tomlValue(tbl, "zeek.ssl_keyfile", &options.zeek_ssl_keyfile);
+        tomlValue(tbl, "zeek.ssl_passphrase", &options.zeek_ssl_passphrase);
+
+        if ( tomlValue(tbl, "zeek.timeout", &interval) )
+            options.zeek_timeout = to_interval(interval);
+
     } catch ( const toml::parse_error& err ) {
         return result::Error(err.what());
-    }
-
-    if ( tbl.contains("agent-id") ) {
-        auto x = tomlSafeGet<std::string>(tbl, "agent-id");
-        if ( x )
-            options.agent_id = *x;
-        else
-            return x.error();
-    }
-
-    if ( tbl.contains("log-level") ) {
-        auto x = tomlSafeGet<std::string>(tbl, "log-level");
-        if ( ! x )
-            return x.error();
-
-        auto level = spdlog::level::from_str(*x);
-        if ( level == spdlog::level::off )
-            return result::Error("unknown log level");
-
-        options.log_level = level;
-    }
-
-    if ( tbl.contains("zeek") ) {
-        auto x = tomlSafeGetArray<std::string>(tbl, "zeek");
-        if ( ! x )
-            return x.error();
-
-        for ( const auto& z : *x )
-            options.zeeks.emplace_back(*z.value<std::string>());
-    }
-
-    if ( tbl.contains("zeek_groups") ) {
-        auto x = tomlSafeGetArray<std::string>(tbl, "zeek_groups");
-        if ( ! x )
-            return x.error();
-
-        for ( const auto& z : *x )
-            options.zeek_groups.emplace_back(*z.value<std::string>());
-    }
-
-    if ( tbl.contains("zeek_reconnect_interval") ) {
-        auto x = tomlSafeGet<double>(tbl, "zeek_reconnect_interval");
-        if ( x )
-            options.zeek_reconnect_interval = to_interval(*x);
-        else
-            return x.error();
-    }
-
-    if ( tbl.contains("zeek_timeout") ) {
-        auto x = tomlSafeGet<double>(tbl, "zeek_timeout");
-        if ( x )
-            options.zeek_timeout = to_interval(*x);
-        else
-            return x.error();
-    }
-
-    if ( tbl.contains("zeek_hello_interval") ) {
-        auto x = tomlSafeGet<double>(tbl, "zeek_hello_interval");
-        if ( x )
-            options.zeek_hello_interval = to_interval(*x);
-        else
-            return x.error();
+    } catch ( const result::Error& err ) {
+        return err;
     }
 
     auto rc = addArgv(options);
@@ -476,42 +479,55 @@ TEST_SUITE("Configuration") {
         SUBCASE("cli") {
             const char* argv[] = {"<prog>", "-z", "host1", "-z", "host2:1234"};
             cfg.initFromArgv(5, argv);
-            CHECK_EQ(cfg.options().zeeks, std::vector<std::string>{"host1", "host2:1234"});
+            CHECK_EQ(cfg.options().zeek_destinations, std::vector<std::string>{"host1", "host2:1234"});
         }
 
         SUBCASE("config") {
             std::stringstream s;
-            s << "zeek = ['host1', 'host2:1234']\n";
+            s << "[zeek]\n";
+            s << "destination = ['host1', 'host2:1234']\n";
             auto rc = cfg.read(s, "<test>");
-            CHECK_EQ(cfg.options().zeeks, std::vector<std::string>{"host1", "host2:1234"});
+            CHECK_EQ(cfg.options().zeek_destinations, std::vector<std::string>{"host1", "host2:1234"});
         }
 
         SUBCASE("aggregate") {
             const char* argv[] = {"<prog>", "-z", "host1"};
             cfg.initFromArgv(3, argv);
             std::stringstream s;
-            s << "zeek = 'host2:1234'\n";
+            s << "[zeek]\n";
+            s << "destination = 'host2:1234'\n";
             auto rc = cfg.read(s, "<test>");
-            CHECK_EQ(cfg.options().zeeks, std::vector<std::string>{"host2:1234", "host1"});
+            CHECK_EQ(cfg.options().zeek_destinations, std::vector<std::string>{"host2:1234", "host1"});
         }
     }
 
     TEST_CASE("set Zeek options") {
         Configuration cfg;
 
-        SUBCASE("config") {
-            std::stringstream s;
-            s << "zeek_groups = ['group1', 'group2']\n";
-            s << "zeek_reconnect_interval = 1.0\n";
-            s << "zeek_timeout = 2\n";
-            s << "zeek_hello_interval = 3.5\n";
+        std::stringstream s;
+        s << "[zeek]\n";
+        s << "groups = ['group1', 'group2']\n";
+        s << "reconnect_interval = 1.0\n";
+        s << "timeout = 2\n";
+        s << "hello_interval = 3.5\n";
+        s << "ssl_disable = true\n";
+        s << "ssl_cafile = 'cafile'\n";
+        s << "ssl_capath = 'capath'\n";
+        s << "ssl_certificate = 'certificate'\n";
+        s << "ssl_keyfile = 'keyfile'\n";
+        s << "ssl_passphrase = 'passphrase'\n";
 
-            auto rc = cfg.read(s, "<test>");
-            CHECK_EQ(cfg.options().zeek_groups, std::vector<std::string>{"group1", "group2"});
-            CHECK_EQ(cfg.options().zeek_reconnect_interval, 1s);
-            CHECK_EQ(cfg.options().zeek_timeout, 2s);
-            CHECK_EQ(cfg.options().zeek_hello_interval, 3.5s);
-        }
+        auto rc = cfg.read(s, "<test>");
+        CHECK_EQ(cfg.options().zeek_groups, std::vector<std::string>{"group1", "group2"});
+        CHECK_EQ(cfg.options().zeek_reconnect_interval, 1s);
+        CHECK_EQ(cfg.options().zeek_timeout, 2s);
+        CHECK_EQ(cfg.options().zeek_hello_interval, 3.5s);
+        CHECK_EQ(cfg.options().zeek_ssl_disable, true);
+        CHECK_EQ(cfg.options().zeek_ssl_cafile, "cafile");
+        CHECK_EQ(cfg.options().zeek_ssl_capath, "capath");
+        CHECK_EQ(cfg.options().zeek_ssl_certificate, "certificate");
+        CHECK_EQ(cfg.options().zeek_ssl_keyfile, "keyfile");
+        CHECK_EQ(cfg.options().zeek_ssl_passphrase, "passphrase");
     }
 
     TEST_CASE("command line overrides config") {
