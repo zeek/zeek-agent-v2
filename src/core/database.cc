@@ -927,7 +927,7 @@ TEST_SUITE("Database") {
 
             auto query = Query{.sql_stmt = "SELECT * from test_table",
                                .requires_tables = {"DOES_NOT_EXIST"},
-                               .callback_result = std::move(callback_result),
+                               .callback_result = callback_result,
                                .callback_done = std::move(callback_done)};
 
             auto query_id = db.query(query);
