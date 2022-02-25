@@ -8,6 +8,7 @@
 #include <chrono>
 #include <functional>
 #include <iomanip>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <stdexcept>
