@@ -5,13 +5,17 @@
 #include "autogen/config.h"
 #include "util/testing.h"
 
+#ifndef WIN32
 #include <netinet/in.h>
+#endif
 
 using namespace zeek::agent;
 
 TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables")) {
     useTable("sockets");
 
+#ifdef WIN32
+#else
     int port = -1;
     int fd = -1;
     while ( true ) {
@@ -46,4 +50,5 @@ TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables"))
 
     // Clean up
     close(fd);
+#endif
 }

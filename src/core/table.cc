@@ -418,7 +418,7 @@ void EventTable::expire(Time t) {
 TEST_SUITE("Table") {
     class TestBaseTable : public Table {
     public:
-        TestBaseTable(std::string name) : name(std::move(std::move(name))) {}
+        TestBaseTable(std::string name) : name(std::move(name)) {}
         Schema schema() const override {
             return {.name = name, .columns = {schema::Column{.name = "x", .type = value::Type::Integer}}};
         }

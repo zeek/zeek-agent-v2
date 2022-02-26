@@ -108,7 +108,11 @@ inline std::string to_string(Interval t) {
 extern std::optional<std::string> getenv(const std::string& name);
 
 /** Aborts with an internal error saying we should not be where we are. */
+#if defined(_MSC_VER)
+__declspec(noreturn) extern void cannot_be_reached();
+#else
 extern void cannot_be_reached() __attribute__((noreturn));
+#endif
 
 /**
  * Joins elements of a container into a string, using a specified delimiter
@@ -120,7 +124,7 @@ std::string join(const T& l, const std::string& delim = "") {
     bool first = true;
 
     for ( const auto& i : l ) {
-        if ( not first )
+        if ( ! first )
             result += delim;
         result += std::string(i);
         first = false;
@@ -153,7 +157,7 @@ constexpr auto transform_result_value(const C&) {
 /** Applies a function to each element of container. */
 template<typename C, typename F>
 auto transform(const C& x, F f) {
-    using Y = typename std::result_of_t<F(typename C::value_type&)>;
+    using Y = std::invoke_result_t<F, typename C::value_type>;
 
     auto y = detail::transform_result_value<C, Y>(x);
     std::transform(std::begin(x), std::end(x), std::inserter(y, std::end(y)), f);
@@ -306,3 +310,9 @@ inline std::ostream& operator<<(std::ostream& out, const zeek::agent::Interval& 
 }
 
 } // namespace std::chrono
+
+#ifdef WIN32
+
+extern int setenv(const char* name, const char* value, int overwrite);
+
+#endif

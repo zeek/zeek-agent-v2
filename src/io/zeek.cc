@@ -22,7 +22,9 @@
 #include <utility>
 #include <vector>
 
+#ifndef WIN32
 #include <unistd.h>
+#endif
 
 #include "broker/address.hh"
 #include "broker/fwd.hh"
@@ -708,7 +710,7 @@ struct Pimpl<Zeek>::Implementation {
     // Performs periodic operations. Must be called reguarly from external.
     void poll();
 
-    const auto& options() const { return _db->configuration().options(); }
+    const auto& options() const;
 
     // Helper to prepare Broker config object
     broker::configuration brokerConfig();
@@ -720,6 +722,8 @@ struct Pimpl<Zeek>::Implementation {
         _connections;      // one connection per desintation passed into constructor
     bool _stopped = false; // true once stop() can been executed
 };
+
+const auto& Pimpl<Zeek>::Implementation::options() const { return _db->configuration().options(); }
 
 broker::configuration Zeek::Implementation::brokerConfig() {
     // Configure Broker/CAF for lower resource consumption.
@@ -864,6 +868,7 @@ TEST_SUITE("Zeek") {
             // uninitialized. Not under our control so ignore. Note that this
             // needs to work with clang-tidy too even when compiler is GCC.
 
+#ifndef _WIN32
 #if ! defined(__has_warning) // Clang always has this
 #define __suppress_warning
 #elif __has_warning("-Wmaybe-uninitialized")
@@ -873,10 +878,13 @@ TEST_SUITE("Zeek") {
 #ifdef __suppress_warning
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
+#endif
             receiver.unpeer(p.peer.network->address, p.peer.network->port);
+#ifndef _WIN32
 #ifdef __suppress_warning
 #pragma GCC diagnostic pop
 #undef __suppress_warning
+#endif
 #endif
         }
 

@@ -184,7 +184,7 @@ static int onTableConnect(::sqlite3* db, void* paux, int argc, const char* const
     auto table_name = cookie->table->name();
     auto stmt = format("CREATE TABLE {} ({})", table_name,
                        join(transform(cookie->table->schema().columns,
-                                      [&table_name](const auto& c) {
+                                      [&table_name](const auto& c) -> std::string {
                                           std::string name = c.name + " ";
                                           std::string hidden = (c.is_parameter ? " HIDDEN" : "");
 
@@ -949,7 +949,7 @@ TEST_SUITE("SQLite") {
             CHECK_EQ(std::get<bool>(v1[7]), true);
             CHECK_EQ(std::get<std::string>(v1[8]), "10.0.0.1");
             CHECK_EQ(std::get<Record>(v1[9]), Record{{true, value::Type::Bool}, {"192.168.1.1", value::Type::Address}});
-            CHECK_EQ(std::get<Port>(v1[10]), Port(42, port::Protocol::UDP));
+            CHECK_EQ(std::get<Port>(v1[10]), Port(42, port::Protocol::TCP));
             CHECK_EQ(std::get<Set>(v1[11]), Set(value::Type::Address, {"192.168.1.1", "192.168.1.2", "192.168.1.3"}));
             CHECK_EQ(std::get<Vector>(v1[12]), Vector(value::Type::Count, {10L, 20L, 30L}));
 

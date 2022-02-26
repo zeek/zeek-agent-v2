@@ -391,7 +391,7 @@ public:
                 return std::get<T>(a.expression);
         }
 
-        throw InternalError(format("table argument '{}' unexpectedly missing"));
+        throw InternalError(format("table argument '{}' unexpectedly missing", name));
     }
 
 protected:

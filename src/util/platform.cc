@@ -3,6 +3,7 @@
 #include "platform.h"
 
 #include "autogen/config.h"
+#include "core/logger.h"
 #include "fmt.h"
 #include "helpers.h"
 
@@ -11,6 +12,7 @@
 using namespace zeek::agent;
 
 #ifdef HAVE_POSIX
+
 #include <glob.h>
 
 bool platform::isTTY() { return ::isatty(1); }
@@ -29,6 +31,7 @@ std::vector<filesystem::path> platform::glob(const filesystem::path& pattern, si
     globfree(&paths);
     return result;
 }
+
 #endif
 
 #ifdef HAVE_DARWIN
@@ -89,6 +92,42 @@ filesystem::path platform::dataDirectory() {
         throw FatalError(format("cannot create path '{}'", dir.native()));
 
     return dir;
+}
+
+#endif
+
+#ifdef WIN32
+
+std::string platform::name() { return "Windows"; }
+
+filesystem::path platform::configurationFile() {
+    // TODO: These paths aren't necessarily right yet.
+    filesystem::path exec = PathFind::FindExecutable();
+    return exec / "../etc" / "zeek-agent.conf";
+}
+
+filesystem::path platform::dataDirectory() {
+    // TODO: These paths aren't necessarily right yet.
+    filesystem::path dir;
+
+    if ( auto home = getenv("HOME") )
+        dir = filesystem::path(*home) / ".cache" / "zeek-agent";
+    else
+        dir = "/var/run/zeek-agent";
+
+    std::error_code ec;
+    filesystem::create_directories(dir, ec);
+    if ( ec )
+        throw FatalError(format("cannot create path '{}'", dir.string()));
+
+    return dir;
+}
+
+bool platform::isTTY() { return false; }
+
+std::vector<filesystem::path> platform::glob(const filesystem::path& pattern, size_t max) {
+    logger()->error("platform::glob is not implemented on Windows");
+    return {};
 }
 
 #endif

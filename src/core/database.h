@@ -71,7 +71,7 @@ template<typename T>
             return std::get<T>(rows[row].values[i]);
     }
 
-    return ::zeek::agent::result::Error(format("column '{}' does not exist in result"));
+    return ::zeek::agent::result::Error(format("column '{}' does not exist in result", column));
 }
 
 /**

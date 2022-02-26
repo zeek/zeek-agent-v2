@@ -49,10 +49,10 @@ int main(int argc, char** argv) {
             db.addTable(t.second.get());
 
         std::unique_ptr<Console> console;
-        if ( cfg.options().interactive || cfg.options().execute.size() ) {
+        if ( cfg.options().interactive || ! cfg.options().execute.empty() ) {
             console = std::make_unique<Console>(&db, &scheduler, &signal_mgr);
 
-            if ( cfg.options().execute.size() )
+            if ( ! cfg.options().execute.empty() )
                 console->scheduleStatementWithTermination(cfg.options().execute);
 
             console->start();

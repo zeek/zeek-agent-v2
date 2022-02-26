@@ -4,6 +4,7 @@
 
 #include <string>
 #include <type_traits>
+#include <utility>
 
 #include <fmt/core.h>
 
@@ -11,8 +12,14 @@ namespace zeek::agent {
 
 /** Forwards to `fmt::format()`. */
 template<typename... Args>
-auto format(const Args&... args) {
-    return ::fmt::format(args...);
+auto format(fmt::format_string<Args...> format, Args&&... args) {
+    return ::fmt::format(format, std::forward<Args>(args)...);
+}
+
+/** Forwards to `fmt::format()`. */
+template<typename... Args>
+auto format(const wchar_t* format, Args&&... args) {
+    return ::fmt::format(format, std::forward<Args>(args)...);
 }
 
 /** Renders class instances through their `str()` method. */
