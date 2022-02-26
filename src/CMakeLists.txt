@@ -2,28 +2,52 @@
 
 ### Setup compiler
 
-set(CMAKE_CXX_STANDARD 17)
+if ( WIN32 )
+    # We require C++20 on MSVC because designated-initializers don't exist in C++17 mode.
+    set(CMAKE_CXX_STANDARD 20)
+else()
+    set(CMAKE_CXX_STANDARD 17)
+endif()
+
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(CheckCompiler)
 
-if ( CMAKE_BUILD_TYPE STREQUAL "Debug" )
-    add_compile_options(-O0)
+if ( NOT WIN32 )
+    if ( CMAKE_BUILD_TYPE STREQUAL "Debug" )
+        add_compile_options(-O0)
+    endif()
+
+    add_compile_options($<$<BOOL:${USE_WERROR}>:-Werror>)
 endif()
 
-add_compile_options(-Wno-unused-parameter)
-add_compile_options($<$<BOOL:${USE_WERROR}>:-Werror>)
-
 if ( HAVE_CLANG )
+    add_compile_options(-Wno-unused-parameter)
     add_compile_options(-Wpedantic)
     add_compile_options(-Wno-c99-designator)
     add_compile_options(-Wno-vla-extension)
 endif ()
 
 if ( HAVE_GCC )
+    add_compile_options(-Wno-unused-parameter)
     add_compile_options(-Wno-missing-field-initializers)
+endif ()
+
+if ( WIN32 )
+    # Keep min and max macros from being defined, which breaks std::min and std::max
+    add_compile_options(/DNOMINMAX)
+    # Reduce the amount of stuff that gets included with windows.h
+    add_compile_options(/DWIN32_LEAN_AND_MEAN)
+
+    add_compile_options($<$<BOOL:${USE_WERROR}>:/WX>)
+    # TODO: enable this eventually after figuring out how to disable it for third party code.
+    # Equivalent to -Wpedantic but on Windows
+#    add_compile_options(/Wall)
+
+    # This is needed so that the console window pops up when you run the exe.
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
 endif ()
 
 if ( NOT "${USE_DOCTEST}" )
@@ -31,10 +55,14 @@ if ( NOT "${USE_DOCTEST}" )
 endif ()
 
 if ( USE_SANITIZERS )
-    # Recommended flags per https://github.com/google/sanitizers/wiki/AddressSanitizer
-    # GCC vs clang: https://stackoverflow.com/a/47022141
-    add_compile_options(-fsanitize=${USE_SANITIZERS} -fno-omit-frame-pointer -fno-optimize-sibling-calls) # Removed -O1
-    add_link_options(-fsanitize=${USE_SANITIZERS})
+    add_compile_options(-fsanitize=${USE_SANITIZERS})
+
+    if ( NOT WIN32 )
+        # Recommended flags per https://github.com/google/sanitizers/wiki/AddressSanitizer
+        # GCC vs clang: https://stackoverflow.com/a/47022141
+        add_compile_options(-fno-omit-frame-pointer -fno-optimize-sibling-calls) # Removed -O1
+        add_link_options(-fsanitize=${USE_SANITIZERS})
+    endif ()
 
     if ( HAVE_CLANG )
         add_compile_options(-shared-libsan)

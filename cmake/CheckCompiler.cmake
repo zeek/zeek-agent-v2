@@ -5,6 +5,7 @@
 set(clang_minimum_version "9.0")
 set(apple_clang_minimum_version "11.0")
 set(gcc_minimum_version "9.0")
+set(msvc_toolset_minimum_version "143") # Visual Studio 2022
 
 include(CheckCXXSourceCompiles)
 
@@ -21,6 +22,7 @@ endmacro()
 
 set(HAVE_GCC   no)
 set(HAVE_CLANG no)
+set(HAVE_MSVC  no)
 
 if ( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
     set(HAVE_GCC yes)
@@ -47,6 +49,13 @@ elseif ( CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" )
                 "${apple_clang_minimum_version} for C++17 support, detected: "
                 "${CMAKE_CXX_COMPILER_VERSION}")
     endif ()
+elseif ( CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(HAVE_MSVC yes)
+    if ( MSVC_TOOLSET_VERSION LESS ${msvc_toolset_minimum_version} )
+        message(FATAL_ERROR "MSVC Toolset version must be at least "
+                "${msvc_clang_minimum_version} for C++20 support, detected: "
+                "${MSVC_TOOLSET_VERSION}")
+    endif()
 else()
     # Unrecognized compiler: fine to be permissive of other compilers as long
     # as they are able to support C++17 and can compile the test program, but
