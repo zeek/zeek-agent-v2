@@ -108,15 +108,13 @@ bool Scheduler::Implementation::advance(Time now) {
 void Scheduler::Implementation::updated() { _interrupt_loop.notify(); }
 
 bool Scheduler::Implementation::loop() {
-    Interval timeout = 0s;
+    Interval timeout = 5s; // max timeout, TODO: make configurable
 
     {
         std::scoped_lock lock(_timers_mutex);
 
-        if ( _timers.empty() )
-            timeout = 5s; // TODO: Make max timeout configurable
-        else
-            timeout = std::max(Interval(0s), _timers.top()->due - std::chrono::system_clock::now());
+        if ( ! _timers.empty() )
+            timeout = std::min(timeout, std::max(Interval(0s), _timers.top()->due - std::chrono::system_clock::now()));
     }
 
     if ( timeout > 0s ) {
