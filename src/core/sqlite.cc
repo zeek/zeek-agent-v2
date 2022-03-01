@@ -161,7 +161,7 @@ static int onTableConnect(::sqlite3* db, void* paux, int argc, const char* const
                                               case value::Type::Real: return name + "REAL" + hidden;
                                               case value::Type::Text: return name + "TEXT" + hidden;
                                               case value::Type::Null:
-                                                  logger()->error(format("table {} uses NULL in schema", table_name));
+                                                  logger()->error("table {} uses NULL in schema", table_name);
                                                   return name + "NULL";
                                           }
                                           cannot_be_reached(); // thanks GCC
@@ -172,7 +172,7 @@ static int onTableConnect(::sqlite3* db, void* paux, int argc, const char* const
 
     auto rc = ::sqlite3_declare_vtab(db, stmt.c_str());
     if ( rc != SQLITE_OK ) {
-        logger()->error(format("creating table {} failed: {}", table_name, ::sqlite3_errmsg(db)));
+        logger()->error("creating table {} failed: {}", table_name, ::sqlite3_errmsg(db));
         return rc;
     }
 
@@ -683,7 +683,7 @@ TEST_SUITE("SQLite") {
             auto result = sql.runStatement("SELECT * FROM sqlite_schema");
             REQUIRE(result);
             for ( const auto& x : result->rows )
-                logger()->info(to_string(x));
+                logger()->info("{}", to_string(x));
             CHECK_EQ(result->rows.size(), 2);
         }
 

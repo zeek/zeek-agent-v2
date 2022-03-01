@@ -37,7 +37,7 @@ std::vector<std::vector<Value>> SocketsDarwin::snapshot(const std::vector<table:
     pid_t pids[buffer_size / sizeof(pid_t)];
     buffer_size = proc_listpids(PROC_ALL_PIDS, 0, pids, static_cast<int>(sizeof(pids)));
     if ( buffer_size <= 0 ) {
-        logger()->warn(format("sockets: cannot get pids"));
+        logger()->warn("sockets: cannot get pids");
         return {};
     }
 
@@ -52,7 +52,7 @@ std::vector<std::vector<Value>> SocketsDarwin::snapshot(const std::vector<table:
             if ( errno == ESRCH ) // ESRCH -> process is gone
                 continue;
 
-            logger()->debug(format("sockets: could not get process information for PID {}", pids[i]));
+            ZEEK_AGENT_DEBUG("sockets", "sockets: could not get process information for PID {}", pids[i]);
             continue;
         }
 
@@ -68,7 +68,7 @@ void SocketsDarwin::addSocketsForProcess(std::vector<std::vector<Value>>* rows, 
     struct proc_fdinfo fds[buffer_size / sizeof(proc_fdinfo)];
     buffer_size = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, fds, buffer_size);
     if ( buffer_size <= 0 ) {
-        logger()->warn(format("sockets: cannot get FDs for process {}", pid));
+        logger()->warn("sockets: cannot get FDs for process {}", pid);
         return;
     }
 
@@ -88,7 +88,7 @@ void SocketsDarwin::addSocketsForProcess(std::vector<std::vector<Value>>* rows, 
                 continue; // assume can happen apparently
 
             // We arrive here for lots of "Socket operation on non-socket". Could be files?
-            logger()->warn(format("sockets: {} (pid {}, fd {})", strerror(errno), pid, fds[i].proc_fd));
+            logger()->warn("sockets: {} (pid {}, fd {})", strerror(errno), pid, fds[i].proc_fd);
             continue;
         }
 

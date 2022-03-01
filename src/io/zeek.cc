@@ -224,7 +224,7 @@ void BrokerConnection::disconnect() {
     transmitEvent("ZeekAgentAPI::agent_shutdown_v1", {});
 
     if ( ! _endpoint.unpeer(_destination->address, _destination->port) )
-        logger()->warn(format("failed disconnect from {}", endpoint()));
+        logger()->warn("failed disconnect from {}", endpoint());
 }
 
 void BrokerConnection::poll() {
@@ -477,7 +477,7 @@ void BrokerConnection::processError(const broker::error& err) {
 
 void BrokerConnection::processStatus(const broker::status& status) {
     auto msg = (status.message() ? *status.message() : std::string("<no status description from broker>"));
-    logger()->info(format("[{}] {}", endpoint(), msg));
+    logger()->info("[{}] {}", endpoint(), msg);
 
     switch ( status.code() ) {
         case broker::sc::peer_added: {
@@ -651,7 +651,7 @@ void Zeek::Implementation::start(const std::vector<std::string>& zeeks) {
         if ( auto rc = conn->connect(z) )
             _connections.push_back(std::move(conn));
         else
-            logger()->error(rc.error());
+            logger()->error("{}", rc.error());
     }
 }
 

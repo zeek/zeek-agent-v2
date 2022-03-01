@@ -294,7 +294,7 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
             (*i)->previous_result = std::move(sql_result);
     }
     else
-        logger()->error(format("table error: {}", sql_result.error()));
+        logger()->error("table error: {}", sql_result.error());
 
     if ( (*i)->query.terminate )
         _scheduler->terminate();

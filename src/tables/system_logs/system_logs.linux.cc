@@ -63,7 +63,7 @@ bool SystemLogsLinux::init() {
     }
 
     if ( journalctl )
-        ZEEK_AGENT_DEBUG("system_logs", format("found journalctrl: {}", journalctl->native()));
+        ZEEK_AGENT_DEBUG("system_logs", "found journalctrl: {}", journalctl->native());
     else
         ZEEK_AGENT_DEBUG("system_logs", "did not find journalctrl");
 
@@ -86,7 +86,7 @@ void SystemLogsLinux::startProcess() {
     std::vector<std::string> args = {journalctl->native(), "-f", "-o", "json-seq",
                                      "--output-fields=MESSAGE,PRIORITY,_EXE"};
     if ( auto ec = process->start(args, options) ) {
-        logger()->warn(format("[system_logs] execution of {} failed, will not have data", journalctl->native()));
+        logger()->warn("[system_logs] execution of {} failed, will not have data", journalctl->native());
         process.reset();
         journalctl.reset();
     }
@@ -184,7 +184,7 @@ void SystemLogsLinux::parseJSON(const std::string& object) {
         newEvent({t, process, priority, msg});
 
     } catch ( const nlohmann::json::exception& e ) {
-        logger()->warn(format("[system_logs] failed to parse JSON data: {}", e.what()));
+        logger()->warn("[system_logs] failed to parse JSON data: {}", e.what());
     }
 }
 

@@ -18,7 +18,7 @@
 
 using namespace zeek::agent;
 
-static void log_termination() { logger()->info(format("process terminated", VersionLong)); }
+static void log_termination() { logger()->info("process terminated", VersionLong); }
 
 int main(int argc, char** argv) {
     try {
@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
             exit(0);
         }
 
-        logger()->info(format("Zeek Agent {} starting up", VersionLong));
+        logger()->info("Zeek Agent {} starting up", VersionLong);
         atexit(log_termination);
 
         if ( geteuid() != 0 && ! cfg.options().use_mock_data )
@@ -78,11 +78,11 @@ int main(int argc, char** argv) {
         return 0;
 
     } catch ( const FatalError& e ) {
-        logger()->error(format("fatal error: {}", e.what()));
+        logger()->error("fatal error: {}", e.what());
         return 1;
 
     } catch ( const InternalError& e ) {
-        logger()->error(format("internal error: {}", e.what()));
+        logger()->error("internal error: {}", e.what());
         return 1;
     }
 }
