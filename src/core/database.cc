@@ -161,7 +161,7 @@ void Database::Implementation::expire() {
             expire_until = i->second;
 
         if ( ! t->usesMockData() ) {
-            ZEEK_AGENT_DEBUG("database", "[{}] expiring state until t={}", n, to_string(expire_until));
+            ZEEK_AGENT_TRACE("database", "[{}] expiring state until t={}", n, to_string(expire_until));
             t->expire(expire_until);
         }
     }
@@ -356,7 +356,7 @@ std::vector<const Table*> Database::tables() {
 }
 
 Result<std::optional<query::ID>> Database::query(const Query& q) {
-    ZEEK_AGENT_DEBUG("database", "new query: {} ", q.sql_stmt);
+    logger()->info("new query: {} ", q.sql_stmt);
 
     auto id = pimpl()->query(q);
     if ( id ) {
@@ -383,7 +383,7 @@ void Database::poll() {
 }
 
 void Database::expire() {
-    ZEEK_AGENT_DEBUG("database", "expiring database state");
+    ZEEK_AGENT_DEBUG("database", "expiring database state at t={}", to_string(pimpl()->_scheduler->currentTime()));
     pimpl()->expire();
 }
 

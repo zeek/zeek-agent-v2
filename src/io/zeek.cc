@@ -198,7 +198,7 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
         broker::network_info(address, port,
                              std::chrono::duration_cast<broker::timeout::seconds>(options().zeek_reconnect_interval));
 
-    ZEEK_CONN_DEBUG("beginning to peer");
+    ZEEK_CONN_DEBUG("connecting");
     for ( const auto& t : topics )
         ZEEK_CONN_DEBUG("  subscribing to: {}", t.string());
 
@@ -216,7 +216,7 @@ void BrokerConnection::disconnect() {
     _subscriber.reset();
     _status_subscriber.reset();
 
-    ZEEK_CONN_DEBUG("unpeering");
+    ZEEK_CONN_DEBUG("disconnecting");
 
     // Send out shutdown message. This is best effort, the event might not make
     // it out anymore. But the Zeek instances will eventually time out their
@@ -236,7 +236,7 @@ void BrokerConnection::poll() {
     }
 
     for ( const auto& id : to_remove ) {
-        ZEEK_INSTANCE_DEBUG(id, "expiring Zeek instance");
+        logger()->info("inactive Zeek instance, timing out [{}]", id);
         removeZeekInstance(id);
     }
 }
@@ -334,7 +334,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
             zeek_instance->second.last_seen = _scheduler->currentTime();
 
         else {
-            ZEEK_INSTANCE_DEBUG(zeek_instance_id, "new Zeek instance");
+            logger()->info("new Zeek instance [{}]", zeek_instance_id);
             zeek_instance =
                 _zeek_instances.emplace(zeek_instance_id, ZeekInstance{.last_seen = _scheduler->currentTime()}).first;
         }
@@ -373,6 +373,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
     }
 
     else if ( event.name() == "ZeekAgentAPI::zeek_shutdown_v1" ) {
+        logger()->info("Zeek instance is shutting down [{}]", zeek_instance_id);
         removeZeekInstance(zeek_instance_id);
     }
 
@@ -472,12 +473,25 @@ void BrokerConnection::processError(const broker::error& err) {
     if ( err.message() )
         msg = *err.message();
 
-    logger()->warn("[{}] {}", endpoint(), msg);
+    switch ( static_cast<broker::ec>(err.code()) ) {
+        // Prettyify some common errors.
+        case broker::ec::peer_invalid:
+        case broker::ec::peer_unavailable: logger()->info("cannot connect to Zeek endpoint at {}", endpoint()); break;
+
+        default: logger()->info("{} for {}", msg, endpoint());
+    }
 }
 
 void BrokerConnection::processStatus(const broker::status& status) {
     auto msg = (status.message() ? *status.message() : std::string("<no status description from broker>"));
-    logger()->info("[{}] {}", endpoint(), msg);
+
+    switch ( static_cast<broker::sc>(status.code()) ) {
+        // Prettyify some common messages.
+        case broker::sc::peer_added: logger()->info("connected to Zeek endpoint at {}", endpoint()); break;
+        case broker::sc::peer_lost: logger()->info("lost connection to Zeek endpoint at {}", endpoint()); break;
+        case broker::sc::peer_removed: logger()->info("disconnected from Zeek endpoint at {}", endpoint()); break;
+        default: logger()->info("{} at {}", msg, endpoint());
+    }
 
     switch ( status.code() ) {
         case broker::sc::peer_added: {
@@ -542,7 +556,7 @@ void BrokerConnection::transmitResult(const std::string& zeek_id, const query::R
 void BrokerConnection::transmitError(const std::string& zeek_instance, const std::string& msg,
                                      const std::optional<std::string>& zeek_id,
                                      const std::optional<std::string>& cookie) {
-    ZEEK_INSTANCE_DEBUG(zeek_instance, "error: {}", msg);
+    ZEEK_INSTANCE_DEBUG(zeek_instance, "sending error: {}", msg);
     transmitEvent("ZeekAgentAPI::agent_error_v1", {msg}, zeek_instance, zeek_id, cookie);
 }
 
