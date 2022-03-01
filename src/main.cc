@@ -17,6 +17,10 @@
 #include <iostream>
 #include <optional>
 
+#ifdef HAVE_DARWIN
+#include "platform/darwin/es.h"
+#endif
+
 using namespace zeek::agent;
 
 #ifdef HAVE_WINDOWS
@@ -47,6 +51,17 @@ int main(int argc, char** argv) {
 
         if ( platform::runningAsAdmin() && ! cfg.options().use_mock_data )
             logger()->warn("not running as root, information may be incomplete");
+
+#ifdef HAVE_DARWIN
+        // TODO This is only temproary for testing.
+        darwin::EndpointSecurity es;
+        if ( auto rc = es.start() ) {
+            logger()->info("Enpoint Security available");
+            es.stop();
+        }
+        else
+            logger()->info("Enpoint Security not available: {}", rc.error());
+#endif
 
         Scheduler scheduler;
         signal_mgr = new SignalManager({SIGINT});
