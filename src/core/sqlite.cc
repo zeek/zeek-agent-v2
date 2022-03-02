@@ -13,6 +13,7 @@
 #include <memory>
 #include <utility>
 
+#define SQLITE_ENABLE_COLUMN_METADATA
 #include <sqlite3.h>
 
 using namespace zeek::agent;
@@ -422,8 +423,9 @@ const ::sqlite3_module OurSqliteModule = {3, // Version
 } // namespace
 
 
-sqlite::PreparedStatement::PreparedStatement(::sqlite3_stmt* stmt, std::set<Table*> tables)
-    : _statement(stmt), _tables(std::move(tables)) {
+sqlite::PreparedStatement::PreparedStatement(::sqlite3_stmt* stmt, std::set<Table*> tables,
+                                             std::vector<std::optional<sqlite::Column>> columns)
+    : _statement(stmt), _tables(std::move(tables)), _columns(std::move(columns)) {
     assert(stmt);
 
     for ( const auto& t : _tables )
@@ -495,7 +497,31 @@ Result<std::unique_ptr<sqlite::PreparedStatement>> SQLite::Implementation::prepa
 
     ZEEK_AGENT_DEBUG("sqlite", "statement result will have {} columns", ::sqlite3_column_count(prepared_stmt));
 
-    return std::make_unique<sqlite::PreparedStatement>(prepared_stmt, std::move(_stmt_tables));
+    std::vector<std::optional<sqlite::Column>> columns;
+    for ( auto i = 0; i < ::sqlite3_column_count(prepared_stmt); i++ ) {
+        auto table_name = sqlite3_column_table_name(prepared_stmt, i);
+        auto column_name = sqlite3_column_origin_name(prepared_stmt, i);
+
+        if ( table_name && column_name ) {
+            if ( auto t = _tables_by_name.find(table_name); t != _tables_by_name.end() ) {
+                auto column = t->second->schema().column(column_name);
+                assert(column);
+                columns.emplace_back(sqlite::Column{.name = column_name, .type = column->type, .table = t->second});
+            }
+        }
+        else
+            columns.emplace_back(std::nullopt);
+    }
+
+#ifndef NDEBUG
+    for ( const auto& c : columns )
+        if ( c )
+            ZEEK_AGENT_DEBUG("sqlite", "  {}: {} [{}]", c->name, to_string(c->type), c->table->name());
+        else
+            ZEEK_AGENT_DEBUG("sqlite", "  <column schema n/a>");
+#endif
+
+    return std::make_unique<sqlite::PreparedStatement>(prepared_stmt, std::move(_stmt_tables), std::move(columns));
 }
 
 Result<sqlite::Result> SQLite::Implementation::runStatement(const sqlite::PreparedStatement& stmt,

@@ -21,6 +21,19 @@ class SQLite;
 
 namespace sqlite {
 
+/** Schema for a result column. */
+struct Column {
+    std::string name; /**< name of the column */
+    value::Type type; /**< type of the column's values */
+    Table* table;     /*< table the columns comes from, or null if no direct relationship */
+};
+
+/** Results of a SQLite statement. */
+struct Result {
+    std::vector<Column> columns;          /**< schema for the result's rows */
+    std::vector<std::vector<Value>> rows; /**< set of results rows */
+};
+
 /**
  * Represents a precompiled SQL statement. From outside of the SQLite backend,
  * this should be treated as an opaque container; the API here is just for
@@ -39,8 +52,10 @@ public:
      * @param stmt pre-compiled SQL statement, as returned by
      * `::sqlite3_prepare_v2`; the construcor takes ownership of the instance
      * @param tables set of tables that the statement accesses
+     * @param columns  schema for each result columm, or unset if a column can't be described in advance
      */
-    PreparedStatement(::sqlite3_stmt* stmt, std::set<Table*> tables);
+    PreparedStatement(::sqlite3_stmt* stmt, std::set<Table*> tables,
+                      std::vector<std::optional<sqlite::Column>> columns);
     ~PreparedStatement();
 
     PreparedStatement(const PreparedStatement& other) = delete;
@@ -57,20 +72,9 @@ public:
     const auto& tables() const { return _tables; }
 
 private:
-    ::sqlite3_stmt* _statement; // as passed into constructor
-    std::set<Table*> _tables;   // as passed into constructor
-};
-
-/** Schema for a result column. */
-struct Column {
-    std::string name; /**< name of the column */
-    value::Type type; /**< type of the column's values */
-};
-
-/** Results of a SQLite statement. */
-struct Result {
-    std::vector<Column> columns;          /**< schema for the result's rows */
-    std::vector<std::vector<Value>> rows; /**< set of results rows */
+    ::sqlite3_stmt* _statement;                          // as passed into constructor
+    std::set<Table*> _tables;                            // as passed into constructor
+    std::vector<std::optional<sqlite::Column>> _columns; // as passed into constructor
 };
 
 } // namespace sqlite

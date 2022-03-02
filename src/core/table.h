@@ -5,6 +5,7 @@
 #include "configuration.h"
 #include "scheduler.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -108,6 +109,9 @@ struct Schema {
 
     /** Helper returning just the parameter columns. */
     std::vector<schema::Column> parameters() const;
+
+    /** Returns a column by name, or null if it doesn't exist. */
+    std::optional<schema::Column> column(const std::string_view& name);
 };
 
 /** Renders a table's schema into a string representation for display. */

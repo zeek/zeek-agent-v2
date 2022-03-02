@@ -39,6 +39,15 @@ std::string zeek::agent::to_string(const std::vector<Value>& values) {
     return join(transform(values, [](const auto& x) { return to_string(x); }), " ");
 }
 
+std::optional<schema::Column> Schema::column(const std::string_view& name) {
+    for ( const auto& c : columns ) {
+        if ( name == c.name )
+            return c;
+    }
+
+    return {};
+}
+
 std::string schema::Column::str() const { return format("{}: {}", name, type); }
 
 std::string zeek::agent::to_string(const std::vector<schema::Column>& values) {

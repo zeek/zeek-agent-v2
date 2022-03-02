@@ -11,18 +11,6 @@ add_subdirectory(spdlog EXCLUDE_FROM_ALL)
 add_subdirectory(stduuid EXCLUDE_FROM_ALL)
 add_subdirectory(tomlplusplus EXCLUDE_FROM_ALL)
 
-# Build a mininmal, static version of libroker.
-set(BROKER_DISABLE_DOCS ON)
-set(BROKER_DISABLE_TESTS ON)
-set(DISABLE_PYTHON_BINDINGS ON)
-set(ENABLE_STATIC_ONLY ON)
-
-if ( USE_STATIC_LINKING )
-    set(OPENSSL_USE_STATIC_LIBS on)
-endif ()
-
-add_subdirectory(broker EXCLUDE_FROM_ALL)
-
 # pathfind's cmake config is too old and not really usable. Set it up ourselves.
 add_library(pathfind STATIC pathfind/src/pathfind.cpp)
 target_include_directories(pathfind PUBLIC pathfind/src)
@@ -36,7 +24,21 @@ target_include_directories(sqlite PUBLIC sqlite)
 target_compile_definitions(sqlite PRIVATE SQLITE_OMIT_LIKE_OPTIMIZATION)
 target_compile_definitions(sqlite PRIVATE SQLITE_OMIT_OR_OPTIMIZATION)
 target_compile_definitions(sqlite PRIVATE SQLITE_OMIT_BETWEEN_OPTIMIZATION)
+target_compile_definitions(sqlite PRIVATE SQLITE_ENABLE_COLUMN_METADATA)
 add_library(sqlite::sqlite ALIAS sqlite)
+
+# Build a mininmal, static version of libroker.
+set(BROKER_DISABLE_DOCS ON)
+set(BROKER_DISABLE_TESTS ON)
+set(DISABLE_PYTHON_BINDINGS ON)
+set(ENABLE_STATIC_ONLY ON)
+set(BROKER_EXTERNAL_SQLITE_TARGET "sqlite::sqlite")
+
+if ( USE_STATIC_LINKING )
+    set(OPENSSL_USE_STATIC_LIBS on)
+endif ()
+
+add_subdirectory(broker EXCLUDE_FROM_ALL)
 
 # adapted from Spicy
 set(REPROC++ ON)
