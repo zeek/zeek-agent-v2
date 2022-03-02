@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "sqlite.h"
 #include "table.h"
 #include "util/pimpl.h"
 #include "util/result.h"
@@ -33,6 +34,8 @@ struct Row {
     std::vector<Value> values;      /**< the row's values, matching the corresponding schema */
 };
 
+using Column = sqlite::Column;
+
 } // namespace result
 
 /**
@@ -41,7 +44,7 @@ struct Row {
  * columns the query selects.
  */
 struct Result {
-    std::vector<schema::Column> columns; /**< The schema  */
+    std::vector<result::Column> columns; /**< the schema  */
     std::vector<result::Row> rows;       /**< set of rows forming the query result */
     std::string cookie;                  /**< copy of cookie provided by caller along with the query */
     bool initial_result = true;          /**< true for the first result of subscription, false for subsequent diffs */

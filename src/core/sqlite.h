@@ -61,9 +61,15 @@ private:
     std::set<Table*> _tables;   // as passed into constructor
 };
 
+/** Schema for a result column. */
+struct Column {
+    std::string name; /**< name of the column */
+    value::Type type; /**< type of the column's values */
+};
+
 /** Results of a SQLite statement. */
 struct Result {
-    std::vector<schema::Column> columns;  /**< schema for the result's rows */
+    std::vector<Column> columns;          /**< schema for the result's rows */
     std::vector<std::vector<Value>> rows; /**< set of results rows */
 };
 
