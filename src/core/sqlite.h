@@ -71,6 +71,12 @@ public:
     // internaly use only.
     const auto& tables() const { return _tables; }
 
+    // Returns the schema for a given column, if available.
+    const auto& column(int i) const {
+        assert(i < _columns.size());
+        return _columns[i];
+    }
+
 private:
     ::sqlite3_stmt* _statement;                          // as passed into constructor
     std::set<Table*> _tables;                            // as passed into constructor

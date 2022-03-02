@@ -544,19 +544,28 @@ Result<sqlite::Result> SQLite::Implementation::runStatement(const sqlite::Prepar
         // Note: we can't precompute the columns, the types won't be valid before
         // we actually execute.
         for ( auto i = 0; i < num_columns; i++ ) {
+            const auto& column_schema = stmt.column(i);
             auto name = ::sqlite3_column_name(stmt.statement(), i);
-            auto type = sqliteConvertType(name, ::sqlite3_column_type(stmt.statement(), i));
-            if ( ! type )
-                return type.error();
+
+            value::Type type = value::Type::Null;
+
+            if ( column_schema )
+                type = column_schema->type;
+            else {
+                if ( auto t = sqliteConvertType(name, ::sqlite3_column_type(stmt.statement(), i)) )
+                    type = *t;
+                else
+                    return t.error();
+            }
 
             if ( first_row )
-                result.columns.push_back({.name = name, .type = *type});
+                result.columns.push_back({.name = name, .type = type});
             else {
                 // The SQLite docs say: "For a given column, this value may
                 // change from one result row to the next." That would be
                 // deadly for us, let's see if it actually happens ...
-                if ( result.columns[i].type != *type && result.columns[i].type != value::Type::Null &&
-                     *type != value::Type::Null )
+                if ( result.columns[i].type != type && result.columns[i].type != value::Type::Null &&
+                     type != value::Type::Null )
                     return result::Error("cell type unexpectedly changing between result rows");
             }
         }
