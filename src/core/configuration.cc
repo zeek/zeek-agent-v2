@@ -10,15 +10,18 @@
 #include "util/helpers.h"
 #include "util/platform.h"
 
-#include <cstring>
-#include <memory>
 #include <sstream>
 #include <system_error>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
+#ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
+#else
+#include <bsd-getopt-long.h>
+#endif
+
 #include <uuid.h>
 
 #include <toml++/toml.h>

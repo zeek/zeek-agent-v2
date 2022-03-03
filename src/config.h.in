@@ -8,6 +8,7 @@
 #cmakedefine HAVE_WINDOWS
 #cmakedefine HAVE_GCC
 #cmakedefine HAVE_CLANG
+#cmakedefine HAVE_GETOPT_LONG
 
 namespace zeek::agent {
 inline const auto Version = "${ZEEK_AGENT_VERSION}";
