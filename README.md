@@ -69,8 +69,8 @@ submodules through `--recursive`). Then run:
 
 Selected `configure` options (see `--help` for more):
 
-    - `--prefix=<path>`: installation prefix
-    - `--with-openssl=<path>`: path to OpenSSL installation.
+- `--prefix=<path>`: installation prefix
+- `--with-openssl=<path>`: path to OpenSSL installation.
 
 On macOS with Homebrew, use `--with-openssl={/usr/local,/opt/homebrew}/opt/openssl@1.1`
 
