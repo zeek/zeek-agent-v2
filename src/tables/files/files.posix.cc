@@ -107,7 +107,7 @@ std::vector<std::vector<Value>> FilesLinesPosix::snapshot(const std::vector<tabl
         std::string content;
         // TODO: We should use a version of getline() that can abort at a given max-size.
         while ( std::getline(in, content) )
-            rows.push_back({pattern, p, ++number, trim(content)});
+            rows.push_back({pattern, p.native(), ++number, trim(content)});
 
         in.close();
     }
