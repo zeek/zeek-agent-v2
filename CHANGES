@@ -1,3 +1,36 @@
+2.0.4 | 2022-03-04 16:55:11 +0100
+
+  * Add new log options. In the configuration file we now provide more
+    control of log messages:
+
+        [log]
+        type=<stdout|system|file>
+        level=<error|warn|info|debug|trace>
+        path=<path for type 'file'>
+
+    Default remains logging to stdout at level INFO.
+
+  * Fine-tune log levels. We elevate some high-level messages to INFO
+    level that can be useful to users, and we move some noisy debug
+    messages to TRACE level (which is available only in debug builds).
+
+  * Expose Broker's SSL options in configuration file. This also moves
+    all Zeek options into a `[zeek]` section of the configuration
+    file.
+
+  * Link against standard version of OpenSSL by default. So far we
+    hardcoded always using the static OpenSSL libraries. Now that's
+    done only when with configured with ``--enable-static``, otherwise
+    we use whatever CMake determines being the default.
+
+  * Fix column type in `files_lines` table.
+
+  * Fix enforcement of maximum idle timeout.
+
+  * Add missing include to appease GCC 11.2.1.
+
+  * Update toml++.
+
 2.0.3 | 2022-02-22 13:36:47 +0100
 
   * Adapt to package's new default listening port.
