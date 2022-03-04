@@ -20,6 +20,29 @@ using namespace zeek::agent;
 
 static void log_termination() { logger()->info("process terminated", VersionLong); }
 
+static bool running_as_admin() {
+#ifdef WIN32
+    // Adapted from
+    // https://docs.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-checktokenmembership
+    BOOL is_member;
+    PSID administrator_group = nullptr;
+    SID_IDENTIFIER_AUTHORITY auth_nt = SECURITY_NT_AUTHORITY;
+    is_member = AllocateAndInitializeSid(&auth_nt, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0,
+                                         0, 0, &administrator_group);
+
+    if ( ! is_member )
+        return false;
+
+    if ( ! CheckTokenMembership(nullptr, administrator_group, &is_member) )
+        is_member = false;
+
+    FreeSid(administrator_group);
+    return is_member;
+#else
+    return geteuid() != 0;
+#endif
+}
+
 int main(int argc, char** argv) {
     try {
         Configuration cfg;
@@ -37,7 +60,7 @@ int main(int argc, char** argv) {
         logger()->info("Zeek Agent {} starting up", VersionLong);
         atexit(log_termination);
 
-        if ( geteuid() != 0 && ! cfg.options().use_mock_data )
+        if ( running_as_admin() && ! cfg.options().use_mock_data )
             logger()->warn("not running as root, information may be incomplete");
 
         Scheduler scheduler;
