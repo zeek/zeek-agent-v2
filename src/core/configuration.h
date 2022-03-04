@@ -36,6 +36,9 @@ enum class Mode {
  * means.
  */
 struct Options {
+    /** Logs a summary of the current settings to the debug log stream. */
+    void debugDump();
+
     /** Mode of operation for the current process. */
     options::Mode mode = options::Mode::Standard;
 
@@ -67,8 +70,14 @@ struct Options {
     /** The agent's level of logging. Default is `warn` and worse. */
     std::optional<spdlog::level::level_enum> log_level;
 
+    /** True to have any tables only report mock data for testing. */
+    bool use_mock_data = false;
+
+    /** Terminate when a Zeek connections goes down (instead of retrying). */
+    bool terminate_on_disconnect = false;
+
     /** Zeek instances to connect to */
-    std::vector<std::string> zeeks;
+    std::vector<std::string> zeek_destinations;
 
     /**
      * Set of groups that the agent is part of. In addition, all agengs are
@@ -91,14 +100,43 @@ struct Options {
     /** Interval to broadcast "hello" pings. */
     Interval zeek_hello_interval = 60s;
 
-    /** True to have any tables only report mock data for testing. */
-    bool use_mock_data = false;
+    /**
+     * If true, do not use SSL for network connections. By default, SSL will
+     * even be used even if no certificates / CAs have been configured, so that
+     * the communication will always be encrypted (but not authenticated in that
+     * case).
+     */
+    bool zeek_ssl_disable = false;
 
-    /** Terminate when a Zeek connections goes down (instead of retrying). */
-    bool terminate_on_disconnect = false;
+    /**
+     * Path to a file containing concatenated trusted certificates in PEM
+     * format. If set, the agent will require valid certificates for all peers.
+     */
+    std::string zeek_ssl_cafile;
 
-    /** Logs a summary of the current settings to the debug log stream. */
-    void debugDump();
+    /**
+     * Path to an OpenSSL-style directory of trusted certificates. If set, the
+     * agent will require valid certificates for all peers.
+     */
+    std::string zeek_ssl_capath;
+
+    /**
+     * Path to a file containing a X.509 certificate for this node in PEM
+     * format. If set, the agent will require valid certificates for all peers.
+     */
+    std::string zeek_ssl_certificate;
+
+    /**
+     * Passphrase to decrypt the private key specified by `zeek_ssl_keyfile`. If
+     * set, the agent will require valid certificates for all peers.
+     */
+    std::string zeek_ssl_passphrase;
+
+    /**
+     * Path to the file containing the private key for this node's certificate.
+     * If set, the agent will require valid certificates for all peers.
+     */
+    std::string zeek_ssl_keyfile;
 };
 
 /**

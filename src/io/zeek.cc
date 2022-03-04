@@ -102,7 +102,6 @@ private:
 
     const auto& options() const { return _db->configuration().options(); }
 
-
     Database* _db = nullptr;                          // as passed into constructor
     Scheduler* _scheduler = nullptr;                  // as passed into constructor
     std::optional<broker::network_info> _destination; // parsed destination as passed into constructor
@@ -601,8 +600,10 @@ struct Pimpl<Zeek>::Implementation {
     // Performs periodic operations. Must be called reguarly from external.
     void poll();
 
+    const auto& options() const { return _db->configuration().options(); }
+
     // Helper to prepare Broker config object
-    static broker::configuration brokerConfig();
+    broker::configuration brokerConfig();
 
     Database* _db = nullptr;         // as passed into constructor
     Scheduler* _scheduler = nullptr; // as passed into constructor
@@ -614,37 +615,34 @@ struct Pimpl<Zeek>::Implementation {
 
 broker::configuration Zeek::Implementation::brokerConfig() {
     // Configure Broker/CAF for lower resource consumption.
-    broker::broker_options options;
-    options.forward = false;
-    options.ignore_broker_conf = true;
+    broker::broker_options broker_options;
+    broker_options.forward = false;
+    broker_options.ignore_broker_conf = true;
+    broker_options.disable_ssl = options().zeek_ssl_disable;
 
-    broker::configuration config(options);
+    broker::configuration broker_config(broker_options);
+    broker_config.openssl_cafile(options().zeek_ssl_cafile);
+    broker_config.openssl_capath(options().zeek_ssl_capath);
+    broker_config.openssl_certificate(options().zeek_ssl_certificate);
+    broker_config.openssl_key(options().zeek_ssl_keyfile);
+    broker_config.openssl_passphrase(options().zeek_ssl_passphrase);
 
 #if 1
-    config.set("caf.scheduler.policy", "sharing");
-    config.set("caf.scheduler.max-threads", 1);
-    config.set("caf.middleman.workers", 0);
+    broker_config.set("caf.scheduler.policy", "sharing");
+    broker_config.set("caf.scheduler.max-threads", 1);
+    broker_config.set("caf.middleman.workers", 0);
 #else
     // Use Zeek's stealing configuration.
-    config.set("caf.work-stealing.moderate-sleep-duration", broker::timespan{16'000});
-    config.set("caf.work-stealing.relaxed-sleep-duration", broker::timespan{64'000});
-    config.set("caf.work-stealing.aggressive-poll-attempts", 5);
-    config.set("caf.work-stealing.moderate-poll-attempts", 5);
-    config.set("caf.work-stealing.aggressive-steal-interval", 4);
-    config.set("caf.work-stealing.moderate-steal-interval", 2);
-    config.set("caf.work-stealing.relaxed-steal-interval", 1);
+    broker_config.set("caf.work-stealing.moderate-sleep-duration", broker::timespan{16'000});
+    broker_config.set("caf.work-stealing.relaxed-sleep-duration", broker::timespan{64'000});
+    broker_config.set("caf.work-stealing.aggressive-poll-attempts", 5);
+    broker_config.set("caf.work-stealing.moderate-poll-attempts", 5);
+    broker_config.set("caf.work-stealing.aggressive-steal-interval", 4);
+    broker_config.set("caf.work-stealing.moderate-steal-interval", 2);
+    broker_config.set("caf.work-stealing.relaxed-steal-interval", 1);
 #endif
 
-#if 0
-    // TODO: Add options to config file.
-	config.openssl_cafile(get_option("Broker::ssl_cafile")->AsString()->CheckString());
-	config.openssl_capath(get_option("Broker::ssl_capath")->AsString()->CheckString());
-	config.openssl_certificate(get_option("Broker::ssl_certificate")->AsString()->CheckString());
-	config.openssl_key(get_option("Broker::ssl_keyfile")->AsString()->CheckString());
-	config.openssl_passphrase(get_option("Broker::ssl_passphrase")->AsString()->CheckString());
-#endif
-
-    return config;
+    return broker_config;
 }
 
 void Zeek::Implementation::start(const std::vector<std::string>& zeeks) {
@@ -700,7 +698,7 @@ TEST_SUITE("Zeek") {
         Zeek zeek(&db, &tmgr);
 
         // Shorten reconnect interval.
-        std::stringstream options{"zeek_reconnect_interval = 1"};
+        std::stringstream options{"[zeek]\nreconnect_interval = 1"};
         cfg.read(options, "-");
 
         broker::endpoint receiver;

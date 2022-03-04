@@ -59,9 +59,9 @@ int main(int argc, char** argv) {
         }
 
         std::unique_ptr<Zeek> zeek;
-        if ( ! cfg.options().zeeks.empty() ) {
+        if ( ! cfg.options().zeek_destinations.empty() ) {
             zeek = std::make_unique<Zeek>(&db, &scheduler);
-            zeek->start(cfg.options().zeeks);
+            zeek->start(cfg.options().zeek_destinations);
         }
 
         ZEEK_AGENT_DEBUG("main", "looping until terminated");
