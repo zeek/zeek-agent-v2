@@ -16,6 +16,8 @@
 #include <utility>
 #include <vector>
 
+#include <fmt/format.h>
+
 #ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
 #else
@@ -63,7 +65,7 @@ static struct option long_driver_options[] = {
 
 static void usage(const filesystem::path& name) {
     // clang-format off
-    std::cerr << "\nUsage: " << name.filename().native() << format(
+    std::cerr << "\nUsage: " << name.filename().string() << format(
         " [options]\n"
         "\n"
         "  -D | --autodoc                   Output JSON documentating table schemas and exit.\n"
@@ -78,7 +80,7 @@ static void usage(const filesystem::path& name) {
         "  -v | --version                   Print version information\n"
         "  -z | --zeek <host>[:port]        Connect to Zeek at given address\n"
         "\n",
-        platform::configurationFile().native());
+        platform::configurationFile().string());
     // clang-format on
 }
 
@@ -88,12 +90,12 @@ void Options::debugDump() {
     ZEEK_AGENT_DEBUG("configuration", "[option] agent-id: {}", agent_id);
     ZEEK_AGENT_DEBUG("configuration", "[option] instance-id: {}", instance_id);
     ZEEK_AGENT_DEBUG("configuration", "[option] config-file: {}",
-                     (config_file ? *config_file : filesystem::path()).native());
+                     (config_file ? *config_file : filesystem::path()).string());
     ZEEK_AGENT_DEBUG("configuration", "[option] interactive: {}", (interactive ? "true" : "false"));
     ZEEK_AGENT_DEBUG("configuration", "[option] log.level: {}",
                      (log_level ? options::to_string(*log_level) : "<not set>"));
     ZEEK_AGENT_DEBUG("configuration", "[option] log.type: {}", (log_type ? to_string(*log_type) : "<not set>"));
-    ZEEK_AGENT_DEBUG("configuration", "[option] log.path: {}", (log_path ? log_path->native() : "<not set>"));
+    ZEEK_AGENT_DEBUG("configuration", "[option] log.path: {}", (log_path ? log_path->string() : "<not set>"));
     ZEEK_AGENT_DEBUG("configuration", "[option] use-mock-data: {}", use_mock_data);
     ZEEK_AGENT_DEBUG("configuration", "[option] terminate-on-disconnect: {}", terminate_on_disconnect);
     ZEEK_AGENT_DEBUG("configuration", "[option] zeek.groups: {}", join(zeek_groups, ", "));
@@ -272,7 +274,9 @@ Result<Nothing> Configuration::Implementation::initFromArgv(std::vector<std::str
     if ( config->config_file ) {
         auto rc = read(*config->config_file);
         if ( ! rc )
-            return result::Error(format("error reading {}: {}", config->config_file->native(), rc.error()));
+            // NOTE: This could use native(), but we'd have to pass a wide string for the format and then
+            // result::Error would need to handle it as well.
+            return result::Error(format("error reading {}: {}", config->config_file->string(), rc.error()));
     }
     else
         apply(std::move(*config));
@@ -283,7 +287,7 @@ Result<Nothing> Configuration::Implementation::initFromArgv(std::vector<std::str
 Result<Nothing> Configuration::Implementation::read(const filesystem::path& path) {
     auto in = std::ifstream(path);
     if ( ! in.is_open() )
-        return result::Error(format("cannot open configuration file ", path.native()));
+        return result::Error(format("cannot open configuration file {}", path.string()));
 
     return read(in, path);
 }
@@ -421,12 +425,13 @@ Result<Nothing> Configuration::initFromArgv(int argc, const char* const* argv) {
 }
 
 Result<Nothing> Configuration::read(const filesystem::path& path) {
-    ZEEK_AGENT_DEBUG("configuration", "reading file {}", path.native());
+    ZEEK_AGENT_DEBUG("configuration", "reading file {}", path.string());
     return pimpl()->read(path);
 }
 
 Result<Nothing> Configuration::read(std::istream& in, const filesystem::path& path) {
-    ZEEK_AGENT_DEBUG("configuration", "reading stream associated with file {}", path.native());
+    logger()->debug(::zeek::agent::format("[{}] ", "configuration") +
+                    ::zeek::agent::format("reading stream associated with file {}", path.string()));
     return pimpl()->read(in, path);
 }
 

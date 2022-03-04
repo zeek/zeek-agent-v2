@@ -7,6 +7,7 @@
 #include <utility>
 
 #include <fmt/core.h>
+#include <fmt/xchar.h>
 
 namespace zeek::agent {
 

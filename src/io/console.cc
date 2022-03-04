@@ -136,7 +136,7 @@ void Console::Implementation::execute(const std::string& cmd, bool terminate) {
 void Console::Implementation::repl() {
     // Runs in its own thread.
     auto history_path = platform::dataDirectory() / "history";
-    _rx.history_load(history_path.native());
+    _rx.history_load(history_path.string());
 
     welcome();
 
@@ -156,7 +156,7 @@ void Console::Implementation::repl() {
             continue;
 
         _rx.history_add(input);
-        _rx.history_sync(history_path);
+        _rx.history_sync(history_path.string());
 
         execute(input, false);
     }

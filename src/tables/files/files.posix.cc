@@ -56,7 +56,7 @@ std::vector<std::vector<Value>> FilesListPosix::snapshot(const std::vector<table
     auto [pattern, paths] = expandPaths(args);
 
     for ( const auto& p : paths ) {
-        Value path = p;
+        Value path = p.string();
         Value type;
         Value uid;
         Value gid;
@@ -65,7 +65,7 @@ std::vector<std::vector<Value>> FilesListPosix::snapshot(const std::vector<table
         Value size;
 
         struct ::stat stat;
-        if ( ::stat(p.native().c_str(), &stat) == 0 ) {
+        if ( ::stat(p.string().c_str(), &stat) == 0 ) {
             uid = static_cast<int64_t>(stat.st_uid);
             gid = static_cast<int64_t>(stat.st_gid);
             mode = format("{:o}", (stat.st_mode & ~S_IFMT));

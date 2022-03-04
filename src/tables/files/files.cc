@@ -70,14 +70,14 @@ TEST_CASE_FIXTURE(test::TableFixture, "files_list" * doctest::test_suite("Tables
     }
 
     useTable("files_list");
-    auto result = query(format("SELECT type from files_list(\"{}\")", (dir / "file2").native()));
+    auto result = query(format("SELECT type from files_list(\"{}\")", (dir / "file2").string()));
     REQUIRE_EQ(result.rows.size(), 1);
     CHECK_EQ(*result.get<std::string>(0, "type"), "file");
 
-    result = query(format("SELECT path from files_list(\"{}\")", (dir / "*").native()));
+    result = query(format("SELECT path from files_list(\"{}\")", (dir / "*").string()));
     REQUIRE_EQ(result.rows.size(), 3);
 
-    result = query(format("SELECT path from files_list(\"{}\")", (dir / "sub" / "*").native()));
+    result = query(format("SELECT path from files_list(\"{}\")", (dir / "sub" / "*").string()));
     REQUIRE_EQ(result.rows.size(), 2);
 }
 
@@ -101,7 +101,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "files_lines" * doctest::test_suite("Table
     }
 
     useTable("files_lines");
-    auto result = query(format("SELECT content from files_lines(\"{}\")", (dir / "*").native()));
+    auto result = query(format("SELECT content from files_lines(\"{}\")", (dir / "*").string()));
     REQUIRE_EQ(result.rows.size(), 3);
     CHECK_EQ(*result.get<std::string>(0, "content"), "AAA1");
     CHECK_EQ(*result.get<std::string>(1, "content"), "AAA2");
@@ -127,7 +127,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "files_columns" * doctest::test_suite("Tab
     useTable("files_columns");
     auto result =
         query(format(R"(SELECT columns from files_columns("{}", "$1:int,$2:text,$3:blob,$4:count,$5:real,$0:blob"))",
-                     (dir / "file1").native()));
+                     (dir / "file1").string()));
     REQUIRE_EQ(result.rows.size(), 2);
 
     // Default parameters, all types.
@@ -148,13 +148,13 @@ TEST_CASE_FIXTURE(test::TableFixture, "files_columns" * doctest::test_suite("Tab
     CHECK_EQ(c1[5], Record::value_type("678", value::Type::Blob));
 
     // No comment pattern.
-    result = query(format(R"(SELECT columns from files_columns("{}", "$1:int", "", ""))", (dir / "file1").native()));
+    result = query(format(R"(SELECT columns from files_columns("{}", "$1:int", "", ""))", (dir / "file1").string()));
     REQUIRE_EQ(result.rows.size(), 3);
 
     // Custom separator.
     result =
         query(format(R"(SELECT columns from files_columns("{}", "$1:int,$2:int,$3:int,$4:int,$5:text,$6:int", ":"))",
-                     (dir / "file2").native()));
+                     (dir / "file2").string()));
     REQUIRE_EQ(result.rows.size(), 1);
 
     c0 = *result.get<Record>(0, "columns");
