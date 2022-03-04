@@ -39,6 +39,7 @@ if ( USE_STATIC_LINKING )
 endif ()
 
 add_subdirectory(broker EXCLUDE_FROM_ALL)
+target_link_libraries(broker_static INTERFACE ${CMAKE_DL_LIBS}) # linker gets the order wrong w/o this
 
 # adapted from Spicy
 set(REPROC++ ON)
