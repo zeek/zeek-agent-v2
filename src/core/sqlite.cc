@@ -137,7 +137,7 @@ static int sqliteAuthorizer(void* user, int action, const char* arg3, const char
         return SQLITE_OK;
 
     if ( auto t = impl->_tables_by_name.find(arg3); t != impl->_tables_by_name.end() ) {
-        ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] authorizer: read for column {}", t->second->name(), arg4);
+        ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] authorizer: read for column {}", t->second->name(), arg4);
         impl->_stmt_tables.insert(t->second);
     }
 
@@ -161,18 +161,18 @@ static int onTableConnect(::sqlite3* db, void* paux, int argc, const char* const
                                               case value::Type::Real: return name + "REAL" + hidden;
                                               case value::Type::Text: return name + "TEXT" + hidden;
                                               case value::Type::Null:
-                                                  logger()->error(format("table {} uses NULL in schema", table_name));
+                                                  logger()->error("table {} uses NULL in schema", table_name);
                                                   return name + "NULL";
                                           }
                                           cannot_be_reached(); // thanks GCC
                                       }),
                             ", "));
 
-    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] connect: \"{}\"", cookie->table->name(), stmt);
+    ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] connect: \"{}\"", cookie->table->name(), stmt);
 
     auto rc = ::sqlite3_declare_vtab(db, stmt.c_str());
     if ( rc != SQLITE_OK ) {
-        logger()->error(format("creating table {} failed: {}", table_name, ::sqlite3_errmsg(db)));
+        logger()->error("creating table {} failed: {}", table_name, ::sqlite3_errmsg(db));
         return rc;
     }
 
@@ -188,7 +188,7 @@ static int onTableDisconnect(::sqlite3_vtab* pvtab) {
     auto vtab = reinterpret_cast<VTab*>(pvtab);
     auto cookie = &vtab->cookie;
 
-    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] disconnect", cookie->table->name());
+    ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] disconnect", cookie->table->name());
 
     delete vtab;
 
@@ -200,7 +200,7 @@ static int onxBestIndexCallback(::sqlite3_vtab* pvtab, ::sqlite3_index_info* inf
     auto vtab = reinterpret_cast<VTab*>(pvtab);
     auto cookie = &vtab->cookie;
 
-    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] best-index", cookie->table->name());
+    ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] best-index", cookie->table->name());
 
     // Extract table parameters.
     std::set<std::string> required_parameters;
@@ -230,7 +230,7 @@ static int onxBestIndexCallback(::sqlite3_vtab* pvtab, ::sqlite3_index_info* inf
             // Mandatory argument not usable, docs say to return SQLITE_CONSTRAINT.
             return SQLITE_CONSTRAINT;
 
-        ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] -  table parameter: {}", cookie->table->name(), column.name);
+        ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] -  table parameter: {}", cookie->table->name(), column.name);
         Parameter param{.column = column.name, .argv_index = static_cast<int>(parameters.size() + 1)};
 
         info->aConstraintUsage[i].argvIndex = param.argv_index; // pass argument value for this parameter to filter()
@@ -252,7 +252,7 @@ static int onTableOpen(::sqlite3_vtab* pvtab, ::sqlite3_vtab_cursor** ppcursor) 
     auto vtab = reinterpret_cast<VTab*>(pvtab);
     auto cookie = &vtab->cookie;
 
-    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] open", cookie->table->name());
+    ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] open", cookie->table->name());
 
     auto cursor = new Cursor;
     cursor->cookie = *cookie;
@@ -268,7 +268,7 @@ static int onTableClose(::sqlite3_vtab_cursor* pcursor) {
     const auto cursor = reinterpret_cast<Cursor*>(pcursor);
     auto cookie = &cursor->cookie;
 
-    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] close", cookie->table->name());
+    ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] close", cookie->table->name());
 
     delete cursor;
 
@@ -281,7 +281,7 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
     const auto cursor = reinterpret_cast<Cursor*>(pcursor);
     auto cookie = &cursor->cookie;
 
-    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] filter", cookie->table->name());
+    ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] filter", cookie->table->name());
 
     std::vector<table::Argument> args;
     for ( const auto& c : cursor->vtab->parameters ) {
@@ -290,7 +290,7 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
             return sqliteError(cursor->vtab, "unsupported argument type");
 
         auto arg = table::Argument{.column = c.column, .expression = std::move(*expr)};
-        ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] - with argument: {}", cookie->table->name(), to_string(arg));
+        ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] - with argument: {}", cookie->table->name(), to_string(arg));
         args.push_back(std::move(arg));
     }
 
@@ -335,7 +335,7 @@ static int onNext(::sqlite3_vtab_cursor* pcursor) {
     const auto cursor = reinterpret_cast<Cursor*>(pcursor);
     auto cookie = &cursor->cookie;
 
-    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] next", cookie->table->name());
+    ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] next", cookie->table->name());
 
     ++cursor->current;
 
@@ -347,7 +347,7 @@ static int onEof(::sqlite3_vtab_cursor* pcursor) {
     const auto cursor = reinterpret_cast<Cursor*>(pcursor);
     auto cookie = &cursor->cookie;
 
-    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] eof?", cookie->table->name());
+    ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] eof?", cookie->table->name());
 
     return cursor->current < cursor->rows.size() ? 0 : 1;
 }
@@ -364,7 +364,7 @@ static int onColumn(::sqlite3_vtab_cursor* pcursor, ::sqlite3_context* context, 
     const auto& column = cursor->schema.columns[i];
     const auto& value = cursor->rows[cursor->current][i];
 
-    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] get-column {} ({})", cookie->table->name(), column.name, i);
+    ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] get-column {} ({})", cookie->table->name(), column.name, i);
 
     if ( std::holds_alternative<std::monostate>(value) ) {
         ::sqlite3_result_null(context);
@@ -397,7 +397,7 @@ static int onRowid(::sqlite3_vtab_cursor* pcursor, ::sqlite3_int64* prowid) {
     const auto cursor = reinterpret_cast<Cursor*>(pcursor);
     auto cookie = &cursor->cookie;
 
-    ZEEK_AGENT_DEBUG("sqlite", "[{}] [callback] get-rowid", cookie->table->name());
+    ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] get-rowid", cookie->table->name());
 
     *prowid = static_cast<int64_t>(cursor->current) + 1;
 
@@ -682,8 +682,6 @@ TEST_SUITE("SQLite") {
         SUBCASE("table registration") {
             auto result = sql.runStatement("SELECT * FROM sqlite_schema");
             REQUIRE(result);
-            for ( const auto& x : result->rows )
-                logger()->info(to_string(x));
             CHECK_EQ(result->rows.size(), 2);
         }
 

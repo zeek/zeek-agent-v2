@@ -29,7 +29,7 @@ std::vector<std::vector<Value>> ProcessesDarwin::snapshot(const std::vector<tabl
     pid_t pids[buffer_size / sizeof(pid_t)];
     buffer_size = proc_listpids(PROC_ALL_PIDS, 0, pids, static_cast<int>(sizeof(pids)));
     if ( buffer_size <= 0 ) {
-        logger()->warn(format("sockets: cannot get pids"));
+        logger()->warn("sockets: cannot get pids");
         return {};
     }
 
@@ -44,7 +44,7 @@ std::vector<std::vector<Value>> ProcessesDarwin::snapshot(const std::vector<tabl
             if ( errno == ESRCH ) // ESRCH -> process is gone
                 continue;
 
-            logger()->debug(format("sockets: could not get process information for PID {}", pids[i]));
+            ZEEK_AGENT_DEBUG("processes", "sockets: could not get process information for PID {}", pids[i]);
             continue;
         }
 

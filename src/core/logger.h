@@ -2,9 +2,15 @@
 
 #pragma once
 
+#include "core/configuration.h"
+
 #include <spdlog/spdlog.h>
 
 namespace zeek::agent {
+
+Result<Nothing> setGlobalLogger(options::LogType type, options::LogLevel level,
+                                const std::optional<filesystem::path>& path = {});
+
 /** Returns the global logger instance. Use of the logger is thread-safe. */
 extern spdlog::logger* logger();
 

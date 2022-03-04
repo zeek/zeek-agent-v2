@@ -89,7 +89,7 @@ void UsersDarwin::addUser(std::vector<std::vector<Value>>* rows, const CBIdentit
             shell = value::fromOptionalString(pwd.pw_shell);
         }
         else
-            logger()->warn(format("users: getpwname_r() failed for user {}", posix_name));
+            logger()->warn("users: getpwname_r() failed for user {}", posix_name);
     }
     else
         logger()->warn("users: user without posix name");

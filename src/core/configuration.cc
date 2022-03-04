@@ -37,7 +37,9 @@
 
 using namespace zeek::agent;
 
-spdlog::level::level_enum options::default_log_level = spdlog::level::warn;
+options::LogLevel options::default_log_level = options::LogLevel::warn;
+options::LogType options::default_log_type = options::LogType::Stdout;
+filesystem::path options::default_log_path = {};
 
 static struct option long_driver_options[] = {
     // clang-format off
@@ -77,18 +79,6 @@ static void usage(const filesystem::path& name) {
     // clang-format on
 }
 
-namespace zeek::agent::options {
-static std::string to_string(options::Mode mode) {
-    switch ( mode ) {
-        case options::Mode::Standard: return "standard";
-        case options::Mode::Test: return "test";
-        case options::Mode::AutoDoc: return "autodoc";
-    }
-
-    cannot_be_reached();
-}
-} // namespace zeek::agent::options
-
 void Options::debugDump() {
     ZEEK_AGENT_DEBUG("configuration", "[option] mode: {}", to_string(mode));
     ZEEK_AGENT_DEBUG("configuration", "[option] agent-id: {}", agent_id);
@@ -96,21 +86,23 @@ void Options::debugDump() {
     ZEEK_AGENT_DEBUG("configuration", "[option] config-file: {}",
                      (config_file ? *config_file : filesystem::path()).native());
     ZEEK_AGENT_DEBUG("configuration", "[option] interactive: {}", (interactive ? "true" : "false"));
-    ZEEK_AGENT_DEBUG("configuration", "[option] log-level: {}",
-                     (log_level ? spdlog::level::to_short_c_str(*log_level) : "<not set>"));
+    ZEEK_AGENT_DEBUG("configuration", "[option] log.level: {}",
+                     (log_level ? options::to_string(*log_level) : "<not set>"));
+    ZEEK_AGENT_DEBUG("configuration", "[option] log.type: {}", (log_type ? to_string(*log_type) : "<not set>"));
+    ZEEK_AGENT_DEBUG("configuration", "[option] log.path: {}", (log_path ? log_path->native() : "<not set>"));
     ZEEK_AGENT_DEBUG("configuration", "[option] use-mock-data: {}", use_mock_data);
     ZEEK_AGENT_DEBUG("configuration", "[option] terminate-on-disconnect: {}", terminate_on_disconnect);
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_groups: {}", join(zeek_groups, ", "));
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_hello_interval: {}", to_string(zeek_hello_interval));
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_reconnect_interval: {}", to_string(zeek_reconnect_interval));
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_timeout: {}", to_string(zeek_timeout));
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_destinations: {}", join(zeek_destinations, ", "));
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_disable: {}", (zeek_ssl_disable ? "true" : "false"));
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_cafile: {}", zeek_ssl_cafile);
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_capath: {}", zeek_ssl_capath);
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_certificate: {}", zeek_ssl_certificate);
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_keyfile: {}", zeek_ssl_keyfile);
-    ZEEK_AGENT_DEBUG("configuration", "[option] zeek_ssl_passphrase: {}", zeek_ssl_passphrase);
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek.groups: {}", join(zeek_groups, ", "));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek.hello_interval: {}", to_string(zeek_hello_interval));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek.reconnect_interval: {}", to_string(zeek_reconnect_interval));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek.timeout: {}", to_string(zeek_timeout));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek.destinations: {}", join(zeek_destinations, ", "));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek.ssl_disable: {}", (zeek_ssl_disable ? "true" : "false"));
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek.ssl_cafile: {}", zeek_ssl_cafile);
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek.ssl_capath: {}", zeek_ssl_capath);
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek.ssl_certificate: {}", zeek_ssl_certificate);
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek.ssl_keyfile: {}", zeek_ssl_keyfile);
+    ZEEK_AGENT_DEBUG("configuration", "[option] zeek.ssl_passphrase: {}", zeek_ssl_passphrase);
 }
 
 template<>
@@ -136,9 +128,9 @@ struct Pimpl<Configuration>::Implementation {
     // Sets a set of command line options.
     Result<Nothing> initFromArgv(std::vector<std::string> argv);
 
-    Options _options;                        // options currently in effect
-    std::vector<std::string> _argv;          // command line options most recently provided.
-    spdlog::level::level_enum old_log_level; // original log level to restore later.
+    Options _options;                // options currently in effect
+    std::vector<std::string> _argv;  // command line options most recently provided.
+    options::LogLevel old_log_level; // original log level to restore later.
 
     // Returns a set of options with all values at their default.
     static Options default_();
@@ -179,17 +171,16 @@ Options Configuration::Implementation::default_() {
 }
 
 void Configuration::Implementation::apply(Options options) {
-    // Set options level first so that the new value is active for subsequent
+    // Set log option first so that the new value is active for subsequent
     // operations.
-    if ( options.log_level )
-        logger()->set_level(*options.log_level);
-    else
-        logger()->set_level(options::default_log_level);
+    setGlobalLogger(options.log_type ? *options.log_type : options::default_log_type,
+                    options.log_level ? *options.log_level : options::default_log_level,
+                    options.log_path ? *options.log_path : options::default_log_path);
 
     if ( options.mode == options::Mode::Test ) {
 #ifndef DOCTEST_CONFIG_DISABLE
         if ( ! options.log_level )
-            logger()->set_level(spdlog::level::off);
+            logger()->set_level(options::LogLevel::off);
 
         auto argv = preprocessArgv(true);
         setenv("TZ", "GMT", 1);
@@ -235,9 +226,8 @@ Result<Options> Configuration::Implementation::addArgv(Options options) {
 
         switch ( c ) {
             case 'L': {
-                auto level = spdlog::level::from_str(optarg);
-                if ( level != spdlog::level::off ) {
-                    options::default_log_level = level; // this becomes new default for all config objects
+                if ( auto level = options::log_level::from_str(optarg) ) {
+                    options::default_log_level = *level; // this becomes new default for all config objects
                     options.log_level = level;
                 }
                 else
@@ -345,13 +335,24 @@ Result<Nothing> Configuration::Implementation::read(std::istream& in, const file
         tomlValue(tbl, "agent-id", &options.agent_id);
 
         std::string log_level;
-        if ( tomlValue(tbl, "log-level", &log_level) ) {
-            auto level = spdlog::level::from_str(log_level);
-            if ( level == spdlog::level::off )
-                return result::Error("unknown log level");
-
-            options.log_level = level;
+        if ( tomlValue(tbl, "log.level", &log_level) ) {
+            if ( auto rc = options::log_level::from_str(log_level) )
+                options.log_level = *rc;
+            else
+                return rc.error();
         }
+
+        std::string log_type;
+        if ( tomlValue(tbl, "log.type", &log_type) ) {
+            if ( auto x = options::log_type::from_str(log_type) )
+                options.log_type = *x;
+            else
+                return x.error();
+        }
+
+        std::string log_path;
+        if ( tomlValue(tbl, "log.path", &log_path) )
+            options.log_path = log_path;
 
         tomlArray(tbl, "zeek.destination", &options.zeek_destinations);
         tomlArray(tbl, "zeek.groups", &options.zeek_groups);
@@ -452,22 +453,27 @@ TEST_SUITE("Configuration") {
         }
     }
 
-    TEST_CASE("set 'log-level'") {
+    TEST_CASE("set log options") {
         Configuration cfg;
 
-        auto old_default_log_level = options::default_log_level;
+        auto old_default_log_level = options::default_log_level; // -L will change this
 
         SUBCASE("cli") {
             const char* argv[] = {"<prog>", "-L", "info"};
             cfg.initFromArgv(3, argv);
-            CHECK_EQ(*cfg.options().log_level, spdlog::level::info);
+            CHECK_EQ(*cfg.options().log_level, options::LogLevel::info);
         }
 
         SUBCASE("config") {
             std::stringstream s;
-            s << "log-level = 'info'\n";
+            s << "[log]\n";
+            s << "level = 'info'\n";
+            s << "type = 'file'\n";
+            s << "path = '/dev/null'\n";
             auto rc = cfg.read(s, "<test>");
-            CHECK_EQ(*cfg.options().log_level, spdlog::level::info);
+            CHECK_EQ(*cfg.options().log_level, options::LogLevel::info);
+            CHECK_EQ(*cfg.options().log_type, options::LogType::File);
+            CHECK_EQ(*cfg.options().log_path, "/dev/null");
         }
 
         options::default_log_level = old_default_log_level;
@@ -539,7 +545,7 @@ TEST_SUITE("Configuration") {
         const char* argv[] = {"<prog>", "-L", "info"};
         cfg.initFromArgv(3, argv);
         auto rc = cfg.read(s, "<test>");
-        CHECK_EQ(*cfg.options().log_level, spdlog::level::info);
+        CHECK_EQ(*cfg.options().log_level, options::LogLevel::info);
         CHECK_EQ(*cfg.options().config_file, "<test>");
 
         options::default_log_level = old_default_log_level;

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "spdlog/common.h"
 #include "util/filesystem.h"
 #include "util/helpers.h"
 #include "util/pimpl.h"
@@ -11,14 +12,11 @@
 #include <string>
 #include <vector>
 
-#include <spdlog/common.h>
+#include <spdlog/spdlog.h>
 
 namespace zeek::agent {
 
 namespace options {
-// Default log level for new configuration objects.
-extern spdlog::level::level_enum default_log_level;
-
 /**
  * Defines the mode of operation for the Zeek Agent process. This captures a
  * couple of special modes beyond normal operation.
@@ -28,6 +26,63 @@ enum class Mode {
     Test,     /**< run unit tests and exit */
     AutoDoc   /**< print out JSON describing table schemas and exit */
 };
+
+inline std::string to_string(options::Mode mode) {
+    switch ( mode ) {
+        case options::Mode::Standard: return "standard";
+        case options::Mode::Test: return "test";
+        case options::Mode::AutoDoc: return "autodoc";
+    }
+
+    cannot_be_reached();
+}
+
+using LogLevel = spdlog::level::level_enum;
+
+inline auto to_string(const LogLevel& l) { return spdlog::level::to_string_view(l); }
+
+namespace log_level {
+inline Result<options::LogLevel> from_str(const std::string& l) {
+    if ( auto x = spdlog::level::from_str(l); x != spdlog::level::off )
+        return x;
+    else
+        return result::Error(format("unknown log level '{}'", l));
+}
+} // namespace log_level
+
+enum class LogType {
+    File,
+    System,
+    Stdout,
+};
+
+inline std::string_view to_string(const LogType& t) {
+    switch ( t ) {
+        case LogType::File: return "file";
+        case LogType::System: return "system";
+        case LogType::Stdout: return "stdout";
+    }
+
+    cannot_be_reached();
+}
+
+namespace log_type {
+inline Result<LogType> from_str(const std::string_view& t) {
+    if ( t == "file" )
+        return options::LogType::File;
+    else if ( t == "stdout" )
+        return options::LogType::Stdout;
+    else if ( t == "system" )
+        return options::LogType::System;
+    else
+        return result::Error(format("unknow lof type '{}'", t));
+}
+} // namespace log_type
+
+// Default log options for new configuration objects.
+extern LogLevel default_log_level;
+extern LogType default_log_type;
+extern filesystem::path default_log_path;
 
 } // namespace options
 
@@ -68,7 +123,13 @@ struct Options {
     bool interactive = false;
 
     /** The agent's level of logging. Default is `warn` and worse. */
-    std::optional<spdlog::level::level_enum> log_level;
+    std::optional<options::LogLevel> log_level;
+
+    /** Type of logger to use for messages. */
+    std::optional<options::LogType> log_type;
+
+    /** File path associated with logger, if current type needs one. */
+    std::optional<filesystem::path> log_path = {};
 
     /** True to have any tables only report mock data for testing. */
     bool use_mock_data = false;
