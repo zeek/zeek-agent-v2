@@ -7,6 +7,7 @@
 #include "util/pimpl.h"
 #include "util/result.h"
 
+#include <cassert>
 #include <memory>
 #include <set>
 #include <string>

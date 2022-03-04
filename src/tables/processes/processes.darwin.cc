@@ -11,6 +11,8 @@
 
 #include <libproc.h>
 
+#include <mach/mach_time.h>
+
 namespace zeek::agent::table {
 
 class ProcessesDarwin : public ProcessesCommon {
@@ -18,10 +20,24 @@ public:
     std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
     void addProcess(std::vector<std::vector<Value>>* rows, const struct proc_bsdinfo* p,
                     const struct proc_taskinfo* ti);
+
+    bool init() override;
+
+private:
+    struct mach_timebase_info _timebase;
 };
 
 namespace {
 database::RegisterTable<ProcessesDarwin> _;
+}
+
+bool ProcessesDarwin::init() {
+    if ( mach_timebase_info(&_timebase) != KERN_SUCCESS ) {
+        logger()->warn("[processes] cannot get MACH timebase, disabling table");
+        return false;
+    }
+
+    return true;
 }
 
 std::vector<std::vector<Value>> ProcessesDarwin::snapshot(const std::vector<table::Argument>& args) {
@@ -68,7 +84,7 @@ void ProcessesDarwin::addProcess(std::vector<std::vector<Value>>* rows, const st
     Value ruid = pi->pbi_ruid;
     Value rgid = pi->pbi_rgid;
     Value priority = -pi->pbi_nice;
-    Value startup = static_cast<int64_t>(pi->pbi_start_tvsec);
+    Value startup = to_interval_from_secs(pi->pbi_start_tvsec);
 
     Value vsize;
     Value rsize;
@@ -77,8 +93,8 @@ void ProcessesDarwin::addProcess(std::vector<std::vector<Value>>* rows, const st
     if ( ti ) {
         vsize = static_cast<int64_t>(ti->pti_virtual_size);
         rsize = static_cast<int64_t>(ti->pti_resident_size);
-        utime = static_cast<int64_t>(ti->pti_total_user);
-        stime = static_cast<int64_t>(ti->pti_total_system);
+        utime = to_interval_from_ns(ti->pti_total_user * _timebase.numer / _timebase.denom);
+        stime = to_interval_from_ns(ti->pti_total_system * _timebase.numer / _timebase.denom);
     }
 
     rows->push_back({name, pid, ppid, uid, gid, ruid, rgid, priority, startup, vsize, rsize, utime, stime});

@@ -13,7 +13,7 @@ redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
 @endif
 
 type Columns: record {
-	version: int;
+	version: count;
 };
 
 event got_result(ctx: ZeekAgent::Context, data: Columns) {

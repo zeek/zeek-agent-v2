@@ -6,5 +6,5 @@
 #path	zeek-agent-system-logs
 #open XXXX-XX-XX-XX-XX-XX
 #fields	t	hid	time_	process	level	message
-#types	time	string	int	string	string	string
-XXXXXXXXXX.XXXXXX	<uuid>	100	text_a_b	text_a_c	text_a_d
+#types	time	string	time	string	string	string
+XXXXXXXXXX.XXXXXX	<uuid>	XXXXXXXXXX.XXXXXX	text_a_b	text_a_c	text_a_d

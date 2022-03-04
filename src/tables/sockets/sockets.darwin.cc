@@ -144,7 +144,7 @@ void SocketsDarwin::addSocket(std::vector<std::vector<Value>>* rows, int pid, co
         }
     }
 
-    rows->push_back({pid, process, family, protocol, local_port, remote_port, local_addr, remote_addr, state});
+    rows->push_back({pid, process, family, protocol, local_addr, local_port, remote_addr, remote_port, state});
 }
 
 } // namespace zeek::agent::table

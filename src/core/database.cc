@@ -345,12 +345,12 @@ size_t Database::numberQueries() const { return pimpl()->_queries.size(); }
 
 Table* Database::table(const std::string& name) { return pimpl()->table(name); }
 
-std::vector<const Table*> Database::tables() {
-    std::vector<const Table*> out;
+std::set<const Table*> Database::tables() {
+    std::set<const Table*> out;
 
     // Need to creaste a copy to avoid races.
     for ( const auto& [name, tables] : pimpl()->_tables )
-        out.push_back(tables);
+        out.insert(tables);
 
     return out;
 }
@@ -522,7 +522,7 @@ TEST_SUITE("Database") {
             CHECK_EQ(db.table("test_table")->schema().description, "test-description");
 
             REQUIRE_EQ(db.tables().size(), 1);
-            CHECK_EQ(db.tables()[0]->schema().description, "test-description");
+            CHECK_EQ((*db.tables().begin())->schema().description, "test-description");
         }
 
         SUBCASE("disabled table") {

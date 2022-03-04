@@ -14,7 +14,7 @@ redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
 
 type Columns: record {
 	id: string;
-	version: int;
+	version: count;
 };
 
 event do_terminate() {

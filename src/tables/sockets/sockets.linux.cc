@@ -64,7 +64,7 @@ static void addSockets(std::vector<std::vector<Value>>* rows, const std::vector<
             }
         }
 
-        rows->push_back({pid, process, family, protocol, local_port, remote_port, local_addr, remote_addr, state});
+        rows->push_back({pid, process, family, protocol, local_addr, local_port, remote_addr, remote_port, state});
     }
 }
 

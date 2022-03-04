@@ -24,6 +24,7 @@
 
 #include <unistd.h>
 
+#include "broker/address.hh"
 #include "broker/fwd.hh"
 #include <broker/configuration.hh>
 #include <broker/endpoint.hh>
@@ -520,6 +521,79 @@ void BrokerConnection::processStatus(const broker::status& status) {
     }
 }
 
+static broker::data to_broker(const Value& v, const value::Type& t) {
+    broker::data value;
+    if ( std::get_if<std::monostate>(&v) == nullptr ) {
+        switch ( t ) {
+            case value::Type::Count: value = static_cast<uint64_t>(std::get<int64_t>(v)); break;
+            case value::Type::Integer: value = std::get<int64_t>(v); break;
+            case value::Type::Blob:
+            case value::Type::Text: value = std::get<std::string>(v); break;
+            case value::Type::Bool: value = (std::get<bool>(v) != 0); break;
+            case value::Type::Double: value = std::get<double>(v); break;
+
+            case value::Type::Interval:
+                value = std::chrono::duration_cast<broker::timespan>(std::get<Interval>(v));
+                break;
+
+            case value::Type::Null: value = broker::data(); break;
+            case value::Type::Time: value = broker::timestamp(std::get<Time>(v).time_since_epoch()); break;
+
+            case value::Type::Address: {
+                broker::address addr;
+                if ( addr.convert_from(std::get<std::string>(v)) )
+                    value = addr;
+                break;
+            }
+
+            case value::Type::Port: {
+                const auto& p = std::get<Port>(v);
+                broker::port::protocol proto;
+                switch ( p.protocol ) {
+                    case port::Protocol::ICMP: proto = broker::port::protocol::icmp; break;
+                    case port::Protocol::TCP: proto = broker::port::protocol::tcp; break;
+                    case port::Protocol::UDP: proto = broker::port::protocol::udp; break;
+                    case port::Protocol::Unknown: proto = broker::port::protocol::unknown; break;
+                }
+
+                value = broker::port(p.port, proto);
+                break;
+            }
+
+            case value::Type::Record: {
+                broker::vector br;
+                for ( const auto& [x, t] : std::get<Record>(v) )
+                    br.emplace_back(to_broker(x, t));
+
+                value = std::move(br);
+                break;
+            }
+
+            case value::Type::Set: {
+                const auto& set = std::get<Set>(v);
+                broker::set bs;
+                for ( const auto& x : set )
+                    bs.insert(to_broker(x, set.type));
+
+                value = std::move(bs);
+                break;
+            }
+
+            case value::Type::Vector: {
+                const auto& vec = std::get<Vector>(v);
+                broker::vector bv;
+                for ( const auto& x : vec )
+                    bv.emplace_back(to_broker(x, vec.type));
+
+                value = std::move(bv);
+                break;
+            }
+        }
+    }
+
+    return value;
+}
+
 void BrokerConnection::transmitResult(const std::string& zeek_id, const query::Result& result) {
     if ( _endpoint.is_shutdown() )
         // Nothing connected.
@@ -532,21 +606,10 @@ void BrokerConnection::transmitResult(const std::string& zeek_id, const query::R
 
     for ( const auto& row : result.rows ) {
         std::vector<broker::data> columns;
+        columns.reserve(result.columns.size());
 
-        for ( auto i = 0U; i < result.columns.size(); i++ ) {
-            broker::data value;
-            if ( std::get_if<std::monostate>(&row.values[i]) == nullptr ) {
-                switch ( result.columns[i].type ) {
-                    case value::Type::Blob:
-                    case value::Type::Text: value = std::get<std::string>(row.values[i]); break;
-                    case value::Type::Integer: value = std::get<int64_t>(row.values[i]); break;
-                    case value::Type::Null: value = broker::data(); break;
-                    case value::Type::Real: value = std::get<double>(row.values[i]); break;
-                }
-            }
-
-            columns.push_back(std::move(value));
-        }
+        for ( auto i = 0U; i < result.columns.size(); i++ )
+            columns.push_back(to_broker(row.values[i], result.columns[i].type));
 
         transmitEvent(zquery->event_name, {{std::move(columns)}}, zquery->zeek_instance, zquery->zeek_id,
                       zquery->zeek_cookie, row.type);

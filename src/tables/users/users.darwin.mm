@@ -77,8 +77,9 @@ void UsersDarwin::addUser(std::vector<std::vector<Value>>* rows, const CBIdentit
         short_name = posix_name;
         full_name = value::fromOptionalString([[identity fullName] UTF8String]);
         email = value::fromOptionalString([[identity emailAddress] UTF8String]);
-        is_admin = value::fromBool([identity isMemberOfGroup:admin]);
-        is_system = value::fromBool([identity isHidden]);
+        is_admin =
+            static_cast<bool>([identity isMemberOfGroup:admin]); // Looks like this returns int, not bool, on macOS 11.
+        is_system = static_cast<bool>([identity isHidden]);
 
         struct passwd pwd;
         struct passwd* result = nullptr;

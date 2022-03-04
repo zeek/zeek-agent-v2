@@ -12,7 +12,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "system_logs_events" * doctest::test_suite
     useTable("system_logs_events");
 
     // Can use mock data only here.
-    auto result = query("SELECT message from system_logs_events WHERE time == 200");
-    REQUIRE_EQ(result.rows.size(), 1);
-    CHECK_EQ(*result.get<std::string>(0, "message"), "text_b_d");
+    auto result = query("SELECT * from system_logs_events");
+    REQUIRE_EQ(result.rows.size(), 3);
+    CHECK_EQ(*result.get<std::string>(0, "message"), "text_a_d");
 }

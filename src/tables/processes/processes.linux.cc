@@ -16,10 +16,19 @@ namespace zeek::agent::table {
 class ProcessesLinux : public ProcessesCommon {
 public:
     std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
+    bool init() override;
+
+private:
+    uint64_t _clock_tick;
 };
 
 namespace {
 database::RegisterTable<ProcessesLinux> _;
+}
+
+bool ProcessesLinux::init() {
+    _clock_tick = sysconf(_SC_CLK_TCK);
+    return true;
 }
 
 std::vector<std::vector<Value>> ProcessesLinux::snapshot(const std::vector<table::Argument>& args) {
@@ -40,11 +49,11 @@ std::vector<std::vector<Value>> ProcessesLinux::snapshot(const std::vector<table
                 Value ruid = static_cast<int64_t>(status.uid.real);
                 Value rgid = static_cast<int64_t>(status.gid.real);
                 Value priority = static_cast<int64_t>(stat.priority);
-                Value startup = {}; // static_cast<int64_t>(pi->pbi_start_tvsec);
+                Value startup = {};
                 Value vsize = static_cast<int64_t>(stat.vsize);
                 Value rsize = static_cast<int64_t>(stat.rss * getpagesize());
-                Value utime = static_cast<int64_t>(stat.utime);
-                Value stime = static_cast<int64_t>(stat.stime);
+                Value utime = to_interval_from_secs(stat.utime / _clock_tick);
+                Value stime = to_interval_from_secs(stat.stime / _clock_tick);
 
                 rows.push_back({name, pid, ppid, uid, gid, ruid, rgid, priority, startup, vsize, rsize, utime, stime});
             } catch ( std::system_error& ) {

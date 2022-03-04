@@ -27,7 +27,7 @@ public:
                 )",
             .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
-                {.name = "time", .type = value::Type::Integer, .summary = "timestamp as seconds since epoch"},
+                {.name = "time", .type = value::Type::Time, .summary = "timestamp"},
                 {.name = "process", .type = value::Type::Text, .summary = "process name"},
                 {.name = "level", .type = value::Type::Text, .summary = "severity level"},
                 {.name = "message", .type = value::Type::Text, .summary = "log message"}

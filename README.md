@@ -180,7 +180,7 @@ accounts.`
 | Column | Type | Description
 | --- | --- | --- |
 | `path` | text | absolute path |
-| `number` | int | line number |
+| `number` | count | line number |
 | `content` | blob | content of line |
 </details>
 
@@ -206,11 +206,11 @@ to match on absolute file paths.
 | --- | --- | --- |
 | `path` | text | full path |
 | `type` | text | textual description of the path's type (e.g., `file`, `dir`, `socket`) |
-| `uid` | int | ID of user owning file |
-| `gid` | int | ID if group owning file |
+| `uid` | count | ID of user owning file |
+| `gid` | count | ID if group owning file |
 | `mode` | text | octal permission mode |
-| `mtime` | int | time of last modification as seconds since epoch |
-| `size` | int | file size in bytes |
+| `mtime` | time | time of last modification |
+| `size` | count | file size in bytes |
 </details>
 
 <details>
@@ -222,18 +222,18 @@ the endpoint at the time of the query.
 | Column | Type | Description
 | --- | --- | --- |
 | `name` | text | name of process |
-| `pid` | int | process ID |
-| `ppid` | int | parent's process ID |
-| `uid` | int | effective user ID |
-| `gid` | int | effective group ID |
-| `ruid` | int | real user ID |
-| `rgid` | int | real group ID |
+| `pid` | count | process ID |
+| `ppid` | count | parent's process ID |
+| `uid` | count | effective user ID |
+| `gid` | count | effective group ID |
+| `ruid` | count | real user ID |
+| `rgid` | count | real group ID |
 | `priority` | int | process priority (higher is more) |
-| `startup` | int | time process started |
-| `vsize` | int | virtual memory size |
-| `rsize` | int | resident memory size |
-| `utime` | int | user CPU time |
-| `stime` | int | system CPU time |
+| `startup` | interval | time process started |
+| `vsize` | count | virtual memory size |
+| `rsize` | count | resident memory size |
+| `utime` | interval | user CPU time |
+| `stime` | interval | system CPU time |
 </details>
 
 <details>
@@ -244,14 +244,14 @@ the endpoint at the time of the query.
 
 | Column | Type | Description
 | --- | --- | --- |
-| `pid` | int | ID of process holding socket |
+| `pid` | count | ID of process holding socket |
 | `process` | text | name of process holding socket |
 | `family` | text | `IPv4` or `IPv6` |
-| `protocol` | int | transport protocol |
-| `local_port` | int | local port number |
-| `remote_port` | int | remote port number |
-| `local_addr` | text | local IP address |
-| `remote_addr` | text | remote IP address |
+| `protocol` | count | transport protocol |
+| `local_addr` | address | local IP address |
+| `local_port` | count | local port number |
+| `remote_addr` | address | remote IP address |
+| `remote_port` | count | remote port number |
 | `state` | text | state of socket |
 </details>
 
@@ -270,7 +270,7 @@ New messages will be returned with the next query.
 
 | Column | Type | Description
 | --- | --- | --- |
-| `time` | int | timestamp as seconds since epoch |
+| `time` | time | timestamp |
 | `process` | text | process name |
 | `level` | text | severity level |
 | `message` | text | log message |
@@ -287,10 +287,10 @@ operating system.
 | --- | --- | --- |
 | `name` | text | short name |
 | `full_name` | text | full name |
-| `is_admin` | int | 1 if user has adminstrative privileges |
-| `is_system` | int | 1 if user correponds to OS service |
-| `uid` | int | user ID |
-| `gid` | int | group ID |
+| `is_admin` | bool | 1 if user has adminstrative privileges |
+| `is_system` | bool | 1 if user correponds to OS service |
+| `uid` | count | user ID |
+| `gid` | count | group ID |
 | `home` | text | path to home directory |
 | `shell` | text | path to default shell |
 | `email` | text | email address |
@@ -307,16 +307,16 @@ Agent process and the endpoint it's running on.
 | `id` | text | unique agent ID (stable across restarts) |
 | `instance` | text | unique ID for agent process (reset on restart) |
 | `hostname` | text | name of endpoint |
-| `address` | text | IP address of endpoint |
+| `addresses` | set | IP addresses of endpoint's primary network connection |
 | `platform` | text | `Darwin` or `Linux` |
 | `os_name` | text | name of operating system |
 | `kernel_name` | text | name of OS kernel |
 | `kernel_version` | text | version of OS kernel |
 | `kernel_arch` | text | build architecture |
-| `agent_version` | int | agent version |
+| `agent_version` | count | agent version |
 | `broker` | text | Broker version |
-| `uptime` | int | agent uptime in seconds |
-| `tables` | text | tables available to queries |
+| `uptime` | interval | agent uptime |
+| `tables` | set | tables available to queries |
 </details>
 
 <!-- end table reference -->

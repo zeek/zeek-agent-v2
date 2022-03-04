@@ -154,7 +154,7 @@ public:
     Table* table(const std::string& name);
 
     /** Returns the set of all currently registered tables. */
-    std::vector<const Table*> tables();
+    std::set<const Table*> tables();
 
     /**
      * Performs a query against the database. The query may not be executed

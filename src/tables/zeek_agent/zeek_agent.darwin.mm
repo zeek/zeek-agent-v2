@@ -20,15 +20,15 @@ namespace {
 
 class ZeekAgentDarwin : public ZeekAgent {
 public:
-    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args);
+    std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
 };
 
 database::RegisterTable<ZeekAgentDarwin> _;
 
-static Value primaryAddress() {
+Value addresses() {
     // Adapted from: SCDynamicStoreRef storeRef = SCDynamicStoreCreate(NULL, (CFStringRef)@"FindCurrentInterfaceIpMac",
     // NULL, NULL);
-    SCDynamicStoreRef storeRef = SCDynamicStoreCreate(NULL, (CFStringRef) @"FindCurrentInterfaceIpMac", NULL, NULL);
+    SCDynamicStoreRef storeRef = SCDynamicStoreCreate(nullptr, (CFStringRef) @"FindCurrentInterfaceIpMac", NULL, NULL);
     if ( ! storeRef )
         return {};
 
@@ -40,12 +40,12 @@ static Value primaryAddress() {
     if ( ! primaryInterface )
         return {};
 
-    std::string ipv4, ipv6;
+    auto addrs = Set(value::Type::Address);
 
     if ( auto interfaceState = [NSString stringWithFormat:@"State:/Network/Interface/%@/IPv4", primaryInterface] ) {
         if ( CFPropertyListRef state = SCDynamicStoreCopyValue(storeRef, (CFStringRef)interfaceState) ) {
             if ( NSString* ip = [(__bridge NSDictionary*)state valueForKey:@"Addresses"][0] )
-                ipv4 = [ip UTF8String];
+                addrs.insert([ip UTF8String]);
 
             CFRelease(state);
         }
@@ -54,15 +54,14 @@ static Value primaryAddress() {
     if ( auto interfaceState = [NSString stringWithFormat:@"State:/Network/Interface/%@/IPv6", primaryInterface] ) {
         if ( CFPropertyListRef state = SCDynamicStoreCopyValue(storeRef, (CFStringRef)interfaceState) ) {
             if ( NSString* ip = [(__bridge NSDictionary*)state valueForKey:@"Addresses"][0] )
-                ipv4 = [ip UTF8String];
+                addrs.insert([ip UTF8String]);
 
             CFRelease(state);
         }
     }
 
     CFRelease(storeRef);
-
-    return ipv4.size() ? ipv4 : ipv6;
+    return addrs;
 }
 
 std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<table::Argument>& args) {
@@ -75,14 +74,14 @@ std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<tabl
     Value id = options().agent_id;
     Value instance = options().instance_id;
     Value hostname = hostname_buffer.data();
-    Value address = primaryAddress();
+    Value addrs = addresses();
     Value platform = platform::name();
     Value os_name = std::string("macOS ") + std::string([version UTF8String]);
     Value agent = VersionNumber;
     Value broker = {}; // TODO
-    Value uptime =
-        std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock().now() - startupTime()).count();
-    Value tables = join(transform(database()->tables(), [](const auto* t) { return t->name(); }), ",");
+    Value uptime = std::chrono::system_clock::now() - startupTime();
+    Value tables =
+        Set(value::Type::Text, transform(database()->tables(), [](const auto* t) { return Value(t->name()); }));
 
     Value kernel_name, kernel_release, kernel_arch;
     struct utsname uname_info {};
@@ -92,7 +91,7 @@ std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<tabl
         kernel_arch = uname_info.machine;
     }
 
-    return {{id, instance, hostname, address, platform, os_name, kernel_name, kernel_release, kernel_arch, agent,
-             broker, uptime, tables}};
+    return {{id, instance, hostname, addrs, platform, os_name, kernel_name, kernel_release, kernel_arch, agent, broker,
+             uptime, tables}};
 }
 } // namespace

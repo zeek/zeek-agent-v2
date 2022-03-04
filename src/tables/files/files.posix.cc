@@ -62,7 +62,7 @@ std::vector<std::vector<Value>> FilesListPosix::snapshot(const std::vector<table
             uid = static_cast<int64_t>(stat.st_uid);
             gid = static_cast<int64_t>(stat.st_gid);
             mode = format("{:o}", (stat.st_mode & ~S_IFMT));
-            mtime = stat.st_mtime;
+            mtime = to_time(stat.st_mtime);
             size = stat.st_size;
 
             if ( S_ISBLK(stat.st_mode) )
