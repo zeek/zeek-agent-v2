@@ -16,7 +16,11 @@ set(BROKER_DISABLE_DOCS ON)
 set(BROKER_DISABLE_TESTS ON)
 set(DISABLE_PYTHON_BINDINGS ON)
 set(ENABLE_STATIC_ONLY ON)
-set(OPENSSL_USE_STATIC_LIBS on)
+
+if ( USE_STATIC_LINKING )
+    set(OPENSSL_USE_STATIC_LIBS on)
+endif ()
+
 add_subdirectory(broker EXCLUDE_FROM_ALL)
 
 # pathfind's cmake config is too old and not really usable. Set it up ourselves.
