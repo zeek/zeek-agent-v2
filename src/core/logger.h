@@ -15,14 +15,14 @@ Result<Nothing> setGlobalLogger(options::LogType type, options::LogLevel level,
 extern spdlog::logger* logger();
 
 #define __ZEEK_AGENT_LOG(level, component, ...) /* NOLINT */                                                           \
-    logger()->debug(::zeek::agent::format("[{}] ", component) + ::zeek::agent::format(__VA_ARGS__))
+    logger()->log(level, ::zeek::agent::format("[{}] ", component) + ::zeek::agent::format(__VA_ARGS__))
 
 #ifndef NDEBUG
-#define ZEEK_AGENT_DEBUG(component, ...) __ZEEK_AGENT_LOG(debug, component, __VA_ARGS__)
-#define ZEEK_AGENT_TRACE(component, ...)
+#define ZEEK_AGENT_DEBUG(component, ...) __ZEEK_AGENT_LOG(spdlog::level::debug, component, __VA_ARGS__)
+#define ZEEK_AGENT_TRACE(component, ...) __ZEEK_AGENT_LOG(spdlog::level::trace, component, __VA_ARGS__)
 #else
-#define ZEEK_AGENT_DEBUG(component, ...) __ZEEK_AGENT_LOG(debug, component, __VA_ARGS__)
-#define ZEEK_AGENT_TRACE(component, ...) __ZEEK_AGENT_LOG(trace, component, __VA_ARGS__)
+#define ZEEK_AGENT_DEBUG(component, ...) __ZEEK_AGENT_LOG(spdlog::level::debug, component, __VA_ARGS__)
+#define ZEEK_AGENT_TRACE(component, ...)
 #endif
 
 } // namespace zeek::agent
