@@ -60,4 +60,6 @@ public:
     ~SignalManager();
 };
 
+extern SignalManager* signal_mgr;
+
 } // namespace zeek::agent

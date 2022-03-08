@@ -18,6 +18,9 @@
 
 using namespace zeek::agent;
 
+SignalManager* zeek::agent::signal_mgr = nullptr;
+signal::Handler* sigint;
+
 static void log_termination() { logger()->info("process terminated", VersionLong); }
 
 static bool running_as_admin() {
@@ -64,8 +67,8 @@ int main(int argc, char** argv) {
             logger()->warn("not running as root, information may be incomplete");
 
         Scheduler scheduler;
-        SignalManager signal_mgr({SIGINT});
-        signal::Handler sigint(&signal_mgr, SIGINT, [&]() { scheduler.terminate(); });
+        signal_mgr = new SignalManager({SIGINT});
+        sigint = new signal::Handler(signal_mgr, SIGINT, [&]() { scheduler.terminate(); });
 
         Database db(&cfg, &scheduler);
         for ( const auto& t : Database::registeredTables() )
@@ -73,7 +76,7 @@ int main(int argc, char** argv) {
 
         std::unique_ptr<Console> console;
         if ( cfg.options().interactive || ! cfg.options().execute.empty() ) {
-            console = std::make_unique<Console>(&db, &scheduler, &signal_mgr);
+            console = std::make_unique<Console>(&db, &scheduler, signal_mgr);
 
             if ( ! cfg.options().execute.empty() )
                 console->scheduleStatementWithTermination(cfg.options().execute);
@@ -98,14 +101,23 @@ int main(int argc, char** argv) {
             db.expire();
         }
 
+        delete sigint;
+        delete signal_mgr;
+
         return 0;
 
     } catch ( const FatalError& e ) {
         logger()->error("fatal error: {}", e.what());
+        delete sigint;
+        delete signal_mgr;
+
         return 1;
 
     } catch ( const InternalError& e ) {
         logger()->error("internal error: {}", e.what());
+        delete sigint;
+        delete signal_mgr;
+
         return 1;
     }
 }

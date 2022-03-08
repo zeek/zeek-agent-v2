@@ -6,7 +6,12 @@ target_sources(zeek-agent
         database.cc
         logger.cc
         scheduler.cc
-        signal.cc
         sqlite.cc
         table.cc
 )
+
+if ( HAVE_POSIX )
+    target_sources(zeek-agent PRIVATE signal.posix.cc)
+elseif ( WIN32 )
+    target_sources(zeek-agent PRIVATE signal.windows.cc)
+endif ()
