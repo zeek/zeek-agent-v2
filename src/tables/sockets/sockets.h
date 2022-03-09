@@ -1,5 +1,7 @@
 // Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
+#pragma once
+
 #include "core/table.h"
 
 namespace zeek::agent::table {

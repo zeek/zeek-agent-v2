@@ -1,5 +1,7 @@
 // Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
+#pragma once
+
 #include "core/table.h"
 
 namespace zeek::agent::table {
@@ -22,7 +24,7 @@ public:
                 {.name = "full_name", .type = value::Type::Text, .summary = "full name"},
                 {.name = "is_admin", .type = value::Type::Bool, .summary = "1 if user has adminstrative privileges"},
                 {.name = "is_system", .type = value::Type::Bool, .summary = "1 if user correponds to OS service"},
-                {.name = "uid", .type = value::Type::Count, .summary = "user ID"},
+                {.name = "uid", .type = value::Type::Text, .summary = "user ID"},
                 {.name = "gid", .type = value::Type::Count, .summary = "group ID"},
                 {.name = "home", .type = value::Type::Text, .summary = "path to home directory"},
                 {.name = "shell", .type = value::Type::Text, .summary = "path to default shell"},

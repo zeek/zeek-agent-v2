@@ -7,3 +7,7 @@ target_sources(zeek-agent
         platform.cc
         result.cc
 )
+
+if (WIN32)
+    target_sources(zeek-agent PRIVATE windows-util.cc)
+endif ()

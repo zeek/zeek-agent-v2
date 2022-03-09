@@ -16,6 +16,10 @@
 #include <iostream>
 #include <optional>
 
+#ifdef _WIN32
+#include "util/windows-util.h"
+#endif
+
 using namespace zeek::agent;
 
 SignalManager* zeek::agent::signal_mgr = nullptr;
@@ -100,6 +104,10 @@ int main(int argc, char** argv) {
 
             db.expire();
         }
+
+#ifdef _WIN32
+        WMIManager::Get().Shutdown();
+#endif
 
         delete sigint;
         delete signal_mgr;

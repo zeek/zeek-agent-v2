@@ -10,3 +10,7 @@ if ( HAVE_LINUX )
     target_sources(zeek-agent PRIVATE processes.linux.cc)
     target_link_libraries(zeek-agent PRIVATE pfs)
 endif ()
+
+if ( WIN32 )
+    target_sources(zeek-agent PRIVATE processes.windows.cc)
+endif ()

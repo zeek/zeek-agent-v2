@@ -285,7 +285,7 @@ the endpoint at the time of the query.
 | `gid` | count | effective group ID |
 | `ruid` | count | real user ID |
 | `rgid` | count | real group ID |
-| `priority` | int | process priority (higher is more) |
+| `priority` | text | process priority (higher is more) |
 | `startup` | interval | time process started |
 | `vsize` | count | virtual memory size |
 | `rsize` | count | resident memory size |
@@ -322,6 +322,8 @@ On Linux, the table requires `systemd` and hooks into its journal.
 
 On macOS, the tables hooks into the unified logging system (`OSLog`).
 
+On Windows, the tables hook into the event logging system.
+
 This is an evented table that captures log messages as they appear.
 New messages will be returned with the next query.
 
@@ -331,6 +333,7 @@ New messages will be returned with the next query.
 | `process` | text | process name |
 | `level` | text | severity level |
 | `message` | text | log message |
+| `eventid` | text | log message |
 </details>
 
 <details>
@@ -346,7 +349,7 @@ operating system.
 | `full_name` | text | full name |
 | `is_admin` | bool | 1 if user has adminstrative privileges |
 | `is_system` | bool | 1 if user correponds to OS service |
-| `uid` | count | user ID |
+| `uid` | text | user ID |
 | `gid` | count | group ID |
 | `home` | text | path to home directory |
 | `shell` | text | path to default shell |
@@ -354,7 +357,7 @@ operating system.
 </details>
 
 <details>
-<summary><tt>zeek_agent:</tt> Zeek Agent information [Linux, macOS]</summary><br />
+<summary><tt>zeek_agent:</tt> Zeek Agent information [Linux, macOS, windows]</summary><br />
 
 An internal table providing information about the Zeek
 Agent process and the endpoint it's running on.
@@ -365,7 +368,7 @@ Agent process and the endpoint it's running on.
 | `instance` | text | unique ID for agent process (reset on restart) |
 | `hostname` | text | name of endpoint |
 | `addresses` | set | IP addresses of endpoint's primary network connection |
-| `platform` | text | `Darwin` or `Linux` |
+| `platform` | text | `Darwin` or `Linux` or `Windows` |
 | `os_name` | text | name of operating system |
 | `kernel_name` | text | name of OS kernel |
 | `kernel_version` | text | version of OS kernel |

@@ -6,5 +6,5 @@
 #path	zeek-agent-processes
 #open XXXX-XX-XX-XX-XX-XX
 #fields	t	hid	change	name	pid	uid	gid	ppid	priority	startup
-#types	time	string	string	string	count	count	count	count	int	interval
-XXXXXXXXXX.XXXXXX	<uuid>	-	text_a_a	101	103	104	102	107	18.000000
+#types	time	string	string	string	count	count	count	count	string	interval
+XXXXXXXXXX.XXXXXX	<uuid>	-	text_a_a	101	103	104	102	text_a_h	18.000000

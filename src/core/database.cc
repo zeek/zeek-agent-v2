@@ -459,6 +459,7 @@ std::string Database::documentRegisteredTables() {
             switch ( p ) {
                 case Platform::Darwin: return "darwin";
                 case Platform::Linux: return "linux";
+                case Platform::Windows: return "windows";
             };
             cannot_be_reached();
         });

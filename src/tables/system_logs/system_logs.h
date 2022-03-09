@@ -22,6 +22,8 @@ public:
                 On macOS, the tables hooks into the unified logging system
                 (`OSLog`).
 
+                On Windows, the tables hook into the event logging system.
+
                 This is an evented table that captures log messages as they
                 appear. New messages will be returned with the next query.
                 )",
@@ -30,7 +32,8 @@ public:
                 {.name = "time", .type = value::Type::Time, .summary = "timestamp"},
                 {.name = "process", .type = value::Type::Text, .summary = "process name"},
                 {.name = "level", .type = value::Type::Text, .summary = "severity level"},
-                {.name = "message", .type = value::Type::Text, .summary = "log message"}
+                {.name = "message", .type = value::Type::Text, .summary = "log message"},
+                {.name = "eventid", .type = value::Type::Text, .summary = "log message"}
             }
             // clang-format on
         };

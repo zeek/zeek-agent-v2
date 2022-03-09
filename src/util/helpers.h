@@ -9,6 +9,7 @@
 #include <chrono>
 #include <functional>
 #include <iomanip>
+#include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -232,7 +233,47 @@ inline std::string trim(const std::string& s) noexcept { return trim(s, detail::
  *
  * \note This function is not UTF8-aware.
  */
-std::vector<std::string> split(std::string s, const std::string& delim);
+template<typename T>
+std::vector<T> split(T s, const T& delim) {
+    // If there's no delimiter, return a copy of the existing string.
+    if ( delim.empty() )
+        return {T(s)};
+
+    // If the delimiter won't fit in the string, just return a copy as well.
+    if ( s.size() < delim.size() )
+        return {T(s)};
+
+    std::vector<T> l;
+
+    const bool ends_in_delim = (s.substr(s.size() - delim.size()) == delim);
+
+    do {
+        size_t p = s.find(delim);
+        l.push_back(s.substr(0, p));
+        if ( p == std::string::npos )
+            break;
+
+        s = s.substr(p + delim.size());
+    } while ( ! s.empty() );
+
+    if ( ends_in_delim )
+        l.emplace_back(T{});
+
+    return l;
+}
+
+template<typename T, typename U = typename T::value_type*>
+std::vector<T> split(T s, const U delim) {
+    return split(s, T(delim));
+}
+
+inline std::vector<std::string> split(const char* s, const char* delim) {
+    return split(std::move(std::string(s)), std::string(delim));
+}
+
+inline std::vector<std::wstring> split(const wchar_t* s, const wchar_t* delim) {
+    return split(std::move(std::wstring(s)), std::wstring(delim));
+}
 
 /**
  * Splits a string at all occurrences of successive white space.
@@ -286,6 +327,26 @@ std::string replace(std::string s, std::string o, std::string n);
  * \note This function is not UTF8-aware.
  */
 inline bool startsWith(const std::string& s, const std::string& prefix) { return s.find(prefix) == 0; }
+
+/**
+ * Returns true if a string ends with another.
+ *
+ * \note This function is not UTF8-aware.
+ */
+inline bool endsWith(const std::string& s, const std::string& suffix) {
+    return s.rfind(suffix) == s.size() - suffix.size();
+}
+
+/**
+ * Makes a unique_ptr containing an array. Useful for RAII on dynamically-allocated arrays.
+ */
+template<typename C>
+auto make_unique_array(size_t len, bool init = true) {
+    auto arr = std::unique_ptr<C[]>(new C[len]);
+    memset(arr.get(), 0, sizeof(C) * len);
+    return arr;
+}
+
 } // namespace zeek::agent
 
 /** Renders an integer in base62 ASCII. */
@@ -296,6 +357,7 @@ zeek::agent::Result<int64_t> parseVersion(std::string v);
 
 /** Creates a new random UUID, encoded in base62 ASCII. */
 std::string randomUUID();
+
 
 namespace std::chrono { // NOLINT(cert-dcl58-cpp)
 

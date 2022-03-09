@@ -38,32 +38,6 @@ std::string zeek::agent::toupper(const std::string& s) {
     return t;
 }
 
-std::vector<std::string> zeek::agent::split(std::string s, const std::string& delim) {
-    if ( delim.empty() )
-        return {std::string(s)};
-
-    if ( s.size() < delim.size() )
-        return {std::string(s)};
-
-    std::vector<std::string> l;
-
-    const bool ends_in_delim = (s.substr(s.size() - delim.size()) == delim);
-
-    do {
-        size_t p = s.find(delim);
-        l.push_back(s.substr(0, p));
-        if ( p == std::string::npos )
-            break;
-
-        s = s.substr(p + delim.size());
-    } while ( ! s.empty() );
-
-    if ( ends_in_delim )
-        l.emplace_back("");
-
-    return l;
-}
-
 std::vector<std::string> zeek::agent::split(std::string s) {
     std::vector<std::string> l;
 

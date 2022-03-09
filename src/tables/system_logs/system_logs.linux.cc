@@ -181,7 +181,7 @@ void SystemLogsLinux::parseJSON(const std::string& object) {
         if ( j.contains("MESSAGE") )
             msg = j["MESSAGE"];
 
-        newEvent({t, process, priority, msg});
+        newEvent({t, process, priority, msg, {}});
 
     } catch ( const nlohmann::json::exception& e ) {
         logger()->warn("[system_logs] failed to parse JSON data: {}", e.what());

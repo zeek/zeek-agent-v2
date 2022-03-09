@@ -187,7 +187,7 @@ struct Column {
 } // namespace schema
 
 /** Enum to define platforms that a table supports. */
-enum class Platform { Darwin, Linux };
+enum class Platform { Darwin, Linux, Windows };
 
 /** Defines a table's schema, along with some further meta data. */
 struct Schema {
@@ -521,5 +521,7 @@ inline auto ValueVectorCompare = [](const std::vector<Value>& a, const std::vect
 
     return false;
 };
+
+extern std::pair<Value, value::Type> stringToValue(const std::string& str, value::Type type);
 
 } // namespace zeek::agent

@@ -11,3 +11,7 @@ endif ()
 if ( HAVE_LINUX )
     target_sources(zeek-agent PRIVATE zeek_agent.linux.cc)
 endif ()
+
+if ( WIN32 )
+    target_sources(zeek-agent PRIVATE zeek_agent.windows.cc)
+endif ()

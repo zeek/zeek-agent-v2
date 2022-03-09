@@ -102,6 +102,16 @@ if ( NOT HAVE_GETOPT_LONG )
     target_link_libraries(zeek-agent PRIVATE 3rdparty:3rdparty)
 endif()
 
+if ( WIN32 )
+    # Windows requires administrator rights for various things (especially getting process names in the socket module)
+#    set_target_properties(zeek-agent PROPERTIES LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\" /SUBSYSTEM:WINDOWS")
+    target_link_libraries(zeek-agent PRIVATE ntdll)
+    target_link_libraries(zeek-agent PRIVATE ws2_32)
+    target_link_libraries(zeek-agent PRIVATE iphlpapi)
+    target_link_libraries(zeek-agent PRIVATE wbemuuid)
+    target_link_libraries(zeek-agent PRIVATE shlwapi)
+endif()
+
 install(TARGETS zeek-agent)
 
 configure_file(config.h.in "${CMAKE_BINARY_DIR}/include/autogen/config.h")

@@ -48,7 +48,7 @@ std::vector<std::vector<Value>> ProcessesLinux::snapshot(const std::vector<table
                 Value gid = static_cast<int64_t>(status.gid.effective);
                 Value ruid = static_cast<int64_t>(status.uid.real);
                 Value rgid = static_cast<int64_t>(status.gid.real);
-                Value priority = static_cast<int64_t>(stat.priority);
+                Value priority = std::to_string(stat.priority);
                 Value startup = {};
                 Value vsize = static_cast<int64_t>(stat.vsize);
                 Value rsize = static_cast<int64_t>(stat.rss * getpagesize());

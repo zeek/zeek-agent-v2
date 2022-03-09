@@ -84,7 +84,7 @@ void UsersDarwin::addUser(std::vector<std::vector<Value>>* rows, const CBIdentit
         struct passwd pwd;
         struct passwd* result = nullptr;
         if ( getpwnam_r(posix_name, &pwd, _buffer.data(), _buffer.size(), &result) == 0 && result ) {
-            uid = pwd.pw_uid;
+            uid = std::to_string(pwd.pw_uid);
             gid = pwd.pw_gid;
             home = value::fromOptionalString(pwd.pw_dir);
             shell = value::fromOptionalString(pwd.pw_shell);

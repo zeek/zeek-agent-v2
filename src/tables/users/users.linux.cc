@@ -38,7 +38,7 @@ std::vector<std::vector<Value>> UsersLinux::snapshot(const std::vector<table::Ar
         Value full_name = pw->pw_gecos;
         Value is_admin = (pw->pw_uid == 0);
         Value is_system = {};
-        Value uid = static_cast<int64_t>(pw->pw_uid);
+        Value uid = std::to_string(static_cast<int64_t>(pw->pw_uid));
         Value gid = static_cast<int64_t>(pw->pw_gid);
         Value home = pw->pw_dir;
         Value shell = pw->pw_shell;
