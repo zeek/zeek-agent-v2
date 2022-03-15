@@ -54,21 +54,16 @@ public:
      * @returns a valid query result (any prior errors are caught and lead to abortion)
      */
     query::Result query(std::string stmt) {
-        ConditionVariable cv;
         std::optional<query::Result> result;
         Query q = {.sql_stmt = std::move(stmt),
                    .subscription = {},
                    .cookie = "",
-                   .callback_result = [&](query::ID id, query::Result result_) {
-                       result = std::move(result_);
-                       cv.notify();
-                   }};
+                   .callback_result = [&](query::ID id, query::Result result_) { result = std::move(result_); }};
 
         auto rc = db.query(q);
         REQUIRE_MESSAGE(rc, rc.error());
 
         scheduler.advance(scheduler.currentTime() + 1s); // this will execute the query
-        cv.wait();                                       // probably unnecessary to deploy a CV here, but safer
 
         REQUIRE(result);
         return std::move(*result);
