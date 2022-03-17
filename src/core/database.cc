@@ -271,7 +271,7 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
         }
 
 #ifndef NDEBUG
-        else if ( (*i)->previous_result ) {
+        else if ( (*i)->previous_result && ! (*i)->previous_result->columns.empty() ) {
             // Double check that old and new columns match.
             assert(sql_result->columns.size() == (*i)->previous_result->columns.size());
             for ( size_t j = 0; j < sql_result->columns.size(); j++ )
