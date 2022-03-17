@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <variant>
@@ -42,7 +43,14 @@ namespace value {
  */
 enum class Type { Address, Blob, Bool, Count, Double, Integer, Interval, Null, Port, Record, Set, Text, Time, Vector };
 
+/** Returns a human-readable represenation of the type. */
+extern std::string to_string(const Type& type);
+
 } // namespace value
+
+namespace type {
+Result<value::Type> from_string(const std::string& type);
+}
 
 struct Port;
 struct Record;
@@ -152,13 +160,6 @@ inline Value fromOptionalString(const char* s) { return s ? s : Value(); }
 
 } // namespace value
 
-/** Renders a value type into a string representation for display. */
-extern std::string to_string(value::Type type);
-
-namespace type {
-value::Type from_string(const std::string& type);
-}
-
 /** Renders a value into a string representation for display. */
 extern std::string to_string(const Value& value);
 
@@ -175,9 +176,14 @@ struct Column {
     /** short human-readable summary of the column's semantics for documentation */
     std::string summary;
 
-    /**< true if this is a hidden column representing a parameter to the table; if so, the name should start with an
-     * underscore */
+    /**
+     * true if this is a hidden column representing a parameter to the table;
+     * if so, the name should start with an underscore
+     */
     bool is_parameter = false;
+
+    /** For paramters, a default value if not specified. */
+    std::optional<Value> default_ = {};
 
     /** Returns a human-readable representation of the column definition. */
     std::string str() const;
@@ -272,9 +278,9 @@ public:
      * @param t earliest time of interest; must be equal to, or earlier than,
      * the current time, per the scheduler driver operation
      *
-     * @param wheres constraints coming with the query that is requesting the
-     * rows; the implementation may rely on all columns marked as
-     * `is_parameter` in the schema, to be present in this list
+     * @param args list of table arguments provides with the query; it's
+     * guaranteed that all parameters specified in the table's schema will be
+     * present
      */
     virtual std::vector<std::vector<Value>> rows(Time t, const std::vector<table::Argument>& args) = 0;
 
@@ -373,6 +379,26 @@ public:
     /** Returns the database that the table is part of, or null if none. */
     Database* database() const { return _db; }
 
+    /**
+     * Helper to extract a specific argument from a list of arguments. This
+     * expects the argument to be present and will throw an internal error if
+     * that's not the case.
+     *
+     * @tparam T type of the arguments value inside the `Value` variant
+     * @param args list of arguments to search
+     * @param name name of argument to extract, including the leading `_`
+     * @return value of argument extract from the `Value` variant
+     */
+    template<typename T>
+    static const T& getArgument(const std::vector<table::Argument>& args, const std::string_view& name) {
+        for ( const auto& a : args ) {
+            if ( a.column == name )
+                return std::get<T>(a.expression);
+        }
+
+        throw InternalError(format("table argument '{}' unexpectedly missing"));
+    }
+
 protected:
     /**
      * Returns the configuration options currently in effect. This won't be
@@ -423,6 +449,10 @@ public:
      * throw `table::PermanentError` to abort the current query.
      *
      * Must be overridden by derived classes.
+     *
+     * @param args list of table arguments provides with the query; it's
+     * guaranteed that all parameters specified in the table's schema will be
+     * present
      *
      * @returns a vector of rows, each describing on element of the current
      * snapshot and matching the tables schema

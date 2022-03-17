@@ -11,12 +11,13 @@
 #include <iostream>
 #include <set>
 #include <utility>
+#include <variant>
 
 #include <nlohmann/json.hpp>
 
 using namespace zeek::agent;
 
-std::string zeek::agent::to_string(value::Type type) {
+std::string zeek::agent::value::to_string(const value::Type& type) {
     switch ( type ) {
         case value::Type::Address: return "address";
         case value::Type::Blob: return "blob";
@@ -36,7 +37,7 @@ std::string zeek::agent::to_string(value::Type type) {
     cannot_be_reached(); // thanks GCC
 }
 
-value::Type zeek::agent::type::from_string(const std::string& type) {
+Result<value::Type> zeek::agent::type::from_string(const std::string& type) {
     if ( type == "address" )
         return value::Type::Address;
     if ( type == "blob" )
@@ -66,7 +67,7 @@ value::Type zeek::agent::type::from_string(const std::string& type) {
     if ( type == "vector" )
         return value::Type::Vector;
 
-    throw InternalError(format("unknown type in type::from_string: {}", type));
+    return result::Error(format("unknown type value '{}'", type));
 }
 
 std::string zeek::agent::to_string(const Value& value) {
@@ -147,7 +148,8 @@ static Value from_json_record_value(const nlohmann::json& v) {
 
     for ( const auto& i : v ) {
         auto type = type::from_string(i[1]);
-        elements.emplace_back(from_json(i[0], type), type);
+        assert(type);
+        elements.emplace_back(from_json(i[0], *type), *type);
     }
 
     return {elements};
@@ -156,11 +158,12 @@ static Value from_json_record_value(const nlohmann::json& v) {
 static Value from_json_set_value(const nlohmann::json& v) {
     auto type = type::from_string(v[0]);
     const auto& values = v[1];
+    assert(type);
 
-    Set elements(type);
+    Set elements(*type);
 
     for ( const auto& i : values )
-        elements.insert(from_json(i, type));
+        elements.insert(from_json(i, *type));
 
     return {elements};
 }
@@ -168,17 +171,21 @@ static Value from_json_set_value(const nlohmann::json& v) {
 static Value from_json_vector_value(const nlohmann::json& v) {
     auto type = type::from_string(v[0]);
     const auto& values = v[1];
+    assert(type);
 
-    Vector elements(type);
+    Vector elements(*type);
 
     for ( const auto& i : values )
-        elements.emplace_back(from_json(i, type));
+        elements.emplace_back(from_json(i, *type));
 
     return {elements};
 }
 
 
 static Value from_json(const nlohmann::json& value, const value::Type& type) {
+    if ( value.is_null() )
+        return {std::monostate()};
+
     switch ( type ) {
         case value::Type::Bool: return value.get<bool>() != 0;
         case value::Type::Double: return value.get<double>();

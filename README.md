@@ -173,9 +173,9 @@ FROM files_lines("/home/*/.ssh/authorized_keys")`, will return
 any SSH keys that users have authorized to access their
 accounts.`
 
-| Parameter | Description |
-| --- | --- |
-| `pattern` | text | glob matching all files of interest |
+| Parameter | Type | Description | Default
+| --- | --- | --- | --- |
+| `pattern` | text | glob matching all files of interest |  |
 
 | Column | Type | Description
 | --- | --- | --- |
@@ -198,9 +198,9 @@ list, you'll be notified for any changes in system services.
 The list of files is generated at query time. The `pattern` glob needs
 to match on absolute file paths.
 
-| Parameter | Description |
-| --- | --- |
-| `pattern` | text | glob matching all files of interest |
+| Parameter | Type | Description | Default
+| --- | --- | --- | --- |
+| `pattern` | text | glob matching all files of interest |  |
 
 | Column | Type | Description
 | --- | --- | --- |

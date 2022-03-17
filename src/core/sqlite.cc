@@ -32,7 +32,9 @@ struct Cookie {
 // Represents a table parameter
 struct Parameter {
     std::string column; // column name
-    int argv_index;     // index specifying how to access the corresponding value in the SQLite filter vector
+    int argv_index; // index specifying how to access the corresponding value in the SQLite filter vector; -1 for using
+                    // a schema default
+    std::optional<Value> value; // schema default if index is -1
 };
 
 // Captures one of our virtual tables.
@@ -243,12 +245,13 @@ static int onxBestIndexCallback(::sqlite3_vtab* pvtab, ::sqlite3_index_info* inf
     ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] best-index", cookie->table->name());
 
     // Extract table parameters.
-    std::set<std::string> required_parameters;
+    std::vector<std::string> need_parameters;
     for ( const auto& c : cookie->table->schema().columns ) {
         if ( c.is_parameter )
-            required_parameters.insert(c.name);
+            need_parameters.emplace_back(c.name);
     }
 
+    std::vector<std::string> have_parameters;
     std::vector<Parameter> parameters;
     parameters.reserve(info->nConstraint);
 
@@ -276,12 +279,35 @@ static int onxBestIndexCallback(::sqlite3_vtab* pvtab, ::sqlite3_index_info* inf
         info->aConstraintUsage[i].argvIndex = param.argv_index; // pass argument value for this parameter to filter()
         info->aConstraintUsage[i].omit = true;                  // the table is in charge of filtering, not SQLite
 
-        required_parameters.erase(param.column);
+        have_parameters.emplace_back(param.column);
         parameters.push_back(std::move(param));
     }
 
-    if ( ! required_parameters.empty() )
-        return sqliteError(vtab, format("mandatory table parameter '{}' is missing", join(required_parameters, ", ")));
+    // The following is bit long-winded because we use vector (instead of sets)
+    // to maintain the order of paramters in the resulting error message.
+    std::vector<std::string> missing_parameters;
+    for ( const auto& p : need_parameters ) {
+        if ( std::find(have_parameters.begin(), have_parameters.end(), p) != have_parameters.end() )
+            continue;
+
+        // See if we have a default.
+        bool have_default = false;
+        for ( const auto& c : cookie->table->schema().columns ) {
+            if ( c.name == p && c.is_parameter && c.default_ ) {
+                ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] -  table parameter default: {}", cookie->table->name(),
+                                 c.name);
+                Parameter param{.column = c.name, .argv_index = -1, .value = c.default_};
+                parameters.push_back(std::move(param));
+                have_default = true;
+            }
+        }
+
+        if ( ! have_default )
+            missing_parameters.emplace_back(p);
+    }
+
+    if ( ! missing_parameters.empty() )
+        return sqliteError(vtab, format("mandatory table parameter '{}' is missing", join(missing_parameters, ", ")));
 
     vtab->parameters = std::move(parameters);
     return SQLITE_OK;
@@ -326,11 +352,22 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
     std::vector<table::Argument> args;
     for ( const auto& c : cursor->vtab->parameters ) {
         // TODO: Enforce that parameters don't use any of the new types
-        auto expr = sqliteConvertValue(c.column, argv[c.argv_index - 1], {});
-        if ( ! expr )
-            return sqliteError(cursor->vtab, "unsupported argument type");
+        Value expr;
 
-        auto arg = table::Argument{.column = c.column, .expression = std::move(*expr)};
+        if ( c.argv_index >= 0 ) {
+            auto rc = sqliteConvertValue(c.column, argv[c.argv_index - 1], {});
+            if ( ! rc )
+                return sqliteError(cursor->vtab, "unsupported argument type");
+
+            expr = *rc;
+        }
+        else {
+            // Default for parameter.
+            assert(c.value);
+            expr = *c.value;
+        }
+
+        auto arg = table::Argument{.column = c.column, .expression = std::move(expr)};
         ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] - with argument: {}", cookie->table->name(), to_string(arg));
         args.push_back(std::move(arg));
     }
@@ -1068,13 +1105,17 @@ TEST_SUITE("SQLite") {
                             {.name = "i", .type = value::Type::Integer},
                             {.name = "c", .type = value::Type::Text},
                             {.name = "_arg", .type = value::Type::Text, .is_parameter = true},
+                            {.name = "_arg_with_default",
+                             .type = value::Type::Text,
+                             .is_parameter = true,
+                             .default_ = {"default"}},
                         }};
             }
 
             ~TestTable() override {}
 
             std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override {
-                REQUIRE_EQ(args.size(), 1);
+                REQUIRE_EQ(args.size(), 2);
 
                 auto arg = args[0];
                 CHECK_EQ(arg.column, "_arg");
@@ -1082,11 +1123,17 @@ TEST_SUITE("SQLite") {
                 auto val = std::get<std::string>(arg.expression);
                 CHECK_EQ(val, "ARG");
 
+                auto arg_def = args[1];
+                CHECK_EQ(arg_def.column, "_arg_with_default");
+
+                auto val_def = std::get<std::string>(arg_def.expression);
+                CHECK_EQ(val_def, "default");
+
                 std::vector<std::vector<Value>> x;
-                x.push_back({{1L}, "X", val});
-                x.push_back({{2L}, "X", val});
-                x.push_back({{3L}, "X", val});
-                x.push_back({{4L}, "Y", val});
+                x.push_back({{1L}, "X", val, {"default"}});
+                x.push_back({{2L}, "X", val, {"default"}});
+                x.push_back({{3L}, "X", val, {"default"}});
+                x.push_back({{4L}, "Y", val, {"default"}});
                 return x;
             }
         };

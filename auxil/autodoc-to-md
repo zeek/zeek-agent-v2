@@ -47,15 +47,24 @@ def renderTable(name, meta):
 
     params = [c for c in meta["columns"] if c["is_parameter"]]
     if params:
-        print("| Parameter | Description |")
-        print("| --- | --- |")
+        print("| Parameter | Type | Description | Default")
+        print("| --- | --- | --- | --- |")
 
         for column in params:
             name = re.sub("^_+", "", column["name"])
             type = column["type"]
             comment = column["summary"]
 
-            print("| `{}` | {} | {} |".format(name, type, comment))
+            default = column["default"]
+            if default != None:
+                if default == "":
+                    default = '""'
+
+                default = "`{}`".format(default)
+            else:
+                default = ""
+
+            print("| `{}` | {} | {} | {} |".format(name, type, comment, default))
 
         print()
 

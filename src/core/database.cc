@@ -441,6 +441,7 @@ std::string Database::documentRegisteredTables() {
             column["type"] = to_string(c.type);
             column["summary"] = c.summary;
             column["is_parameter"] = c.is_parameter;
+            column["default"] = c.default_ ? nlohmann::json(to_string(*c.default_)) : nlohmann::json();
             columns.emplace_back(std::move(column));
         }
 
