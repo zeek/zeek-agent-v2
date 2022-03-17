@@ -336,7 +336,12 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
     }
 
     auto t = cookie->sqlite->_stmt_t;
-    cursor->rows = cookie->table->rows((t ? *t : 0_time), args);
+    try {
+        cursor->rows = cookie->table->rows((t ? *t : 0_time), args);
+    } catch ( const table::PermanentContentError& e ) {
+        return sqliteError(cursor->vtab, format("table error: {}", e.what()));
+    }
+
     cursor->current = 0;
 
     // Double check that the returned rows match our schema.

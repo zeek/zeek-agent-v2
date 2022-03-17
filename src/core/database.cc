@@ -957,6 +957,62 @@ TEST_SUITE("Database") {
         }
     }
 
+    TEST_CASE("permanent table error") {
+        class ErrorTable : public SnapshotTable {
+        public:
+            Schema schema() const override {
+                return {.name = "error_table", .columns = {{.name = "i", .type = value::Type::Integer}}};
+            }
+
+            ~ErrorTable() override {}
+
+            std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override {
+                std::vector<std::vector<Value>> x = {{{++executions}}};
+                if ( executions == 2 )
+                    throw table::PermanentContentError("kaputt");
+
+                return x;
+            }
+
+            int64_t executions = 0;
+        };
+
+        ErrorTable t;
+        Configuration cfg;
+        Scheduler tmgr;
+        Database db(&cfg, &tmgr);
+        db.addTable(&t);
+
+        int num_callback_executions = 0;
+        int num_done_executions = 0;
+
+        auto callback_result = [&](query::ID id, const query::Result& result) { ++num_callback_executions; };
+        auto callback_done = [&](query::ID id, bool cancelled) { ++num_done_executions; };
+
+        auto query = Query{.sql_stmt = "SELECT * from error_table",
+                           .subscription = query::SubscriptionType::Snapshots,
+                           .schedule = 2s,
+                           .callback_result = std::move(callback_result),
+                           .callback_done = std::move(callback_done)};
+
+        auto query_id = db.query(query);
+        REQUIRE(query_id);
+
+        auto old_level = logger()->level();
+        logger()->set_level(options::LogLevel::off);
+        CHECK_EQ(num_callback_executions, 0);
+        CHECK_EQ(num_done_executions, 0);
+        tmgr.advance(3_time);
+        CHECK_EQ(num_callback_executions, 1);
+        CHECK_EQ(num_done_executions, 0);
+        tmgr.advance(5_time);
+        db.poll();
+        // query should be disabled now
+        CHECK_EQ(num_callback_executions, 1);
+        CHECK_EQ(num_done_executions, 1);
+        logger()->set_level(old_level);
+    }
+
     TEST_CASE("virtual methods with mock data") {
         // Check that some of our virtual methods aren't called when using mock data.
         class MockedTestTable : public TestTable {

@@ -219,6 +219,11 @@ struct Argument {
 /** Renders an argument into a string representation for display. */
 extern std::string to_string(const Argument& arg);
 
+/** Exception for table implementations to signal an permanent error when retrieving data. */
+class PermanentContentError : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
 } // namespace table
 
 class Database;
@@ -257,11 +262,10 @@ public:
     /**
      * Returns a set of rows representing the table's current data. If a
      * non-zero time is given, the table must only return rows associated with
-     * activity from that point onwards. The table may also need to pre-filter rows
-     * according to a provided list of WHERE constraints. The filtering must be
-     * performed for columns defined as `is_parameter` in the schema.
-     * For all other columns, filtering is optional; SQLite will do it later
-     * anyways.
+     * activity from that point onwards. The table may also want to pre-filter
+     * rows according to a provided list of arguments. If the implementation
+     * encounters a non-recoverable error, it can throw `table::PermanentError`
+     * to abort the current query.
      *
      * Must be provided by derived class.
      *
@@ -415,7 +419,8 @@ class SnapshotTable : public Table {
 public:
     /**
      * Returns a complete, current snapshot of the activity that the table
-     * covers.
+     * covers. If the implementation encounters a non-recoverable error, it can
+     * throw `table::PermanentError` to abort the current query.
      *
      * Must be overridden by derived classes.
      *
