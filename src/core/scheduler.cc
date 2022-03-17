@@ -44,10 +44,13 @@ struct Pimpl<Scheduler>::Implementation {
     // Executes scheduled activity up to current wall clock.
     bool loop();
 
-    timer::ID _next_id = 1;            // counter for creating timer IDs
-    Time _now = 0_time;                // current time
-    bool _terminating;                 // true once termination has been requested; ok to access wo/ lock
-    ConditionVariable _interrupt_loop; // notify to interrupt idnle waiting in loop()
+    timer::ID _next_id = 1; // counter for creating timer IDs
+    Time _now = 0_time;     // current time
+    bool _terminating;      // true once termination has been requested; ok to access wo/ lock
+
+    // Mutex/condition variable to provide interruptable sleep.
+    std::mutex _loop_mutex;
+    std::condition_variable _loop_cv;
 
     mutable std::mutex
         _timers_mutex; // mutex protecting access to the current set of timers (_timers_by_id and _timers)
@@ -74,10 +77,9 @@ void Scheduler::Implementation::cancel(timer::ID id) {
 }
 
 bool Scheduler::Implementation::advance(Time now) {
-    if ( now <= _now )
-        return false;
+    if ( now > _now )
+        _now = now;
 
-    _now = now;
     std::unique_lock lock(_timers_mutex);
 
     while ( _timers.size() && _timers.top()->due <= _now ) {
@@ -105,21 +107,30 @@ bool Scheduler::Implementation::advance(Time now) {
     return true;
 }
 
-void Scheduler::Implementation::updated() { _interrupt_loop.notify(); }
+void Scheduler::Implementation::updated() {
+    std::unique_lock<std::mutex> lock(_loop_mutex);
+    _loop_cv.notify_all();
+}
 
 bool Scheduler::Implementation::loop() {
-    Interval timeout = 5s; // max timeout, TODO: make configurable
+    if ( _terminating )
+        return false;
 
     {
-        std::scoped_lock lock(_timers_mutex);
+        std::unique_lock<std::mutex> lock(_loop_mutex);
 
-        if ( ! _timers.empty() )
-            timeout = std::min(timeout, std::max(Interval(0s), _timers.top()->due - std::chrono::system_clock::now()));
-    }
+        Interval timeout = 5s; // max timeout, TODO: make configurable
+        {
+            std::scoped_lock lock(_timers_mutex);
+            if ( ! _timers.empty() )
+                timeout =
+                    std::min(timeout, std::max(Interval(0s), _timers.top()->due - std::chrono::system_clock::now()));
+        }
 
-    if ( timeout > 0s ) {
-        ZEEK_AGENT_DEBUG("scheduler", "sleeping with timeout={}", to_string(timeout));
-        _interrupt_loop.wait(timeout);
+        if ( timeout > 0s ) {
+            ZEEK_AGENT_DEBUG("scheduler", "sleeping with timeout={}", to_string(timeout));
+            _loop_cv.wait_for(lock, std::chrono::duration<double>(timeout));
+        }
     }
 
     advance(std::chrono::system_clock::now());
@@ -143,6 +154,7 @@ void Scheduler::schedule(task::Callback cb) {
     });
 
     ZEEK_AGENT_DEBUG("scheduler", "scheduling task {} for immediate execution", id);
+    pimpl()->updated();
 }
 
 void Scheduler::cancel(timer::ID id) {

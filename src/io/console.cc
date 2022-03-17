@@ -67,9 +67,10 @@ struct Pimpl<Console>::Implementation {
 
     std::map<std::string, Schema> _tables; // copy of table schema for thread-safety
 
-    std::unique_ptr<std::thread> _thread; // console's thread
-    ConditionVariable _query_done;        // flags when a query has been fully processed
-    replxx::Replxx _rx;                   // instance of the REPL
+    std::unique_ptr<std::thread> _thread;    // console's thread
+    ConditionVariable _query_done;           // flags when a query has been fully processed
+    std::optional<query::ID> _current_query; // while a query is running, its ID
+    replxx::Replxx _rx;                      // instance of the REPL
 };
 
 void Console::Implementation::init() {
@@ -246,29 +247,41 @@ void Console::Implementation::query(const std::string& stmt, std::optional<query
                    .schedule = 2s,
                    .terminate = terminate,
                    .cookie = "",
-                   .callback_result = [&](query::ID id, const query::Result& result) {
-                       printResult(result, subscription && *subscription != query::SubscriptionType::Snapshots);
+                   .callback_result =
+                       [&](query::ID id, const query::Result& result) {
+                           printResult(result, subscription && *subscription != query::SubscriptionType::Snapshots);
 
-                       if ( subscription && *subscription == query::SubscriptionType::Snapshots )
-                           std::cout << std::endl;
-
-                       if ( ! subscription )
-                           _query_done.notify();
-                   }};
+                           if ( subscription && *subscription == query::SubscriptionType::Snapshots )
+                               std::cout << std::endl;
+                       },
+                   .callback_done = [&](query::ID id, bool regular_shutdown) { _query_done.notify(); }};
 
     std::unique_ptr<signal::Handler> sigint_handler;
     if ( ! terminate )
         // Temporarily install our our SIGINT handler while the query is running.
         sigint_handler = std::make_unique<signal::Handler>(_signal_mgr, SIGINT, [this]() { _query_done.notify(); });
 
+    _current_query.reset();
     _query_done.reset();
 
     _scheduler->schedule([this, query]() {
-        if ( auto id = _db->query(query); ! id )
+        if ( auto id = _db->query(query) )
+            _current_query = *id;
+        else {
             error(id.error());
+            _query_done.notify();
+        }
     });
 
     _query_done.wait();
+
+    if ( _current_query ) {
+        // Move cancelling of query into main thread.
+        auto id = *_current_query;
+        _scheduler->schedule([this, id]() { _db->cancel(id); });
+        _current_query.reset();
+    }
+
     std::cout << std::endl;
 }
 

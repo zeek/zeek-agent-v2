@@ -9,6 +9,7 @@
 #include "util/testing.h"
 
 #include <algorithm>
+#include <iostream>
 #include <list>
 #include <map>
 #include <optional>
@@ -123,8 +124,9 @@ void Database::Implementation::expire() {
         if ( ! i )
             continue;
 
-        if ( (*i)->query.callback_done )
+        if ( (*i)->query.callback_done ) {
             (*(*i)->query.callback_done)(id, ! regular_shutdown);
+        }
     }
 
     for ( const auto& [id, regular_shutdown] : _cancelled_queries ) {
@@ -241,6 +243,7 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
 
     auto stype = (*i)->query.subscription;
     auto schedule = (stype ? (*i)->query.schedule : 0s);
+    bool cancel_query = (schedule == 0s);
 
     if ( sql_result ) {
         std::vector<query::result::Row> rows;
@@ -293,13 +296,15 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
         if ( schedule > 0s )
             (*i)->previous_result = std::move(sql_result);
     }
-    else
+    else {
         logger()->error("table error: {}", sql_result.error());
+        cancel_query = true;
+    }
 
     if ( (*i)->query.terminate )
         _scheduler->terminate();
 
-    if ( schedule == 0s )
+    if ( cancel_query )
         cancel(id, true);
 
     return schedule;
