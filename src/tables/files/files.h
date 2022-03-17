@@ -54,7 +54,7 @@ public:
         return {
             // clang-format off
             .name = "files_lines",
-            .summary = "line of selected ASCII files",
+            .summary = "lines extracted from selected ASCII files",
             .description = R"(
                 The table returns lines from selected ASCII files as table
                 rows. The files of interest get specified through a mandatory
@@ -76,4 +76,69 @@ public:
         };
     }
 };
+
+class FilesColumnsCommon : public FilesBase {
+public:
+    Schema schema() const override {
+        return {
+            // clang-format off
+            .name = "files_columns",
+            .summary = "columns extracted from selected ASCII files",
+            .description = R"(
+                The table returns columns extracted from selected ASCII files
+                as a Zeek record of correspoding field values. At the time of
+                query, the table reads in all relevant files line by line. It
+                then splits each line into columns based on a delimiter string
+                and returns the columns of interest.
+
+                The files to read are specified through the 1st table
+                parameter, which is a glob matching all relevant paths.
+
+                The columns to extract from each line are specified through the
+                2nd table parameter, which is a string containing a
+                comma-separated list of tuples `$<N>:<type>`, where `<N>` is a
+                column number (`$1` being the 1st column, `$2` the 2nd,
+                etc.); and `<type>` is the type as which the value in that
+                column will be parsed. Types can be: `blob`, `count`, int`,
+                `real`, `text`. (As a special case, the column `$0` refers to
+                whole line, without any processing.)
+
+                The column separator is specified by the 3rd table parameter.
+                It can be either left empty for splitting on white-space, or a
+                string to search for. If empty (which is the default), any
+                whitespace at the beginning and end of a line is ignored as
+                well.
+
+                Finally, a 4th table parameter specifies a regular expression
+                matching lines that are to be ignored. By default, this is set
+                to lines starting with common comment prefixes (`#`, `;`). If
+                this parameter is set to an empty string, no lines will be
+                ignored.
+
+                In the query result, `columns` will contain a JSON array with
+                the selected values for each line. On the Zeek-side, this array
+                will roll out into a Zeek `record`.
+
+                Here's an example: `SELECT columns from files_columns("/etc/passwd",
+                "$1:text,$3:count", ":")` splits `/etc/passwd` into its parts,
+                and extracts the user name and ID for each line.
+                )",
+            .platforms = { Platform::Darwin, Platform::Linux },
+            .columns = {
+                {.name = "_pattern", .type = value::Type::Text, .summary = "glob matching all files of interest", .is_parameter = true },
+                {.name = "_columns", .type = value::Type::Text, .summary = "specification of columns to extract", .is_parameter = true },
+                {.name = "_separator", .type = value::Type::Text, .summary = "separator string to split columns; empty for whitespace", .is_parameter = true, .default_ = {""}},
+                {.name = "_ignore", .type = value::Type::Text, .summary = "regular expression matching lines to ignore; empty to disable", .is_parameter = true, .default_ = {"^[ \\t]*([#;]|$)"}},
+                {.name = "path", .type = value::Type::Text, .summary = "absolute path" },
+                {.name = "number", .type = value::Type::Count, .summary = "line number in source file"},
+                {.name = "columns", .type = value::Type::Record, .summary = "extracted columns"},
+        }
+            // clang-format on
+        };
+    }
+
+    using Columns = std::vector<std::pair<int, value::Type>>;
+    static Result<Columns> parseColumnsSpec(const std::string& spec);
+};
+
 } // namespace zeek::agent::table
