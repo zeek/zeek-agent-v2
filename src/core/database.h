@@ -92,9 +92,11 @@ using CallbackDone = std::function<void(ID id, bool cancelled)>;
 
 /** For repeating queries, the type for follow up results. */
 enum class SubscriptionType {
-    Snapshots,  // keep returning new, complate snapshots
-    Events,     // return only new rows
-    Differences // return a diff of rows either added or deletec, marked accordingly
+    Snapshots,              // keep returning new, complate snapshots
+    Events,                 // return only new rows
+    Differences,            // return diffs of rows either added or deleted, marked accordingly
+    SnapshotPlusDifferences // return an initial snapshot, then diffs of rows either added or deleted, marked
+                            // accordingly
 };
 
 } // namespace query

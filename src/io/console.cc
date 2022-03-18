@@ -103,6 +103,9 @@ void Console::Implementation::execute(const std::string& cmd, bool terminate) {
     else if ( cmd.substr(0, 7) == ".diffs " )
         query(cmd.substr(7), query::SubscriptionType::Differences);
 
+    else if ( cmd.substr(0, 21) == ".snapshot-plus-diffs " )
+        query(cmd.substr(21), query::SubscriptionType::SnapshotPlusDifferences);
+
     else if ( cmd.substr(0, 8) == ".events " )
         query(cmd.substr(8), query::SubscriptionType::Events);
 
@@ -306,13 +309,14 @@ Query
 
 Commands
 
-    .help               display this help
-    .quit               terminate agent
-    .diffs <query>      continously reschedule query, showing added or removed entries each time
-    .events <query>     continously reschedule query, showing new entries each time
-    .schema <table>     display the schema for the given table
-    .snapshots <query>  continously reschedule query, showing all entries each time
-    .tables             list available tables
+    .help                         display this help
+    .quit                         terminate agent
+    .diffs <query>                continously reschedule query, showing added or removed entries each time
+    .snapshot-plus-diffs <query>  show initial snapshot, then continously reschedule query, showing added or removed entries each time
+    .events <query>               continously reschedule query, showing new entries each time
+    .schema <table>               display the schema for the given table
+    .snapshots <query>            continously reschedule query, showing all entries each time
+    .tables                       list available tables
 
 )");
 }

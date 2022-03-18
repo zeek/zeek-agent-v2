@@ -411,6 +411,8 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
                     subscription = query::SubscriptionType::Events;
                 else if ( enum_.name == "ZeekAgent::Differences" )
                     subscription = query::SubscriptionType::Differences;
+                else if ( enum_.name == "ZeekAgent::SnapshotPlusDifferences" )
+                    subscription = query::SubscriptionType::SnapshotPlusDifferences;
                 else
                     ZEEK_INSTANCE_DEBUG(zeek_instance_id, "ignoring event with unknown subscription type: {}",
                                         enum_.name);

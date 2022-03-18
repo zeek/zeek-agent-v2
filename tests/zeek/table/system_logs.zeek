@@ -12,21 +12,26 @@
 redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
 @endif
 
-# We only accept the 1st write writer so that our output doesn't depend on
-# runtime duration.
-global already_logged = F;
+redef ZeekAgent_SystemLogs::query_interval = 1 sec;
 
-hook ZeekAgent_SystemLogs::log_policy(rec: any, id: Log::ID, filter: Log::Filter) {
-	if ( already_logged )
+# We only accept the 2nd write writer so that our output doesn't depend on
+# runtime duration (1st write is empty).
+global already_logged = 0;
+
+hook ZeekAgent_SystemLogs::log_policy(rec: any, id: Log::ID,
+    filter: Log::Filter)
+{
+	if ( ++already_logged != 2 )
 		break;
-	else
-		already_logged = T;
 }
 
-event do_terminate() {
+event do_terminate()
+{
 	terminate();
 }
 
-event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context, columns: ZeekAgentAPI::AgentHelloV1) {
-	schedule 2 secs { do_terminate() };
+event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context,
+    columns: ZeekAgentAPI::AgentHelloV1)
+{
+	schedule 4 secs { do_terminate() };
 }

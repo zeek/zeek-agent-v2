@@ -248,16 +248,22 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
     if ( sql_result ) {
         std::vector<query::result::Row> rows;
 
-        if ( ! stype || *stype == query::SubscriptionType::Snapshots || ! (*i)->previous_result ) {
+        if ( ! stype || *stype == query::SubscriptionType::Snapshots ||
+             (stype == query::SubscriptionType::SnapshotPlusDifferences && ! (*i)->previous_result) ) {
             for ( const auto& sql_row : sql_result->rows )
                 rows.push_back({.type = {}, .values = sql_row});
         }
 
-        else if ( stype == query::SubscriptionType::Events )
-            rows = newRows((*i)->previous_result->rows, sql_result->rows);
+        else if ( stype == query::SubscriptionType::Events ) {
+            if ( (*i)->previous_result )
+                rows = newRows((*i)->previous_result->rows, sql_result->rows);
+        }
 
-        else if ( stype == query::SubscriptionType::Differences )
-            rows = diffRows((*i)->previous_result->rows, sql_result->rows);
+        else if ( stype == query::SubscriptionType::Differences ||
+                  stype == query::SubscriptionType::SnapshotPlusDifferences ) {
+            if ( (*i)->previous_result )
+                rows = diffRows((*i)->previous_result->rows, sql_result->rows);
+        }
 
         else
             cannot_be_reached();
@@ -794,7 +800,7 @@ TEST_SUITE("Database") {
             CHECK_EQ(num_done_executions, 1);
         }
 
-        SUBCASE("subscription - differences") {
+        SUBCASE("subscription - snapshot-and-differences") {
             Result<std::optional<query::ID>> query_id;
             int num_callback_executions = 0;
 
@@ -811,6 +817,76 @@ TEST_SUITE("Database") {
                         CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 2);
                         CHECK(! result.rows[2].type.has_value());
                         CHECK_EQ(std::get<int64_t>(result.rows[2].values[0]), 3);
+                        break;
+
+                    case 2: // 2nd result is diff
+                        CHECK_EQ(result.rows.size(), 2);
+                        CHECK_EQ(result.columns.size(), 1);
+                        CHECK_EQ(result.rows[0].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 1);
+                        CHECK_EQ(result.rows[1].type, query::result::ChangeType::Add);
+                        CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 4);
+                        break;
+
+                    case 3: // 3rd result is diff
+                        CHECK_EQ(result.rows.size(), 2);
+                        CHECK_EQ(result.columns.size(), 1);
+                        CHECK_EQ(result.rows[0].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 2);
+                        CHECK_EQ(result.rows[1].type, query::result::ChangeType::Add);
+                        CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 5);
+                        break;
+
+                    case 4: // 4th is diff, with no new results.
+                        CHECK_EQ(result.rows.size(), 3);
+                        CHECK_EQ(result.columns.size(), 1); // make sure this is set even without new results
+                        CHECK_EQ(result.rows[0].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 3);
+                        CHECK_EQ(result.rows[1].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 4);
+                        CHECK_EQ(result.rows[2].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[2].values[0]), 5);
+                        break;
+
+                    default: CHECK(! false);
+                }
+
+                CHECK_EQ(id, *query_id);
+            };
+
+            t.expected_times = {0_time, 1_time, 3_time};
+
+            auto query = Query{.sql_stmt = "SELECT * from test_table",
+                               .subscription = query::SubscriptionType::SnapshotPlusDifferences,
+                               .schedule = 2s,
+                               .cookie = "Leibniz",
+                               .callback_result = std::move(callback)};
+
+            query_id = db.query(query);
+            REQUIRE(query_id);
+
+            CHECK_EQ(num_callback_executions, 0);
+            tmgr.advance(1_time);
+            CHECK_EQ(num_callback_executions, 1);
+            tmgr.advance(3_time);
+            CHECK_EQ(num_callback_executions, 2);
+            tmgr.advance(5_time);
+            CHECK_EQ(num_callback_executions, 3);
+            t.empty_result = true;
+            tmgr.advance(7_time);
+            CHECK_EQ(num_callback_executions, 4);
+        }
+
+        SUBCASE("subscription - differences") {
+            Result<std::optional<query::ID>> query_id;
+            int num_callback_executions = 0;
+
+            auto callback = [&](query::ID id, const query::Result& result) {
+                ++num_callback_executions;
+
+                switch ( num_callback_executions ) {
+                    case 1: // first result is empty
+                        CHECK_EQ(result.rows.size(), 0);
                         break;
 
                     case 2: // 2nd result is diff
@@ -879,14 +955,8 @@ TEST_SUITE("Database") {
                 ++num_callback_executions;
 
                 switch ( num_callback_executions ) {
-                    case 1: // first result is snapshot
-                        CHECK_EQ(result.rows.size(), 3);
-                        CHECK(! result.rows[0].type.has_value());
-                        CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 1);
-                        CHECK(! result.rows[1].type.has_value());
-                        CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 2);
-                        CHECK(! result.rows[2].type.has_value());
-                        CHECK_EQ(std::get<int64_t>(result.rows[2].values[0]), 3);
+                    case 1: // first result is empty
+                        CHECK_EQ(result.rows.size(), 0);
                         break;
 
                     case 2: // 2nd result is new events
