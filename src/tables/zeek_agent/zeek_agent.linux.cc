@@ -15,6 +15,8 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 
+#include <broker/version.hh>
+
 using namespace zeek::agent;
 using namespace zeek::agent::table;
 
@@ -138,11 +140,11 @@ std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table
     Value id = options().agent_id;
     Value instance = options().instance_id;
     Value hostname = hostname_buffer.data();
-    Value address = addresses();
+    Value addrs = addresses();
     Value platform = platform::name();
     Value os_name = distribution();
     Value agent = VersionNumber;
-    Value broker = {}; // TODO
+    Value broker = broker::version::string();
     Value uptime = std::chrono::system_clock::now() - startupTime();
     Value tables =
         Set(value::Type::Text, transform(database()->tables(), [](const auto* t) { return Value(t->name()); }));
@@ -158,7 +160,7 @@ std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table
         kernel_arch = uname_info.machine;
     }
 
-    return {{id, instance, hostname, address, platform, os_name, kernel_name, kernel_release, kernel_arch, agent,
-             broker, uptime, tables}};
+    return {{id, instance, hostname, addrs, platform, os_name, kernel_name, kernel_release, kernel_arch, agent, broker,
+             uptime, tables}};
 }
 } // namespace

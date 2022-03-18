@@ -13,6 +13,8 @@
 #include <SystemConfiguration/SCDynamicStore.h>
 #include <sys/utsname.h>
 
+#include <broker/version.hh>
+
 using namespace zeek::agent;
 using namespace zeek::agent::table;
 
@@ -78,7 +80,7 @@ std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<tabl
     Value platform = platform::name();
     Value os_name = std::string("macOS ") + std::string([version UTF8String]);
     Value agent = VersionNumber;
-    Value broker = {}; // TODO
+    Value broker = broker::version::string();
     Value uptime = std::chrono::system_clock::now() - startupTime();
     Value tables =
         Set(value::Type::Text, transform(database()->tables(), [](const auto* t) { return Value(t->name()); }));
