@@ -9,9 +9,9 @@
 #include "util/color.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "util/threading.h"
 
 #include <algorithm>
+#include <condition_variable>
 #include <csignal>
 #include <iostream>
 #include <map>
@@ -68,8 +68,9 @@ struct Pimpl<Console>::Implementation {
     std::map<std::string, Schema> _tables; // copy of table schema for thread-safety
 
     std::unique_ptr<std::thread> _thread;    // console's thread
-    ConditionVariable _query_done;           // flags when a query has been fully processed
     std::optional<query::ID> _current_query; // while a query is running, its ID
+    std::mutex _query_done_mutex;            // mutex to flag when a query has been fully processed
+    std::condition_variable _query_done_cv;  // condition variable to flag when a query has been fully processed
     replxx::Replxx _rx;                      // instance of the REPL
 };
 
@@ -257,32 +258,44 @@ void Console::Implementation::query(const std::string& stmt, std::optional<query
                            if ( subscription && *subscription == query::SubscriptionType::Snapshots )
                                std::cout << std::endl;
                        },
-                   .callback_done = [&](query::ID id, bool regular_shutdown) { _query_done.notify(); }};
+                   .callback_done =
+                       [&](query::ID id, bool regular_shutdown) {
+                           std::unique_lock<std::mutex> lock(_query_done_mutex);
+                           _query_done_cv.notify_all();
+                       }};
 
     std::unique_ptr<signal::Handler> sigint_handler;
     if ( ! terminate )
         // Temporarily install our our SIGINT handler while the query is running.
-        sigint_handler = std::make_unique<signal::Handler>(_signal_mgr, SIGINT, [this]() { _query_done.notify(); });
+        sigint_handler = std::make_unique<signal::Handler>(_signal_mgr, SIGINT, [this]() {
+            std::unique_lock<std::mutex> lock(_query_done_mutex);
+            _query_done_cv.notify_all();
+        });
 
-    _current_query.reset();
-    _query_done.reset();
+    {
+        std::unique_lock<std::mutex> lock(_query_done_mutex);
 
-    _scheduler->schedule([this, query]() {
-        if ( auto id = _db->query(query) )
-            _current_query = *id;
-        else {
-            error(id.error());
-            _query_done.notify();
-        }
-    });
-
-    _query_done.wait();
-
-    if ( _current_query ) {
-        // Move cancelling of query into main thread.
-        auto id = *_current_query;
-        _scheduler->schedule([this, id]() { _db->cancel(id); });
         _current_query.reset();
+
+        _scheduler->schedule([this, query]() {
+            std::unique_lock<std::mutex> lock(_query_done_mutex);
+
+            if ( auto id = _db->query(query) )
+                _current_query = *id;
+            else {
+                error(id.error());
+                _query_done_cv.notify_all();
+            }
+        });
+
+        _query_done_cv.wait(lock);
+
+        if ( _current_query ) {
+            // Move cancelling of query into main thread.
+            auto id = *_current_query;
+            _scheduler->schedule([this, id]() { _db->cancel(id); });
+            _current_query.reset();
+        }
     }
 
     std::cout << std::endl;
@@ -351,7 +364,7 @@ void Console::start() {
 void Console::stop() {
     if ( pimpl()->_thread ) {
         ZEEK_AGENT_DEBUG("console", "stopping");
-        pimpl()->_query_done.notify();
+        pimpl()->_query_done_cv.notify_all();
         pimpl()->_thread->join();
     }
 }

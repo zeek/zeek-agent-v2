@@ -10,7 +10,6 @@
 #include "core/database.h"
 #include "core/logger.h"
 #include "core/scheduler.h"
-#include "util/threading.h"
 
 #include <string>
 #include <utility>
