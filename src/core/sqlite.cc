@@ -583,13 +583,6 @@ Result<Nothing> SQLite::Implementation::addTable(Table* table) {
     // explicitly because all our tables are "eponymous" (see
     // https://www.sqlite.org/vtab.html#eponymous_virtual_tables). However, we
     // do create them so that one can introspect them through "sqlite_schema".
-
-    if ( this->table(table->name()) ) {
-        auto result = runStatement(format("DROP TABLE {}", table->name()), {});
-        if ( ! result )
-            return result.error();
-    }
-
     auto result = runStatement(format("CREATE VIRTUAL TABLE {} USING {}", table->name(), table->name()), {});
     if ( ! result )
         return result.error();
