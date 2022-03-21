@@ -89,36 +89,83 @@ std::string zeek::agent::to_string(const Value& value) {
 }
 
 static nlohmann::json to_json(const Value& v, const value::Type& t);
+static Value from_json(const nlohmann::json& value, const value::Type& type);
 
-static nlohmann::json to_json(const Port& v) { return nlohmann::json::array({v.port, static_cast<int>(v.protocol)}); }
+static nlohmann::json to_json(const Port& v) {
+    auto elements = nlohmann::json::object({{"port", v.port}, {"proto", static_cast<int>(v.protocol)}});
+    std::cerr << elements.dump() << std::endl;
+    return elements;
+}
+
+static Value from_json_port(const nlohmann::json& v) {
+    return Port(v["port"], static_cast<port::Protocol>(v["proto"]));
+}
 
 static nlohmann::json to_json(const Record& v) {
-    auto elements = nlohmann::json::array();
+    std::vector<nlohmann::json> elements;
 
     for ( const auto& i : v ) {
-        auto elem = nlohmann::json::array({to_json(i.first, i.second), to_string(i.second)});
+        auto elem = nlohmann::json::object({{"type", to_string(i.second)}, {"value", to_json(i.first, i.second)}});
         elements.emplace_back(std::move(elem));
     }
 
     return elements;
 }
 
+static Value from_json_record(const nlohmann::json& v) {
+    Record elements;
+
+    for ( const auto& i : v ) {
+        auto type = type::from_string(i["type"]);
+        assert(type);
+        elements.emplace_back(from_json(i["value"], *type), *type);
+    }
+
+    return {elements};
+}
+
 static nlohmann::json to_json(const Set& v) {
-    auto elements = nlohmann::json::array();
+    std::vector<nlohmann::json> elements;
 
     for ( const auto& i : v )
         elements.emplace_back(to_json(i, v.type));
 
-    return nlohmann::json({to_string(v.type), std::move(elements)});
+    return nlohmann::json::object({{"elem", to_string(v.type)}, {"value", elements}});
+}
+
+static Value from_json_set(const nlohmann::json& v) {
+    auto type = type::from_string(v["elem"]);
+    const auto& values = v["value"];
+    assert(type);
+
+    Set elements(*type);
+
+    for ( const auto& i : values )
+        elements.insert(from_json(i, *type));
+
+    return elements;
 }
 
 static nlohmann::json to_json(const Vector& v) {
-    auto elements = nlohmann::json::array();
+    std::vector<nlohmann::json> elements;
 
     for ( const auto& i : v )
         elements.emplace_back(to_json(i, v.type));
 
-    return nlohmann::json({to_string(v.type), std::move(elements)});
+    return nlohmann::json::object({{"elem", to_string(v.type)}, {"value", elements}});
+}
+
+static Value from_json_vector(const nlohmann::json& v) {
+    auto type = type::from_string(v["elem"]);
+    const auto& values = v["value"];
+    assert(type);
+
+    Vector elements(*type);
+
+    for ( const auto& i : values )
+        elements.emplace_back(from_json(i, *type));
+
+    return elements;
 }
 
 static nlohmann::json to_json(const Value& v, const value::Type& t) {
@@ -136,51 +183,10 @@ static nlohmann::json to_json(const Value& v, const value::Type& t) {
         nlohmann::json operator()(std::monostate) { return {}; }
     };
 
-    return std::visit(Visitor(), static_cast<const Value::Base&>(v));
+    auto x = std::visit(Visitor(), static_cast<const Value::Base&>(v));
+    std::cerr << x.dump() << std::endl;
+    return x;
 }
-
-static Value from_json(const nlohmann::json& value, const value::Type& type);
-
-static Value from_json_port_value(const nlohmann::json& v) { return Port(v[0], static_cast<port::Protocol>(v[1])); }
-
-static Value from_json_record_value(const nlohmann::json& v) {
-    Record elements;
-
-    for ( const auto& i : v ) {
-        auto type = type::from_string(i[1]);
-        assert(type);
-        elements.emplace_back(from_json(i[0], *type), *type);
-    }
-
-    return {elements};
-}
-
-static Value from_json_set_value(const nlohmann::json& v) {
-    auto type = type::from_string(v[0]);
-    const auto& values = v[1];
-    assert(type);
-
-    Set elements(*type);
-
-    for ( const auto& i : values )
-        elements.insert(from_json(i, *type));
-
-    return {elements};
-}
-
-static Value from_json_vector_value(const nlohmann::json& v) {
-    auto type = type::from_string(v[0]);
-    const auto& values = v[1];
-    assert(type);
-
-    Vector elements(*type);
-
-    for ( const auto& i : values )
-        elements.emplace_back(from_json(i, *type));
-
-    return {elements};
-}
-
 
 static Value from_json(const nlohmann::json& value, const value::Type& type) {
     if ( value.is_null() )
@@ -191,11 +197,11 @@ static Value from_json(const nlohmann::json& value, const value::Type& type) {
         case value::Type::Double: return value.get<double>();
         case value::Type::Interval: return Interval(value.get<int64_t>());
         case value::Type::Null: return {};
-        case value::Type::Port: return from_json_port_value(value);
-        case value::Type::Record: return from_json_record_value(value);
-        case value::Type::Set: return from_json_set_value(value);
+        case value::Type::Port: return from_json_port(value);
+        case value::Type::Record: return from_json_record(value);
+        case value::Type::Set: return from_json_set(value);
         case value::Type::Time: return Time(Interval(value.get<int64_t>()));
-        case value::Type::Vector: return from_json_vector_value(value);
+        case value::Type::Vector: return from_json_vector(value);
 
         case value::Type::Count:
         case value::Type::Integer: return value.get<int64_t>();
@@ -208,44 +214,32 @@ static Value from_json(const nlohmann::json& value, const value::Type& type) {
     cannot_be_reached(); // thanks GCC
 }
 
-std::string zeek::agent::to_string(const std::vector<Value>& values) {
-    return join(transform(values, [](const auto& x) { return to_string(x); }), " ");
-}
+std::string zeek::agent::to_json_string(const Value& value, value::Type type) { return to_json(value, type).dump(); }
 
-std::string Port::serialize() const { return to_json(*this).dump(); }
-
-Value Port::unserialize(const std::string_view& data) {
+Value zeek::agent::from_json_string(const std::string_view& data, value::Type type) {
     try {
         auto json = nlohmann::json::parse(data);
-        return from_json_port_value(json);
+        return from_json(json, type);
     } catch ( nlohmann::json::parse_error& e ) {
         // This should never happen, we only parse our own JSON.
         throw InternalError(format("JSON parse error: {}", e.what()));
     }
 }
 
-std::string zeek::agent::to_string(const Port& p) {
+std::string zeek::agent::to_string(const std::vector<Value>& values) {
+    return join(transform(values, [](const auto& x) { return to_string(x); }), " ");
+}
+
+std::string zeek::agent::to_string(const Port& v) {
     std::string_view proto;
-    switch ( p.protocol ) {
+    switch ( v.protocol ) {
         case port::Protocol::ICMP: proto = "icmp"; break;
         case port::Protocol::TCP: proto = "tcp"; break;
         case port::Protocol::UDP: proto = "udp"; break;
         case port::Protocol::Unknown: proto = "unknown"; break;
     };
 
-    return format("{}/{}", p.port, proto);
-}
-
-std::string Record::serialize() const { return to_json(*this).dump(); }
-
-Value Record::unserialize(const std::string_view& data) {
-    try {
-        auto json = nlohmann::json::parse(data);
-        return from_json_record_value(json);
-    } catch ( nlohmann::json::parse_error& e ) {
-        // This should never happen, we only parse our own JSON.
-        throw InternalError(format("JSON parse error: {}", e.what()));
-    }
+    return format("{}/{}", v.port, proto);
 }
 
 std::string zeek::agent::to_string(const Record& v) {
@@ -253,33 +247,9 @@ std::string zeek::agent::to_string(const Record& v) {
     return std::string("[") + join(transform(base, [](const auto& x) { return to_string(x.first); }), ", ") + "]";
 }
 
-std::string Set::serialize() const { return to_json(*this).dump(); }
-
-Value Set::unserialize(const std::string_view& data) {
-    try {
-        auto json = nlohmann::json::parse(data);
-        return from_json_set_value(json);
-    } catch ( nlohmann::json::parse_error& e ) {
-        // This should never happen, we only parse our own JSON.
-        throw InternalError(format("JSON parse error: {}", e.what()));
-    }
-}
-
 std::string zeek::agent::to_string(const Set& v) {
     const std::set<Value>& base = v;
     return std::string("{") + join(transform(base, [](const auto& x) { return to_string(x); }), ", ") + "}";
-}
-
-std::string Vector::serialize() const { return to_json(*this).dump(); }
-
-Value Vector::unserialize(const std::string_view& data) {
-    try {
-        auto json = nlohmann::json::parse(data);
-        return from_json_vector_value(json);
-    } catch ( nlohmann::json::parse_error& e ) {
-        // This should never happen, we only parse our own JSON.
-        throw InternalError(format("JSON parse error: {}", e.what()));
-    }
 }
 
 std::string zeek::agent::to_string(const Vector& v) {
@@ -595,8 +565,8 @@ TEST_SUITE("Table") {
             {Vector{value::Type::Bool, {true, false, true}}, value::Type::Vector},
         };
 
-        auto x = v.serialize();
-        auto y = Record::unserialize(x);
+        auto x = to_json_string(Value{v}, value::Type::Record);
+        auto y = from_json_string(x, value::Type::Record);
         CHECK_EQ(y, Value(v));
         CHECK_EQ(to_string(y),
                  "[1.2.3.4, BLOB, true, 42, 3.14, -42, 10s, 43/tcp, (null), TEXT, 1970-01-01-00-00-10, [1, false], {1, "

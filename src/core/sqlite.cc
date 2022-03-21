@@ -124,10 +124,10 @@ static Result<Value> sqliteConvertValue(const std::string& name, ::sqlite3_value
 
             switch ( *type ) {
                 case value::Type::Blob: return Value(blob);
-                case value::Type::Port: return Port::unserialize(blob);
-                case value::Type::Record: return Record::unserialize(blob);
-                case value::Type::Set: return Set::unserialize(blob);
-                case value::Type::Vector: return Vector::unserialize(blob);
+                case value::Type::Port: return from_json_string(blob, value::Type::Port);
+                case value::Type::Record: return from_json_string(blob, value::Type::Record);
+                case value::Type::Set: return from_json_string(blob, value::Type::Set);
+                case value::Type::Vector: return from_json_string(blob, value::Type::Vector);
                 default: throw InternalError("unexpected type for blob in sqliteConvertValue");
             }
 
@@ -488,26 +488,11 @@ static int onColumn(::sqlite3_vtab_cursor* pcursor, ::sqlite3_context* context, 
                 break;
             }
         }
-        case value::Type::Port: {
-            auto v = std::get<Port>(value).serialize();
-            ::sqlite3_result_blob(context, v.data(), static_cast<int>(v.size()),
-                                  SQLITE_TRANSIENT); // NOLINT(performance-no-int-to-ptr)
-            break;
-        }
-        case value::Type::Record: {
-            auto v = std::get<Record>(value).serialize();
-            ::sqlite3_result_blob(context, v.data(), static_cast<int>(v.size()),
-                                  SQLITE_TRANSIENT); // NOLINT(performance-no-int-to-ptr)
-            break;
-        }
-        case value::Type::Set: {
-            auto v = std::get<Set>(value).serialize();
-            ::sqlite3_result_blob(context, v.data(), static_cast<int>(v.size()),
-                                  SQLITE_TRANSIENT); // NOLINT(performance-no-int-to-ptr)
-            break;
-        }
+        case value::Type::Port:
+        case value::Type::Record:
+        case value::Type::Set:
         case value::Type::Vector: {
-            auto v = std::get<Vector>(value).serialize();
+            auto v = to_json_string(value, column.type);
             ::sqlite3_result_blob(context, v.data(), static_cast<int>(v.size()),
                                   SQLITE_TRANSIENT); // NOLINT(performance-no-int-to-ptr)
             break;

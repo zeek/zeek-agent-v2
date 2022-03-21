@@ -96,62 +96,50 @@ struct Port {
         return port < other.port || (port == other.port && protocol < other.protocol);
     }
     bool operator==(const Port& other) const { return port == other.port && port == other.port; }
-
-    /** Returns a reversible, human-readable string representation of the port. */
-    std::string serialize() const;
-
-    /** Reverses a string representation of a port into a new vector value. */
-    static Value unserialize(const std::string_view& data);
 };
 
 /** Returns a human-readable represenation of the value. */
-extern std::string to_string(const Port& port);
+extern std::string to_string(const Port& v);
+
+/** Returns a JSON represenation of the value. */
+extern std::string Xto_json(const Port& v);
 
 /** Represents a record (struct) of values. */
 struct Record : public std::vector<std::pair<Value, value::Type>> {
     using std::vector<std::pair<Value, value::Type>>::vector;
-
-    /** Returns a reversible, human-readable string representation of the vector. */
-    std::string serialize() const;
-
-    /** Reverses a string representation of a vector into a new vector value. */
-    static Value unserialize(const std::string_view& data);
 };
 
 /** Returns a human-readable represenation of the value. */
 extern std::string to_string(const Record& v);
+
+/** Returns a JSON represenation of the value. */
+extern std::string Xto_json(const Record& v);
 
 /** Represents a set of values. */
 struct Set : public std::set<Value> {
     Set(value::Type type, std::set<Value> values = {}) : std::set<Value>(std::move(values)), type(type) {}
 
     value::Type type; /**< Type of the values. */
-
-    /** Returns a reversible, human-readable string representation of the vector. */
-    std::string serialize() const;
-
-    /** Reverses a string representation of a vector into a new vector value. */
-    static Value unserialize(const std::string_view& data);
 };
 
 /** Returns a human-readable represenation of the value. */
 extern std::string to_string(const Set& v);
+
+/** Returns a JSON represenation of the value. */
+extern std::string Xto_json(const Set& v);
 
 /** Represents a set of values. */
 struct Vector : public std::vector<Value> {
     Vector(value::Type type, std::vector<Value> values = {}) : std::vector<Value>(std::move(values)), type(type) {}
 
     value::Type type; /**< Type of the values. */
-
-    /** Returns a reversible, human-readable string representation of the vector. */
-    std::string serialize() const;
-
-    /** Reverses a string representation of a vector into a new vector value. */
-    static Value unserialize(const std::string_view& data);
 };
 
 /** Returns a human-readable represenation of the value. */
 extern std::string to_string(const Vector& v);
+
+/** Returns a JSON represenation of the value. */
+extern std::string Xto_json(const Vector& v);
 
 namespace value {
 
@@ -165,6 +153,12 @@ extern std::string to_string(const Value& value);
 
 /** Renders a row of values into a string representation for display. */
 extern std::string to_string(const std::vector<Value>& values);
+
+/** Renders a value into a JSON representation. */
+extern std::string to_json_string(const Value& value, value::Type type);
+
+/** Restores a value from its JSON representation. */
+extern Value from_json_string(const std::string_view& data, value::Type t);
 
 namespace schema {
 
