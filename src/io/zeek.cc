@@ -105,14 +105,9 @@ private:
 
     Database* _db = nullptr;                          // as passed into constructor
     Scheduler* _scheduler = nullptr;                  // as passed into constructor
+    broker::endpoint _endpoint;                       // Broker state
     std::optional<broker::network_info> _destination; // parsed destination as passed into constructor
-
-    // Broker state
-    broker::endpoint _endpoint;
-    std::optional<broker::subscriber> _subscriber;
-    std::optional<broker::status_subscriber> _status_subscriber;
-
-    std::map<std::string, ZeekQuery> _zeek_queries; // currently active queries
+    std::map<std::string, ZeekQuery> _zeek_queries;   // currently active queries
 
     // Zeek instance state
     struct ZeekInstance {
@@ -193,8 +188,6 @@ Result<Nothing> BrokerConnection::connect(const std::string& destination) {
         },
         [](const broker::error&) { /* nop */ });
 
-    _subscriber = _endpoint.make_subscriber(topics);
-    _status_subscriber = _endpoint.make_status_subscriber(true);
     _destination =
         broker::network_info(address, port,
                              std::chrono::duration_cast<broker::timeout::seconds>(options().zeek_reconnect_interval));
@@ -214,8 +207,6 @@ void BrokerConnection::disconnect() {
 
     cancelAllQueries();
     _zeek_instances.clear();
-    _subscriber.reset();
-    _status_subscriber.reset();
 
     ZEEK_CONN_DEBUG("disconnecting");
 
