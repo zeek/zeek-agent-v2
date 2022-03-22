@@ -190,14 +190,15 @@ void Database::Implementation::addTable(Table* t) {
 }
 
 static auto diffRows(std::vector<std::vector<Value>> old, std::vector<std::vector<Value>> new_) {
-    std::sort(old.begin(), old.end());
-    std::sort(new_.begin(), new_.end());
+    std::sort(old.begin(), old.end(), ValueVectorCompare);
+    std::sort(new_.begin(), new_.end(), ValueVectorCompare);
 
     std::vector<std::vector<Value>> deletes;
-    std::set_difference(old.begin(), old.end(), new_.begin(), new_.end(), std::back_inserter(deletes));
+    std::set_difference(old.begin(), old.end(), new_.begin(), new_.end(), std::back_inserter(deletes),
+                        ValueVectorCompare);
 
     std::vector<std::vector<Value>> adds;
-    std::set_difference(new_.begin(), new_.end(), old.begin(), old.end(), std::back_inserter(adds));
+    std::set_difference(new_.begin(), new_.end(), old.begin(), old.end(), std::back_inserter(adds), ValueVectorCompare);
 
     std::vector<query::result::Row> diff;
 
@@ -212,11 +213,11 @@ static auto diffRows(std::vector<std::vector<Value>> old, std::vector<std::vecto
 }
 
 static auto newRows(std::vector<std::vector<Value>> old, std::vector<std::vector<Value>> new_) {
-    std::sort(old.begin(), old.end());
-    std::sort(new_.begin(), new_.end());
+    std::sort(old.begin(), old.end(), ValueVectorCompare);
+    std::sort(new_.begin(), new_.end(), ValueVectorCompare);
 
     std::vector<std::vector<Value>> adds;
-    std::set_difference(new_.begin(), new_.end(), old.begin(), old.end(), std::back_inserter(adds));
+    std::set_difference(new_.begin(), new_.end(), old.begin(), old.end(), std::back_inserter(adds), ValueVectorCompare);
 
     std::vector<query::result::Row> diff;
 

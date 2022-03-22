@@ -691,7 +691,7 @@ Result<sqlite::Result> SQLite::Implementation::runStatement(const sqlite::Prepar
     switch ( rc ) {
         case SQLITE_DONE:
             ZEEK_AGENT_DEBUG("sqlite", "statement result has {} rows", result.rows.size());
-            std::sort(result.rows.begin(), result.rows.end());
+            std::sort(result.rows.begin(), result.rows.end(), ValueVectorCompare);
             return result;
 
         case SQLITE_ERROR: return result::Error(format("SQL statement failed, {}", ::sqlite3_errmsg(_sqlite_db)));

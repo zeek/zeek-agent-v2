@@ -508,4 +508,17 @@ private:
     int _mock_seed = 0;         // when generating mock data, seed value for next round
 };
 
+inline auto ValueVectorCompare = [](const std::vector<Value>& a, const std::vector<Value>& b) -> bool {
+    auto a_size = a.size();
+    if ( a_size != b.size() )
+        return a_size < b.size();
+
+    for ( auto i = 0; i < a_size; i++ ) {
+        if ( a[i] != b[i] )
+            return a[i] < b[i];
+    }
+
+    return false;
+};
+
 } // namespace zeek::agent
