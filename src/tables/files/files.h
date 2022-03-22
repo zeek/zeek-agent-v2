@@ -37,11 +37,11 @@ public:
                 {.name = "_pattern", .type = value::Type::Text, .summary = "glob matching all files of interest", .is_parameter = true },
                 {.name = "path", .type = value::Type::Text, .summary = "full path" },
                 {.name = "type", .type = value::Type::Text, .summary = "textual description of the path's type (e.g., `file`, `dir`, `socket`)"},
-                {.name = "uid", .type = value::Type::Integer, .summary = "ID of user owning file"},
-                {.name = "gid", .type = value::Type::Integer, .summary = "ID if group owning file"},
+                {.name = "uid", .type = value::Type::Count, .summary = "ID of user owning file"},
+                {.name = "gid", .type = value::Type::Count, .summary = "ID if group owning file"},
                 {.name = "mode", .type = value::Type::Text, .summary = "octal permission mode"},
-                {.name = "mtime", .type = value::Type::Integer, .summary = "time of last modification as seconds since epoch"},
-                {.name = "size", .type = value::Type::Integer, .summary = "file size in bytes"},
+                {.name = "mtime", .type = value::Type::Time, .summary = "time of last modification"},
+                {.name = "size", .type = value::Type::Count, .summary = "file size in bytes"},
         }
             // clang-format on
         };
@@ -69,7 +69,7 @@ public:
             .columns = {
                 {.name = "_pattern", .type = value::Type::Text, .summary = "glob matching all files of interest", .is_parameter = true },
                 {.name = "path", .type = value::Type::Text, .summary = "absolute path" },
-                {.name = "number", .type = value::Type::Integer, .summary = "line number"},
+                {.name = "number", .type = value::Type::Count, .summary = "line number"},
                 {.name = "content", .type = value::Type::Blob, .summary = "content of line"},
         }
             // clang-format on

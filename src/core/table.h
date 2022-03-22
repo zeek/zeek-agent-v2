@@ -4,8 +4,12 @@
 
 #include "configuration.h"
 #include "scheduler.h"
+#include "util/variant.h"
 
+#include <functional>
 #include <memory>
+#include <set>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <variant>
@@ -13,65 +17,148 @@
 
 namespace zeek::agent {
 
+namespace value {
+/**
+ * Captures the type of a value inside a row of a table. The type defines what's stored in the `Value` variant, as
+ * follows:
+ *
+ *      `Address` -> `string`
+ *      `Blob` -> `string`
+ *      `Bool` -> `int64_t`
+ *      `Count` -> `int64_t`
+ *      `Double` -> `double`
+ *      `Integer` -> `int64_t`
+ *      `Interval` -> `Interval`
+ *      `Null` -> `std::monostate`
+ *      `Port` -> `value::Port`
+ *      `Record` -> `value::Record`
+ *      `Set` -> `value::Set`
+ *      `Text` -> `string`
+ *      `Time` -> `Time`
+ *      `Vector` -> `value::Vector`
+ *
+ * Behind the scenes, types that don't directly map into an SQLite type gets
+ * serialized into a JSON represetnation for storage. Note that doing so makes
+ * it difficult (or even impossible) to use SQL operators on them.
+ */
+enum class Type { Address, Blob, Bool, Count, Double, Integer, Interval, Null, Port, Record, Set, Text, Time, Vector };
+
+/** Returns a human-readable represenation of the type. */
+extern std::string to_string(const Type& type);
+
+} // namespace value
+
+namespace type {
+Result<value::Type> from_string(const std::string& type);
+}
+
+struct Port;
+struct Record;
+struct Set;
+struct Vector;
+
 /**
  * Represents an individual value inside a row of a table. `monostate`
  * corresponds to an unset (null) value. See `Type` for how value types map to
  * what's stored in the variant here.
  */
-using Value = std::variant<std::monostate, int64_t, std::string, double>;
+using Value =
+    BetterVariant<std::monostate, bool, double, int64_t, std::string, Interval, Port, Time, Record, Set, Vector>;
 
-namespace value {
+namespace port {
+enum class Protocol { ICMP = 1, TCP = 6, UDP = 17, Unknown = 0 };
+}
 
 /**
- * Captures the type of a value inside a row of a table. The type defines what's stored in the `Value` variant, as
- * follows:
+ * Represents a port, including its protocol.
  *
- *      `Null` -> `std::monostate`
- *      `Integer` -> `int64_t`
- *      `Text` -> `string`
- *      `Blob` -> `string`
- *      `Real` -> `double`
- *
- * Behind the scenes, these types also correspond 1:1 to the types that SQlite
- * can represent.
+ * Note that because we can't map a port to a natural SQLite type, we serialize
+ * it into a JSON tuple for storage. That means one cannot easily use it in SQL
+ * expressions, which can make using this type questionable (say, if you wanted
+ * to do `... WHERE port < 1024`). The alternative is to just use an integer
+ * and store the protocol informaton separately.
  */
-enum class Type { Null, Integer, Text, Blob, Real };
+struct Port {
+    Port(int64_t port, port::Protocol proto) : port(port), protocol(proto) {}
+    Port(int64_t port, int64_t proto) : port(port) {
+        switch ( proto ) {
+            case 1: protocol = port::Protocol::ICMP; break;
+            case 6: protocol = port::Protocol::TCP; break;
+            case 17: protocol = port::Protocol::UDP; break;
+            default: protocol = port::Protocol::Unknown; break;
+        }
+    }
 
-} // namespace value
+    int64_t port;            /**< port's number */
+    port::Protocol protocol; /**< port's protocol */
+
+    bool operator<(const Port& other) const {
+        return port < other.port || (port == other.port && protocol < other.protocol);
+    }
+    bool operator==(const Port& other) const { return port == other.port && port == other.port; }
+};
+
+/** Returns a human-readable represenation of the value. */
+extern std::string to_string(const Port& v);
+
+/** Returns a JSON represenation of the value. */
+extern std::string Xto_json(const Port& v);
+
+/** Represents a record (struct) of values. */
+struct Record : public std::vector<std::pair<Value, value::Type>> {
+    using std::vector<std::pair<Value, value::Type>>::vector;
+};
+
+/** Returns a human-readable represenation of the value. */
+extern std::string to_string(const Record& v);
+
+/** Returns a JSON represenation of the value. */
+extern std::string Xto_json(const Record& v);
+
+/** Represents a set of values. */
+struct Set : public std::set<Value> {
+    Set(value::Type type, std::set<Value> values = {}) : std::set<Value>(std::move(values)), type(type) {}
+
+    value::Type type; /**< Type of the values. */
+};
+
+/** Returns a human-readable represenation of the value. */
+extern std::string to_string(const Set& v);
+
+/** Returns a JSON represenation of the value. */
+extern std::string Xto_json(const Set& v);
+
+/** Represents a set of values. */
+struct Vector : public std::vector<Value> {
+    Vector(value::Type type, std::vector<Value> values = {}) : std::vector<Value>(std::move(values)), type(type) {}
+
+    value::Type type; /**< Type of the values. */
+};
+
+/** Returns a human-readable represenation of the value. */
+extern std::string to_string(const Vector& v);
+
+/** Returns a JSON represenation of the value. */
+extern std::string Xto_json(const Vector& v);
 
 namespace value {
 
 /** Instantiates a `Value` from a C string. */
 inline Value fromOptionalString(const char* s) { return s ? s : Value(); }
 
-/**
- * Instantiates a `Value` from a boolean. The value will have type integer,
- * with value 0 or 1.
- */
-inline Value fromBool(bool b) { return b ? 1L : 0L; }
-
-/**
- * Instantiates a `Value` from a time value. The value will have type integer
- * and reflects seconds since the Unix epoch.
- **/
-inline Value fromTime(Time t) { return t.time_since_epoch().count(); }
-
-/**
- * Instantiates a `Value` from an interval value. The value will have type
- * integer and reflect seconds.
- **/
-inline Value fromInterval(Interval i) { return i.count(); }
-
 } // namespace value
-
-/** Renders a value type into a string representation for display. */
-extern std::string to_string(value::Type type);
 
 /** Renders a value into a string representation for display. */
 extern std::string to_string(const Value& value);
 
 /** Renders a row of values into a string representation for display. */
 extern std::string to_string(const std::vector<Value>& values);
+
+/** Renders a value into a JSON representation. */
+extern std::string to_json_string(const Value& value, value::Type type);
+
+/** Restores a value from its JSON representation. */
+extern Value from_json_string(const std::string_view& data, value::Type t);
 
 namespace schema {
 
@@ -83,9 +170,14 @@ struct Column {
     /** short human-readable summary of the column's semantics for documentation */
     std::string summary;
 
-    /**< true if this is a hidden column representing a parameter to the table; if so, the name should start with an
-     * underscore */
+    /**
+     * true if this is a hidden column representing a parameter to the table;
+     * if so, the name should start with an underscore
+     */
     bool is_parameter = false;
+
+    /** For paramters, a default value if not specified. */
+    std::optional<Value> default_ = {};
 
     /** Returns a human-readable representation of the column definition. */
     std::string str() const;
@@ -108,6 +200,9 @@ struct Schema {
 
     /** Helper returning just the parameter columns. */
     std::vector<schema::Column> parameters() const;
+
+    /** Returns a column by name, or null if it doesn't exist. */
+    std::optional<schema::Column> column(const std::string_view& name);
 };
 
 /** Renders a table's schema into a string representation for display. */
@@ -123,6 +218,11 @@ struct Argument {
 
 /** Renders an argument into a string representation for display. */
 extern std::string to_string(const Argument& arg);
+
+/** Exception for table implementations to signal an permanent error when retrieving data. */
+class PermanentContentError : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
 
 } // namespace table
 
@@ -162,20 +262,19 @@ public:
     /**
      * Returns a set of rows representing the table's current data. If a
      * non-zero time is given, the table must only return rows associated with
-     * activity from that point onwards. The table may also need to pre-filter rows
-     * according to a provided list of WHERE constraints. The filtering must be
-     * performed for columns defined as `is_parameter` in the schema.
-     * For all other columns, filtering is optional; SQLite will do it later
-     * anyways.
+     * activity from that point onwards. The table may also want to pre-filter
+     * rows according to a provided list of arguments. If the implementation
+     * encounters a non-recoverable error, it can throw `table::PermanentError`
+     * to abort the current query.
      *
      * Must be provided by derived class.
      *
      * @param t earliest time of interest; must be equal to, or earlier than,
      * the current time, per the scheduler driver operation
      *
-     * @param wheres constraints coming with the query that is requesting the
-     * rows; the implementation may rely on all columns marked as
-     * `is_parameter` in the schema, to be present in this list
+     * @param args list of table arguments provides with the query; it's
+     * guaranteed that all parameters specified in the table's schema will be
+     * present
      */
     virtual std::vector<std::vector<Value>> rows(Time t, const std::vector<table::Argument>& args) = 0;
 
@@ -274,6 +373,26 @@ public:
     /** Returns the database that the table is part of, or null if none. */
     Database* database() const { return _db; }
 
+    /**
+     * Helper to extract a specific argument from a list of arguments. This
+     * expects the argument to be present and will throw an internal error if
+     * that's not the case.
+     *
+     * @tparam T type of the arguments value inside the `Value` variant
+     * @param args list of arguments to search
+     * @param name name of argument to extract, including the leading `_`
+     * @return value of argument extract from the `Value` variant
+     */
+    template<typename T>
+    static const T& getArgument(const std::vector<table::Argument>& args, const std::string_view& name) {
+        for ( const auto& a : args ) {
+            if ( a.column == name )
+                return std::get<T>(a.expression);
+        }
+
+        throw InternalError(format("table argument '{}' unexpectedly missing"));
+    }
+
 protected:
     /**
      * Returns the configuration options currently in effect. This won't be
@@ -320,9 +439,14 @@ class SnapshotTable : public Table {
 public:
     /**
      * Returns a complete, current snapshot of the activity that the table
-     * covers.
+     * covers. If the implementation encounters a non-recoverable error, it can
+     * throw `table::PermanentError` to abort the current query.
      *
      * Must be overridden by derived classes.
+     *
+     * @param args list of table arguments provides with the query; it's
+     * guaranteed that all parameters specified in the table's schema will be
+     * present
      *
      * @returns a vector of rows, each describing on element of the current
      * snapshot and matching the tables schema

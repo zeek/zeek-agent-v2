@@ -17,6 +17,7 @@ Checks: 'bugprone-*,
          -concurrency-mt-unsafe,
          -misc-macro-parentheses,
          -misc-non-private-member-variables-in-classes,
+         -misc-no-recursion,
          -misc-suspicious-semicolon,
          -misc-unused-parameters,
          -modernize-avoid-c-arrays,
@@ -34,6 +35,7 @@ Checks: 'bugprone-*,
          -readability-qualified-auto,
          -readability-function-cognitive-complexity,
          -readability-function-size,
+         -readability-isolate-declaration,
          '
 
 HeaderFilterRegex: '/src'

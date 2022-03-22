@@ -9,6 +9,7 @@
 #include "util/testing.h"
 
 #include <algorithm>
+#include <iostream>
 #include <list>
 #include <map>
 #include <optional>
@@ -123,8 +124,9 @@ void Database::Implementation::expire() {
         if ( ! i )
             continue;
 
-        if ( (*i)->query.callback_done )
+        if ( (*i)->query.callback_done ) {
             (*(*i)->query.callback_done)(id, ! regular_shutdown);
+        }
     }
 
     for ( const auto& [id, regular_shutdown] : _cancelled_queries ) {
@@ -241,20 +243,27 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
 
     auto stype = (*i)->query.subscription;
     auto schedule = (stype ? (*i)->query.schedule : 0s);
+    bool cancel_query = (schedule == 0s);
 
     if ( sql_result ) {
         std::vector<query::result::Row> rows;
 
-        if ( ! stype || *stype == query::SubscriptionType::Snapshots || ! (*i)->previous_result ) {
+        if ( ! stype || *stype == query::SubscriptionType::Snapshots ||
+             (stype == query::SubscriptionType::SnapshotPlusDifferences && ! (*i)->previous_result) ) {
             for ( const auto& sql_row : sql_result->rows )
                 rows.push_back({.type = {}, .values = sql_row});
         }
 
-        else if ( stype == query::SubscriptionType::Events )
-            rows = newRows((*i)->previous_result->rows, sql_result->rows);
+        else if ( stype == query::SubscriptionType::Events ) {
+            if ( (*i)->previous_result )
+                rows = newRows((*i)->previous_result->rows, sql_result->rows);
+        }
 
-        else if ( stype == query::SubscriptionType::Differences )
-            rows = diffRows((*i)->previous_result->rows, sql_result->rows);
+        else if ( stype == query::SubscriptionType::Differences ||
+                  stype == query::SubscriptionType::SnapshotPlusDifferences ) {
+            if ( (*i)->previous_result )
+                rows = diffRows((*i)->previous_result->rows, sql_result->rows);
+        }
 
         else
             cannot_be_reached();
@@ -268,7 +277,7 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
         }
 
 #ifndef NDEBUG
-        else if ( (*i)->previous_result ) {
+        else if ( (*i)->previous_result && ! (*i)->previous_result->columns.empty() ) {
             // Double check that old and new columns match.
             assert(sql_result->columns.size() == (*i)->previous_result->columns.size());
             for ( size_t j = 0; j < sql_result->columns.size(); j++ )
@@ -293,13 +302,15 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
         if ( schedule > 0s )
             (*i)->previous_result = std::move(sql_result);
     }
-    else
+    else {
         logger()->error("table error: {}", sql_result.error());
+        cancel_query = true;
+    }
 
     if ( (*i)->query.terminate )
         _scheduler->terminate();
 
-    if ( schedule == 0s )
+    if ( cancel_query )
         cancel(id, true);
 
     return schedule;
@@ -345,12 +356,12 @@ size_t Database::numberQueries() const { return pimpl()->_queries.size(); }
 
 Table* Database::table(const std::string& name) { return pimpl()->table(name); }
 
-std::vector<const Table*> Database::tables() {
-    std::vector<const Table*> out;
+std::set<const Table*> Database::tables() {
+    std::set<const Table*> out;
 
     // Need to creaste a copy to avoid races.
     for ( const auto& [name, tables] : pimpl()->_tables )
-        out.push_back(tables);
+        out.insert(tables);
 
     return out;
 }
@@ -436,6 +447,7 @@ std::string Database::documentRegisteredTables() {
             column["type"] = to_string(c.type);
             column["summary"] = c.summary;
             column["is_parameter"] = c.is_parameter;
+            column["default"] = c.default_ ? nlohmann::json(to_string(*c.default_)) : nlohmann::json();
             columns.emplace_back(std::move(column));
         }
 
@@ -522,7 +534,7 @@ TEST_SUITE("Database") {
             CHECK_EQ(db.table("test_table")->schema().description, "test-description");
 
             REQUIRE_EQ(db.tables().size(), 1);
-            CHECK_EQ(db.tables()[0]->schema().description, "test-description");
+            CHECK_EQ((*db.tables().begin())->schema().description, "test-description");
         }
 
         SUBCASE("disabled table") {
@@ -788,7 +800,7 @@ TEST_SUITE("Database") {
             CHECK_EQ(num_done_executions, 1);
         }
 
-        SUBCASE("subscription - differences") {
+        SUBCASE("subscription - snapshot-and-differences") {
             Result<std::optional<query::ID>> query_id;
             int num_callback_executions = 0;
 
@@ -805,6 +817,76 @@ TEST_SUITE("Database") {
                         CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 2);
                         CHECK(! result.rows[2].type.has_value());
                         CHECK_EQ(std::get<int64_t>(result.rows[2].values[0]), 3);
+                        break;
+
+                    case 2: // 2nd result is diff
+                        CHECK_EQ(result.rows.size(), 2);
+                        CHECK_EQ(result.columns.size(), 1);
+                        CHECK_EQ(result.rows[0].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 1);
+                        CHECK_EQ(result.rows[1].type, query::result::ChangeType::Add);
+                        CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 4);
+                        break;
+
+                    case 3: // 3rd result is diff
+                        CHECK_EQ(result.rows.size(), 2);
+                        CHECK_EQ(result.columns.size(), 1);
+                        CHECK_EQ(result.rows[0].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 2);
+                        CHECK_EQ(result.rows[1].type, query::result::ChangeType::Add);
+                        CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 5);
+                        break;
+
+                    case 4: // 4th is diff, with no new results.
+                        CHECK_EQ(result.rows.size(), 3);
+                        CHECK_EQ(result.columns.size(), 1); // make sure this is set even without new results
+                        CHECK_EQ(result.rows[0].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 3);
+                        CHECK_EQ(result.rows[1].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 4);
+                        CHECK_EQ(result.rows[2].type, query::result::ChangeType::Delete);
+                        CHECK_EQ(std::get<int64_t>(result.rows[2].values[0]), 5);
+                        break;
+
+                    default: CHECK(! false);
+                }
+
+                CHECK_EQ(id, *query_id);
+            };
+
+            t.expected_times = {0_time, 1_time, 3_time};
+
+            auto query = Query{.sql_stmt = "SELECT * from test_table",
+                               .subscription = query::SubscriptionType::SnapshotPlusDifferences,
+                               .schedule = 2s,
+                               .cookie = "Leibniz",
+                               .callback_result = std::move(callback)};
+
+            query_id = db.query(query);
+            REQUIRE(query_id);
+
+            CHECK_EQ(num_callback_executions, 0);
+            tmgr.advance(1_time);
+            CHECK_EQ(num_callback_executions, 1);
+            tmgr.advance(3_time);
+            CHECK_EQ(num_callback_executions, 2);
+            tmgr.advance(5_time);
+            CHECK_EQ(num_callback_executions, 3);
+            t.empty_result = true;
+            tmgr.advance(7_time);
+            CHECK_EQ(num_callback_executions, 4);
+        }
+
+        SUBCASE("subscription - differences") {
+            Result<std::optional<query::ID>> query_id;
+            int num_callback_executions = 0;
+
+            auto callback = [&](query::ID id, const query::Result& result) {
+                ++num_callback_executions;
+
+                switch ( num_callback_executions ) {
+                    case 1: // first result is empty
+                        CHECK_EQ(result.rows.size(), 0);
                         break;
 
                     case 2: // 2nd result is diff
@@ -873,14 +955,8 @@ TEST_SUITE("Database") {
                 ++num_callback_executions;
 
                 switch ( num_callback_executions ) {
-                    case 1: // first result is snapshot
-                        CHECK_EQ(result.rows.size(), 3);
-                        CHECK(! result.rows[0].type.has_value());
-                        CHECK_EQ(std::get<int64_t>(result.rows[0].values[0]), 1);
-                        CHECK(! result.rows[1].type.has_value());
-                        CHECK_EQ(std::get<int64_t>(result.rows[1].values[0]), 2);
-                        CHECK(! result.rows[2].type.has_value());
-                        CHECK_EQ(std::get<int64_t>(result.rows[2].values[0]), 3);
+                    case 1: // first result is empty
+                        CHECK_EQ(result.rows.size(), 0);
                         break;
 
                     case 2: // 2nd result is new events
@@ -950,6 +1026,62 @@ TEST_SUITE("Database") {
             db.expire();
             CHECK_EQ(num_done_executions, 0);
         }
+    }
+
+    TEST_CASE("permanent table error") {
+        class ErrorTable : public SnapshotTable {
+        public:
+            Schema schema() const override {
+                return {.name = "error_table", .columns = {{.name = "i", .type = value::Type::Integer}}};
+            }
+
+            ~ErrorTable() override {}
+
+            std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override {
+                std::vector<std::vector<Value>> x = {{{++executions}}};
+                if ( executions == 2 )
+                    throw table::PermanentContentError("kaputt");
+
+                return x;
+            }
+
+            int64_t executions = 0;
+        };
+
+        ErrorTable t;
+        Configuration cfg;
+        Scheduler tmgr;
+        Database db(&cfg, &tmgr);
+        db.addTable(&t);
+
+        int num_callback_executions = 0;
+        int num_done_executions = 0;
+
+        auto callback_result = [&](query::ID id, const query::Result& result) { ++num_callback_executions; };
+        auto callback_done = [&](query::ID id, bool cancelled) { ++num_done_executions; };
+
+        auto query = Query{.sql_stmt = "SELECT * from error_table",
+                           .subscription = query::SubscriptionType::Snapshots,
+                           .schedule = 2s,
+                           .callback_result = std::move(callback_result),
+                           .callback_done = std::move(callback_done)};
+
+        auto query_id = db.query(query);
+        REQUIRE(query_id);
+
+        auto old_level = logger()->level();
+        logger()->set_level(options::LogLevel::off);
+        CHECK_EQ(num_callback_executions, 0);
+        CHECK_EQ(num_done_executions, 0);
+        tmgr.advance(3_time);
+        CHECK_EQ(num_callback_executions, 1);
+        CHECK_EQ(num_done_executions, 0);
+        tmgr.advance(5_time);
+        db.poll();
+        // query should be disabled now
+        CHECK_EQ(num_callback_executions, 1);
+        CHECK_EQ(num_done_executions, 1);
+        logger()->set_level(old_level);
     }
 
     TEST_CASE("virtual methods with mock data") {

@@ -6,5 +6,4 @@ target_sources(zeek-agent
         helpers.cc
         platform.cc
         result.cc
-        threading.cc
 )

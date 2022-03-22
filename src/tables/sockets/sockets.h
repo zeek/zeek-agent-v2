@@ -17,14 +17,14 @@ public:
                 )",
             .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
-                {.name = "pid", .type = value::Type::Integer, .summary = "ID of process holding socket"},
+                {.name = "pid", .type = value::Type::Count, .summary = "ID of process holding socket"},
                 {.name = "process", .type = value::Type::Text, .summary = "name of process holding socket"},
                 {.name = "family", .type = value::Type::Text, .summary = "`IPv4` or `IPv6`"},
-                {.name = "protocol", .type = value::Type::Integer, .summary = "transport protocol"},
-                {.name = "local_port", .type = value::Type::Integer, .summary = "local port number"},
-                {.name = "remote_port", .type = value::Type::Integer, .summary = "remote port number"},
-                {.name = "local_addr", .type = value::Type::Text, .summary = "local IP address"},
-                {.name = "remote_addr", .type = value::Type::Text, .summary = "remote IP address"},
+                {.name = "protocol", .type = value::Type::Count, .summary = "transport protocol"},
+                {.name = "local_addr", .type = value::Type::Address, .summary = "local IP address"},
+                {.name = "local_port", .type = value::Type::Count, .summary = "local port number"},
+                {.name = "remote_addr", .type = value::Type::Address, .summary = "remote IP address"},
+                {.name = "remote_port", .type = value::Type::Count, .summary = "remote port number"},
                 {.name = "state", .type = value::Type::Text, .summary = "state of socket"},
         }
             // clang-format on

@@ -14,6 +14,7 @@ jobs:
       - name: Prepare
         run: |
           export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
           sudo apt-get install -y ninja-build ccache curl ca-certificates clang-tidy-12
           sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-12 100
           sudo pip3 install btest zkg pre-commit
@@ -206,6 +207,7 @@ jobs:
       - name: Prepare
         run: |
           export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
           sudo apt-get install -y ninja-build ccache curl ca-certificates
 
       - name: Checkout repository

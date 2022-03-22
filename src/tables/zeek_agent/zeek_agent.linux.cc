@@ -15,6 +15,8 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 
+#include <broker/version.hh>
+
 using namespace zeek::agent;
 using namespace zeek::agent::table;
 
@@ -27,7 +29,7 @@ public:
 
 database::RegisterTable<ZeekAgentLinux> _;
 
-Value primaryAddress() {
+Value addresses() {
     // Get default interface, per https://stackoverflow.com/a/17940988.
     std::ifstream route("/proc/net/route");
     if ( ! route )
@@ -49,7 +51,7 @@ Value primaryAddress() {
     if ( getifaddrs(&ifaddr) < 0 )
         return {};
 
-    Value addr;
+    Set addrs(value::Type::Address);
 
     for ( auto ifa = ifaddr; ifa; ifa = ifa->ifa_next ) {
         if ( ifa->ifa_name != interface )
@@ -61,12 +63,14 @@ Value primaryAddress() {
 
         auto sock_size = (family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
         char buffer[NI_MAXHOST];
-        if ( getnameinfo(ifa->ifa_addr, sock_size, buffer, NI_MAXHOST, nullptr, 0, NI_NUMERICHOST) == 0 )
-            addr = buffer;
+        if ( getnameinfo(ifa->ifa_addr, sock_size, buffer, NI_MAXHOST, nullptr, 0, NI_NUMERICHOST) == 0 ) {
+            if ( strchr(buffer, '%') == nullptr ) // ignore link-local addresses ("....%eth0").
+                addrs.insert(std::string(buffer));
+        }
     }
 
     freeifaddrs(ifaddr);
-    return addr;
+    return addrs;
 }
 
 std::optional<std::string> getKeyFromFile(const char* file, const char* key) {
@@ -136,14 +140,14 @@ std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table
     Value id = options().agent_id;
     Value instance = options().instance_id;
     Value hostname = hostname_buffer.data();
-    Value address = primaryAddress();
+    Value addrs = addresses();
     Value platform = platform::name();
     Value os_name = distribution();
     Value agent = VersionNumber;
-    Value broker = {}; // TODO
-    Value uptime =
-        std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - startupTime()).count();
-    Value tables = join(transform(database()->tables(), [](const auto* t) { return t->name(); }), ",");
+    Value broker = broker::version::string();
+    Value uptime = std::chrono::system_clock::now() - startupTime();
+    Value tables =
+        Set(value::Type::Text, transform(database()->tables(), [](const auto* t) { return Value(t->name()); }));
 
     Value kernel_name;
     Value kernel_release;
@@ -156,7 +160,7 @@ std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table
         kernel_arch = uname_info.machine;
     }
 
-    return {{id, instance, hostname, address, platform, os_name, kernel_name, kernel_release, kernel_arch, agent,
-             broker, uptime, tables}};
+    return {{id, instance, hostname, addrs, platform, os_name, kernel_name, kernel_release, kernel_arch, agent, broker,
+             uptime, tables}};
 }
 } // namespace

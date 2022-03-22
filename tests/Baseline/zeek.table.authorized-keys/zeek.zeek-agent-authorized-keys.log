@@ -6,5 +6,5 @@
 #path	zeek-agent-authorized-keys
 #open XXXX-XX-XX-XX-XX-XX
 #fields	t	hid	change	path	number	content
-#types	time	string	string	string	int	string
+#types	time	string	string	string	count	string
 XXXXXXXXXX.XXXXXX	<uuid>	-	text_a_b	102	blob_a_d

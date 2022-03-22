@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "sqlite.h"
 #include "table.h"
 #include "util/pimpl.h"
 #include "util/result.h"
@@ -33,6 +34,8 @@ struct Row {
     std::vector<Value> values;      /**< the row's values, matching the corresponding schema */
 };
 
+using Column = sqlite::Column;
+
 } // namespace result
 
 /**
@@ -41,7 +44,7 @@ struct Row {
  * columns the query selects.
  */
 struct Result {
-    std::vector<schema::Column> columns; /**< The schema  */
+    std::vector<result::Column> columns; /**< the schema  */
     std::vector<result::Row> rows;       /**< set of rows forming the query result */
     std::string cookie;                  /**< copy of cookie provided by caller along with the query */
     bool initial_result = true;          /**< true for the first result of subscription, false for subsequent diffs */
@@ -89,9 +92,11 @@ using CallbackDone = std::function<void(ID id, bool cancelled)>;
 
 /** For repeating queries, the type for follow up results. */
 enum class SubscriptionType {
-    Snapshots,  // keep returning new, complate snapshots
-    Events,     // return only new rows
-    Differences // return a diff of rows either added or deletec, marked accordingly
+    Snapshots,              // keep returning new, complate snapshots
+    Events,                 // return only new rows
+    Differences,            // return diffs of rows either added or deleted, marked accordingly
+    SnapshotPlusDifferences // return an initial snapshot, then diffs of rows either added or deleted, marked
+                            // accordingly
 };
 
 } // namespace query
@@ -151,7 +156,7 @@ public:
     Table* table(const std::string& name);
 
     /** Returns the set of all currently registered tables. */
-    std::vector<const Table*> tables();
+    std::set<const Table*> tables();
 
     /**
      * Performs a query against the database. The query may not be executed

@@ -1,3 +1,52 @@
+2.0.4-22 | 2022-03-22 17:09:08 +0100
+
+  * GH-7: Extend the type system for table columns.
+
+    We can now represent addresses, booleans, counts, intervals, ports,
+    records, sets, times, and vectors all end-to-end, so that they arrive
+    as such at Zeek. For those types that don't have a natural SQLite
+    representation we internally serialize them into JSON and store that
+    as BLOBS. For boolean values, we now store real bools instead of
+    turning them into integers, allowing us to render them more nicely
+    even without further type information. This requires a bit of compiler
+    voodoo because of C++ ickyness (and a GCC bug).
+
+    We also update our tables to use the new types where appropriate.
+
+    Closes #7.
+
+  * Add a 2nd 'differences' mode where no initial snapshot is
+    provided. We now have (1) "snapshot-and-diffs", which sends an
+    initial snapshot first, followed by diffs; and (2) "diffs", which
+    sends an empty initial result and then just diffs.
+
+  * Add Broker version to agent handshake.
+
+  * Support default values for table parameters.
+
+  * Make exception available to table's data acquisition methods to signal failure.
+
+  * Fix `assert` that could wrongly trigger.
+
+  * Fix console getting stuck on queries with errors, and reduce
+    unintended latency until query executes.
+
+  * Fix CI issue on Ubuntu.
+
+  * Fix potential deadlock in unit test.
+
+  * Fix trace-level debug logging.
+
+  * Fix linker issue on Linux.
+
+  * Make --test output available on failure in BTest suite.
+
+  * Clean up unused state in Zeek communication code.
+
+  * Format Zeek scripts with current zeek-format.
+
+  * Update to current Zeek package.
+
 2.0.4 | 2022-03-04 16:55:11 +0100
 
   * Add new log options. In the configuration file we now provide more

@@ -166,7 +166,7 @@ void SystemLogsLinux::parseJSON(const std::string& object) {
         Value msg;
 
         auto t_ = std::stoll(j.at("__REALTIME_TIMESTAMP").get<std::string>()); // always exists
-        t = value::fromTime(std::chrono::time_point<std::chrono::system_clock>(std::chrono::microseconds(t_)));
+        t = Time(std::chrono::time_point<std::chrono::system_clock>(std::chrono::microseconds(t_)));
 
         for ( const auto& i : std::vector<std::string>{"_COMM", "_EXE", "SYSLOG_IDENTIFIER"} ) {
             if ( j.contains(i) ) {

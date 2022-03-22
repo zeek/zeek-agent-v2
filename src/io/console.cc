@@ -9,9 +9,9 @@
 #include "util/color.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "util/threading.h"
 
 #include <algorithm>
+#include <condition_variable>
 #include <csignal>
 #include <iostream>
 #include <map>
@@ -67,9 +67,11 @@ struct Pimpl<Console>::Implementation {
 
     std::map<std::string, Schema> _tables; // copy of table schema for thread-safety
 
-    std::unique_ptr<std::thread> _thread; // console's thread
-    ConditionVariable _query_done;        // flags when a query has been fully processed
-    replxx::Replxx _rx;                   // instance of the REPL
+    std::unique_ptr<std::thread> _thread;    // console's thread
+    std::optional<query::ID> _current_query; // while a query is running, its ID
+    std::mutex _query_done_mutex;            // mutex to flag when a query has been fully processed
+    std::condition_variable _query_done_cv;  // condition variable to flag when a query has been fully processed
+    replxx::Replxx _rx;                      // instance of the REPL
 };
 
 void Console::Implementation::init() {
@@ -101,6 +103,9 @@ void Console::Implementation::execute(const std::string& cmd, bool terminate) {
 
     else if ( cmd.substr(0, 7) == ".diffs " )
         query(cmd.substr(7), query::SubscriptionType::Differences);
+
+    else if ( cmd.substr(0, 21) == ".snapshot-plus-diffs " )
+        query(cmd.substr(21), query::SubscriptionType::SnapshotPlusDifferences);
 
     else if ( cmd.substr(0, 8) == ".events " )
         query(cmd.substr(8), query::SubscriptionType::Events);
@@ -246,29 +251,53 @@ void Console::Implementation::query(const std::string& stmt, std::optional<query
                    .schedule = 2s,
                    .terminate = terminate,
                    .cookie = "",
-                   .callback_result = [&](query::ID id, const query::Result& result) {
-                       printResult(result, subscription && *subscription != query::SubscriptionType::Snapshots);
+                   .callback_result =
+                       [&](query::ID id, const query::Result& result) {
+                           printResult(result, subscription && *subscription != query::SubscriptionType::Snapshots);
 
-                       if ( subscription && *subscription == query::SubscriptionType::Snapshots )
-                           std::cout << std::endl;
-
-                       if ( ! subscription )
-                           _query_done.notify();
-                   }};
+                           if ( subscription && *subscription == query::SubscriptionType::Snapshots )
+                               std::cout << std::endl;
+                       },
+                   .callback_done =
+                       [&](query::ID id, bool regular_shutdown) {
+                           std::unique_lock<std::mutex> lock(_query_done_mutex);
+                           _query_done_cv.notify_all();
+                       }};
 
     std::unique_ptr<signal::Handler> sigint_handler;
     if ( ! terminate )
         // Temporarily install our our SIGINT handler while the query is running.
-        sigint_handler = std::make_unique<signal::Handler>(_signal_mgr, SIGINT, [this]() { _query_done.notify(); });
+        sigint_handler = std::make_unique<signal::Handler>(_signal_mgr, SIGINT, [this]() {
+            std::unique_lock<std::mutex> lock(_query_done_mutex);
+            _query_done_cv.notify_all();
+        });
 
-    _query_done.reset();
+    {
+        std::unique_lock<std::mutex> lock(_query_done_mutex);
 
-    _scheduler->schedule([this, query]() {
-        if ( auto id = _db->query(query); ! id )
-            error(id.error());
-    });
+        _current_query.reset();
 
-    _query_done.wait();
+        _scheduler->schedule([this, query]() {
+            std::unique_lock<std::mutex> lock(_query_done_mutex);
+
+            if ( auto id = _db->query(query) )
+                _current_query = *id;
+            else {
+                error(id.error());
+                _query_done_cv.notify_all();
+            }
+        });
+
+        _query_done_cv.wait(lock);
+
+        if ( _current_query ) {
+            // Move cancelling of query into main thread.
+            auto id = *_current_query;
+            _scheduler->schedule([this, id]() { _db->cancel(id); });
+            _current_query.reset();
+        }
+    }
+
     std::cout << std::endl;
 }
 
@@ -293,13 +322,14 @@ Query
 
 Commands
 
-    .help               display this help
-    .quit               terminate agent
-    .diffs <query>      continously reschedule query, showing added or removed entries each time
-    .events <query>     continously reschedule query, showing new entries each time
-    .schema <table>     display the schema for the given table
-    .snapshots <query>  continously reschedule query, showing all entries each time
-    .tables             list available tables
+    .help                         display this help
+    .quit                         terminate agent
+    .diffs <query>                continously reschedule query, showing added or removed entries each time
+    .snapshot-plus-diffs <query>  show initial snapshot, then continously reschedule query, showing added or removed entries each time
+    .events <query>               continously reschedule query, showing new entries each time
+    .schema <table>               display the schema for the given table
+    .snapshots <query>            continously reschedule query, showing all entries each time
+    .tables                       list available tables
 
 )");
 }
@@ -334,7 +364,7 @@ void Console::start() {
 void Console::stop() {
     if ( pimpl()->_thread ) {
         ZEEK_AGENT_DEBUG("console", "stopping");
-        pimpl()->_query_done.notify();
+        pimpl()->_query_done_cv.notify_all();
         pimpl()->_thread->join();
     }
 }

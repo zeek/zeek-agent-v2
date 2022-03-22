@@ -65,6 +65,21 @@ constexpr Interval to_interval(double t) {
     return std::chrono::duration_cast<Interval>(std::chrono::duration<double>(t));
 };
 
+/** Converts a secs value into our interval type. */
+constexpr Interval to_interval_from_secs(uint64_t t) {
+    return std::chrono::duration_cast<Interval>(std::chrono::seconds(t));
+};
+
+/** Converts a ms value into our interval type. */
+constexpr Interval to_interval_from_ms(uint64_t t) {
+    return std::chrono::duration_cast<Interval>(std::chrono::milliseconds(t));
+};
+
+/** Converts a ns value into our interval type. */
+constexpr Interval to_interval_from_ns(uint64_t t) {
+    return std::chrono::duration_cast<Interval>(std::chrono::nanoseconds(t));
+};
+
 /** Converts an seconds-since-epoch timestamp into our time type. */
 constexpr Time operator"" _time(unsigned long long int t) { return to_time(t); }
 

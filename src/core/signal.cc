@@ -7,6 +7,7 @@
 #include "util/testing.h"
 
 #include <algorithm>
+#include <condition_variable>
 #include <csignal>
 #include <map>
 #include <memory>
@@ -124,67 +125,107 @@ TEST_SUITE("Signal manager") {
         // signal). To work-around that, we add SIGHUP to our set and send
         // that one first; we don't care if that gets dropped.
 
+        std::mutex mutex1;
+        std::condition_variable cv1;
+        std::mutex mutex2;
+        std::condition_variable cv2;
+
         SignalManager mgr({SIGUSR1, SIGUSR2, SIGHUP});
-        ConditionVariable cv1;
-        ConditionVariable cv2;
 
         SUBCASE("signal and execution") {
             signal::Handler h1(&mgr, SIGUSR1, [&]() {
+                std::unique_lock<std::mutex> lock(mutex1);
                 ++count1;
-                cv1.notify();
+                cv1.notify_all();
             });
             signal::Handler h2(&mgr, SIGUSR2, [&]() {
+                std::unique_lock<std::mutex> lock(mutex2);
                 ++count2;
-                cv2.notify();
+                cv2.notify_all();
             });
 
             kill(getpid(), SIGHUP);
-            kill(getpid(), SIGUSR1);
-            kill(getpid(), SIGUSR2);
-            cv1.wait();
-            cv2.wait();
-            CHECK_EQ(count1, 1);
-            CHECK_EQ(count2, 1);
 
-            kill(getpid(), SIGUSR1);
-            cv1.wait();
-            CHECK_EQ(count1, 2);
+            {
+                std::unique_lock<std::mutex> lock(mutex1);
+                kill(getpid(), SIGUSR1);
+                cv1.wait(lock);
+                CHECK_EQ(count1, 1);
+            }
 
-            kill(getpid(), SIGUSR2);
-            cv2.wait();
-            CHECK_EQ(count2, 2);
+            {
+                std::unique_lock<std::mutex> lock(mutex2);
+                kill(getpid(), SIGUSR2);
+                cv2.wait(lock);
+                CHECK_EQ(count2, 1);
+            }
 
-            kill(getpid(), SIGUSR1);
-            cv1.wait();
-            CHECK_EQ(count1, 3);
+            {
+                std::unique_lock<std::mutex> lock(mutex1);
+                kill(getpid(), SIGUSR1);
+                cv1.wait(lock);
+                CHECK_EQ(count1, 2);
+            }
 
-            kill(getpid(), SIGUSR2);
-            cv2.wait();
-            CHECK_EQ(count2, 3);
+            {
+                std::unique_lock<std::mutex> lock(mutex2);
+                kill(getpid(), SIGUSR2);
+                cv2.wait(lock);
+                CHECK_EQ(count2, 2);
+            }
+
+            {
+                std::unique_lock<std::mutex> lock(mutex1);
+                kill(getpid(), SIGUSR1);
+                cv1.wait(lock);
+                CHECK_EQ(count1, 3);
+            }
+
+            {
+                std::unique_lock<std::mutex> lock(mutex2);
+                kill(getpid(), SIGUSR2);
+                cv2.wait(lock);
+                CHECK_EQ(count2, 3);
+            }
         }
 
         SUBCASE("stacked handlers") {
             CHECK_EQ(count1, 0);
+
             signal::Handler h1(&mgr, SIGUSR1, [&]() {
+                std::unique_lock<std::mutex> lock(mutex1);
                 ++count1;
-                cv1.notify();
+                cv1.notify_all();
             });
-            kill(getpid(), SIGUSR1);
-            cv1.wait();
-            CHECK_GE(count1, 1); // should be 1, but CI sometimes shows 2
+
+            {
+                std::unique_lock<std::mutex> lock(mutex1);
+                kill(getpid(), SIGUSR1);
+                cv1.wait(lock);
+                CHECK_GE(count1, 1); // should be 1, but CI sometimes shows 2
+            }
 
             auto h2 = std::make_unique<signal::Handler>(&mgr, SIGUSR1, [&]() {
+                std::unique_lock<std::mutex> lock(mutex2);
                 ++count2;
-                cv2.notify();
+                cv2.notify_all();
             });
-            kill(getpid(), SIGUSR1);
-            cv2.wait();
-            CHECK_GE(count2, 1); // should be 1, but CI sometimes shows 2
+
+            {
+                std::unique_lock<std::mutex> lock(mutex2);
+                kill(getpid(), SIGUSR1);
+                cv2.wait(lock);
+                CHECK_GE(count2, 1); // should be 1, but CI sometimes shows 2
+            }
+
             h2.reset();
 
-            kill(getpid(), SIGUSR1);
-            cv1.wait();
-            CHECK_GE(count1, 2);
+            {
+                std::unique_lock<std::mutex> lock(mutex1);
+                kill(getpid(), SIGUSR1);
+                cv1.wait(lock);
+                CHECK_GE(count1, 2); // should be 2, but CI sometimes shows 3
+            }
         }
     }
 }
