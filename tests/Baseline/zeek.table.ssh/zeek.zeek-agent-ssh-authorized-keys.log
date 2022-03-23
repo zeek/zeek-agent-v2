@@ -3,7 +3,7 @@
 #set_separator	,
 #empty_field	(empty)
 #unset_field	-
-#path	zeek-agent-authorized-keys
+#path	zeek-agent-ssh-authorized-keys
 #open XXXX-XX-XX-XX-XX-XX
 #fields	t	hid	change	path	number	content
 #types	time	string	string	string	count	string

@@ -112,12 +112,13 @@ Run Zeek:
 
 You should now see new log files recording endpoint activity:
 
-- `zeek-agent-authorized-keys.log`: Tracks users' `authorized_keys` installed for SSH on endpoints.
-- `zeek-agent-files.log`: Tracks existence of files on endpoints.
-- `zeek-agent-processes.log:` Processes running on endpoints.
-- `zeek-agent-sockets.log:` Network sockets open on endpoints.
-- `zeek-agent-system-logs.log:` Log messages recorded by operating systems.
-- `zeek-agent-users.log:`: Users available on endpoints.
+- `zeek-agent-files.log`: Records changes to list of files existing on endpoints.
+- `zeek-agent-processes.log:` Records changes to processes running on endpoints.
+- `zeek-agent-sockets.log:` Records changes to network sockets open on endpoints.
+- `zeek-agent-ssh-authorized-keys.log`: Records changes to users' `authorized_keys` installed for SSH on endpoints.
+- `zeek-agent-ssh-configs.log`: Records changes to `sshd` configuration options.
+- `zeek-agent-system-logs.log:` Records messages recorded by operating systems.
+- `zeek-agent-users.log:`: Records changes to users available on endpoints.
 
 You will also find a new `zeek-agent.log` tracking agent connectivity.
 
