@@ -1,3 +1,16 @@
+2.0.4-26 | 2022-03-23 11:19:46 +0100
+
+  * Add `files_columns` table that extracts selected columns from
+    on-disk files und sends them over to Zeek as a record. For
+    example: `SELECT columns from files_columns("/etc/passwd",
+    "$1:text,$3:count", ":")` splits `/etc/passwd` into its parts,
+    extracts the user name and ID for each line, and then sends Zeek a
+    record containing two fields: the name as a `string`, and the ID
+    as a `count`. See the `README` for an explanation on the
+    parameters that `files_columns` takes.
+
+  * Update SQLite to 3.38.1 to give us built-in JSON support.
+
 2.0.4-22 | 2022-03-22 17:09:08 +0100
 
   * GH-7: Extend the type system for table columns.

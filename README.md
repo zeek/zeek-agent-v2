@@ -112,12 +112,13 @@ Run Zeek:
 
 You should now see new log files recording endpoint activity:
 
-- `zeek-agent-authorized-keys.log`: Tracks users' `authorized_keys` installed for SSH on endpoints.
-- `zeek-agent-files.log`: Tracks existence of files on endpoints.
-- `zeek-agent-processes.log:` Processes running on endpoints.
-- `zeek-agent-sockets.log:` Network sockets open on endpoints.
-- `zeek-agent-system-logs.log:` Log messages recorded by operating systems.
-- `zeek-agent-users.log:`: Users available on endpoints.
+- `zeek-agent-files.log`: Records changes to list of files existing on endpoints.
+- `zeek-agent-processes.log:` Records changes to processes running on endpoints.
+- `zeek-agent-sockets.log:` Records changes to network sockets open on endpoints.
+- `zeek-agent-ssh-authorized-keys.log`: Records changes to users' `authorized_keys` installed for SSH on endpoints.
+- `zeek-agent-ssh-configs.log`: Records changes to `sshd` configuration options.
+- `zeek-agent-system-logs.log:` Records messages recorded by operating systems.
+- `zeek-agent-users.log:`: Records changes to users available on endpoints.
 
 You will also find a new `zeek-agent.log` tracking agent connectivity.
 
@@ -162,7 +163,59 @@ More documentation on that forthcoming.
 
 <!-- begin table reference -->
 <details>
-<summary><tt>files_lines:</tt> line of selected ASCII files [Linux, macOS]</summary><br />
+<summary><tt>files_columns:</tt> columns extracted from selected ASCII files [Linux, macOS]</summary><br />
+
+The table returns columns extracted from selected ASCII files
+as a Zeek record of correspoding field values. At the time of
+query, the table reads in all relevant files line by line. It
+then splits each line into columns based on a delimiter string
+and returns the columns of interest.
+
+The files to read are specified through the 1st table parameter, which
+is a glob matching all relevant paths.
+
+The columns to extract from each line are specified through the 2nd
+table parameter, which is a string containing a comma-separated list
+of tuples `$<N>:<type>`, where `<N>` is a column number (`$1` being
+the 1st column, `$2` the 2nd, etc.); and `<type>` is the type as which
+the value in that column will be parsed. Types can be: `blob`,
+`count`, int`, `real`, `text`. (As a special case, the column `$0`
+refers to whole line, without any processing.)
+
+The column separator is specified by the 3rd table parameter. It can
+be either left empty for splitting on white-space, or a string to
+search for. If empty (which is the default), any whitespace at the
+beginning and end of a line is ignored as well.
+
+Finally, a 4th table parameter specifies a regular expression matching
+lines that are to be ignored. By default, this is set to lines
+starting with common comment prefixes (`#`, `;`). If this parameter is
+set to an empty string, no lines will be ignored.
+
+In the query result, `columns` will contain a JSON array with the
+selected values for each line. On the Zeek-side, this array will roll
+out into a Zeek `record`.
+
+Here's an example: `SELECT columns from files_columns("/etc/passwd",
+"$1:text,$3:count", ":")` splits `/etc/passwd` into its parts, and
+extracts the user name and ID for each line.
+
+| Parameter | Type | Description | Default
+| --- | --- | --- | --- |
+| `pattern` | text | glob matching all files of interest |  |
+| `columns` | text | specification of columns to extract |  |
+| `separator` | text | separator string to split columns; empty for whitespace | `""` |
+| `ignore` | text | regular expression matching lines to ignore; empty to disable | `^[ \t]*([#;]|$)` |
+
+| Column | Type | Description
+| --- | --- | --- |
+| `path` | text | absolute path |
+| `number` | count | line number in source file |
+| `columns` | record | extracted columns |
+</details>
+
+<details>
+<summary><tt>files_lines:</tt> lines extracted from selected ASCII files [Linux, macOS]</summary><br />
 
 The table returns lines from selected ASCII files as table
 rows. The files of interest get specified through a mandatory

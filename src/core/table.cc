@@ -8,7 +8,6 @@
 #include "util/testing.h"
 
 #include <algorithm>
-#include <iostream>
 #include <set>
 #include <utility>
 #include <variant>
@@ -93,7 +92,6 @@ static Value from_json(const nlohmann::json& value, const value::Type& type);
 
 static nlohmann::json to_json(const Port& v) {
     auto elements = nlohmann::json::object({{"port", v.port}, {"proto", static_cast<int>(v.protocol)}});
-    std::cerr << elements.dump() << std::endl;
     return elements;
 }
 
@@ -184,7 +182,6 @@ static nlohmann::json to_json(const Value& v, const value::Type& t) {
     };
 
     auto x = std::visit(Visitor(), static_cast<const Value::Base&>(v));
-    std::cerr << x.dump() << std::endl;
     return x;
 }
 
