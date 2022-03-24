@@ -79,7 +79,7 @@ std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<tabl
     Value addrs = addresses();
     Value platform = platform::name();
     Value os_name = std::string("macOS ") + std::string([version UTF8String]);
-    Value agent = VersionNumber;
+    Value agent = options().version_number;
     Value broker = broker::version::string();
     Value uptime = std::chrono::system_clock::now() - startupTime();
     Value tables =

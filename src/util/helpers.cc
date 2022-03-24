@@ -125,6 +125,43 @@ std::string base62_encode(uint64_t i) {
     return x;
 }
 
+zeek::agent::Result<int64_t> parseVersion(std::string v) {
+    unsigned long major = 0;
+    unsigned long minor = 0;
+    unsigned long patch = 0;
+    unsigned long commit = 0;
+
+    if ( startsWith(v, "v") )
+        // ignore leading 'v'
+        v = v.substr(1);
+
+    try {
+        auto m = split(v, "-");
+        if ( m.empty() )
+            return result::Error("empty version string");
+
+        auto n = split(m[0], ".");
+        if ( n.size() != 3 )
+            return result::Error("not a valid version string");
+
+        major = std::stoul(n[0]);
+        minor = std::stoul(n[1]);
+        patch = std::stoul(n[2]);
+
+        if ( m.size() > 1 ) {
+            try {
+                commit = std::stoul(m[m.size() - 1]);
+            } catch ( ... ) {
+                // ignore errors
+            }
+        }
+
+        return static_cast<int64_t>(major * 100000000 + minor * 1000000 + patch * 10000 + commit);
+    } catch ( ... ) {
+        return result::Error("trouble parsing version string");
+    }
+}
+
 std::string randomUUID() {
     std::random_device rd;
     auto seed_data = std::array<int, std::mt19937::state_size>{};
@@ -299,5 +336,15 @@ TEST_SUITE("Helpers") {
             CHECK_EQ(split1("a   b"), str_pair("a", "b"));
             CHECK_EQ(split1("a b c"), str_pair("a", "b c"));
         }
+    }
+
+    TEST_CASE("parseVersion") {
+        CHECK_EQ(parseVersion("2.0.4"), 200040000);
+        CHECK_EQ(parseVersion("2.0.4-123"), 200040123);
+        CHECK_EQ(parseVersion("2.0.4-rc1-123"), 200040123);
+        CHECK_EQ(parseVersion("2.0.4-rc1"), 200040000);
+        CHECK(! parseVersion(""));
+        CHECK(! parseVersion("x.x.x"));
+        CHECK(! parseVersion("x.x"));
     }
 }
