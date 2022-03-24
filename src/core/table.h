@@ -95,7 +95,8 @@ struct Port {
     bool operator<(const Port& other) const {
         return port < other.port || (port == other.port && protocol < other.protocol);
     }
-    bool operator==(const Port& other) const { return port == other.port && port == other.port; }
+    bool operator==(const Port& other) const { return port == other.port && protocol == other.protocol; }
+    bool operator!=(const Port& other) const { return port != other.port || protocol != other.protocol; }
 };
 
 /** Returns a human-readable represenation of the value. */
