@@ -31,6 +31,10 @@
 #include <broker/topic.hh>
 #include <broker/zeek.hh>
 
+// Minimum version of the Zeek-side package that we require. If we see an agent
+// with an older version, we'll stop communicating with it.
+static const int64_t MininumZeekPackageVersion = 200020008;
+
 // Helpers for debugging logging that include additional state.
 #define ZEEK_INSTANCE_DEBUG(instance, ...)                                                                             \
     ZEEK_AGENT_DEBUG("zeek", "{}", format("[{}/{}] ", endpoint(), instance) + format(__VA_ARGS__))
@@ -115,6 +119,7 @@ private:
         std::string version_string;            // Zeek version string, from instance's hello
         uint64_t version_number = 0;           // Zeek version number, from instance's hello
         std::string package_version = "<n/a>"; // Zeek agent package version, from instance's hello
+        bool disabled = false;                 // If true, we won't send/process any activity to/from this agent
 
         bool operator==(const ZeekInstance& other) const {
             // Ignore last seen, we're interested only in semantic changes.
@@ -336,31 +341,52 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
         return;
     }
 
+    if ( zeek_instance->second.disabled ) {
+        ZEEK_INSTANCE_DEBUG(zeek_instance_id, "ignoring event from disabled Zeek: {}{}", event.name(),
+                            broker::to_string(event.args()));
+        return;
+    }
+
     ZEEK_INSTANCE_DEBUG(zeek_instance_id, "got event: {}{}", event.name(), broker::to_string(event.args()));
 
     assert(zeek_instance != _zeek_instances.end());
 
     if ( event.name() == "ZeekAgentAPI::zeek_hello_v1" ) {
-        if ( args.size() >= 2 ) { // TODO: make two args mandatory eventually
-            try {
-                auto old_hello_record = zeek_instance->second;
+        try {
+            auto old_hello_record = zeek_instance->second;
 
-                auto hello_record = broker::get<broker::vector>(args[1]);
-                zeek_instance->second.version_string = broker::get<std::string>(hello_record[0]);
-                zeek_instance->second.version_number = broker::get<uint64_t>(hello_record[1]);
+            auto hello_record = broker::get<broker::vector>(args[1]);
+            zeek_instance->second.version_string = broker::get<std::string>(hello_record[0]);
+            zeek_instance->second.version_number = broker::get<uint64_t>(hello_record[1]);
 
-                if ( auto pkg_version = broker::get<std::string>(hello_record[2]); ! pkg_version.empty() )
-                    zeek_instance->second.package_version = pkg_version;
+            if ( auto pkg_version = broker::get<std::string>(hello_record[2]); ! pkg_version.empty() ) {
+                zeek_instance->second.package_version = pkg_version;
 
-                if ( zeek_instance->second != old_hello_record ) {
-                    ZEEK_INSTANCE_DEBUG(zeek_instance_id, "Zeek version: {} ({}), package {}",
-                                        zeek_instance->second.version_string, zeek_instance->second.version_number,
-                                        zeek_instance->second.package_version);
+                if ( auto pkg_version_number = parseVersion(pkg_version) ) {
+                    if ( *pkg_version_number < MininumZeekPackageVersion ) {
+                        const auto msg =
+                            format("Zeek package version too old, disabling communication (want {}, but have {})",
+                                   MininumZeekPackageVersion, *pkg_version_number);
+                        logger()->warn("[{}] {}", zeek_instance_id, msg);
+
+                        // We'll try to get the error message through still.
+                        transmitError(zeek_instance_id, msg, {}, {});
+                        zeek_instance->second.disabled = true;
+                        return;
+                    }
                 }
-            } catch ( const std::exception& e ) {
-                unexpectedEventArguments(zeek_instance_id, event);
-                return;
+                else
+                    ZEEK_INSTANCE_DEBUG(zeek_instance_id, "cannot parse Zeek package version number ({})", pkg_version);
             }
+
+            if ( zeek_instance->second != old_hello_record ) {
+                ZEEK_INSTANCE_DEBUG(zeek_instance_id, "Zeek version: {} ({}), package {}",
+                                    zeek_instance->second.version_string, zeek_instance->second.version_number,
+                                    zeek_instance->second.package_version);
+            }
+        } catch ( const std::exception& e ) {
+            unexpectedEventArguments(zeek_instance_id, event);
+            return;
         }
     }
 
@@ -612,6 +638,11 @@ void BrokerConnection::transmitResult(const std::string& zeek_id, const query::R
 void BrokerConnection::transmitError(const std::string& zeek_instance, const std::string& msg,
                                      const std::optional<std::string>& zeek_id,
                                      const std::optional<std::string>& cookie) {
+    if ( auto i = _zeek_instances.find(zeek_instance); i != _zeek_instances.end() && i->second.disabled ) {
+        ZEEK_INSTANCE_DEBUG(zeek_instance, "not sending error to disabled Zeek: {}", msg);
+        return;
+    }
+
     ZEEK_INSTANCE_DEBUG(zeek_instance, "sending error: {}", msg);
     transmitEvent("ZeekAgentAPI::agent_error_v1", {msg}, zeek_instance, zeek_id, cookie);
 }
@@ -623,6 +654,13 @@ void BrokerConnection::transmitEvent(std::string event_name, broker::vector args
                                      const std::optional<query::result::ChangeType>& change) {
     assert(! zeek_instance.has_value() || ! zeek_instance->empty());
     assert(! cookie.has_value() || ! cookie->empty());
+
+    if ( zeek_instance ) {
+        if ( auto i = _zeek_instances.find(*zeek_instance); i != _zeek_instances.end() && i->second.disabled ) {
+            ZEEK_INSTANCE_DEBUG(*zeek_instance, "not sending event {} to disabled Zeek", event_name);
+            return;
+        }
+    }
 
     broker::data change_data;
     if ( change ) {
