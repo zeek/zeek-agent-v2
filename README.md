@@ -179,8 +179,8 @@ table parameter, which is a string containing a comma-separated list
 of tuples `$<N>:<type>`, where `<N>` is a column number (`$1` being
 the 1st column, `$2` the 2nd, etc.); and `<type>` is the type as which
 the value in that column will be parsed. Types can be: `blob`,
-`count`, int`, `real`, `text`. (As a special case, the column `$0`
-refers to whole line, without any processing.)
+`count`, `int`, `real`, `text`. As a special case, the column `$0`
+refers to whole line, without any processing.
 
 The column separator is specified by the 3rd table parameter. It can
 be either left empty for splitting on white-space, or a string to
@@ -198,14 +198,18 @@ out into a Zeek `record`.
 
 Here's an example: `SELECT columns from files_columns("/etc/passwd",
 "$1:text,$3:count", ":")` splits `/etc/passwd` into its parts, and
-extracts the user name and ID for each line.
+extracts the user name and ID for each line. (As `passwd` files may
+include comments lines, you could add a 4th parameter `"^ *#"` to
+ignore these. However, comments starting with `#` are already covered
+by the pattern that the 4th parameter uses by default, so it's not
+necessary.)
 
 | Parameter | Type | Description | Default
 | --- | --- | --- | --- |
 | `pattern` | text | glob matching all files of interest |  |
 | `columns` | text | specification of columns to extract |  |
-| `separator` | text | separator string to split columns; empty for whitespace | `""` |
-| `ignore` | text | regular expression matching lines to ignore; empty to disable | `^[ \t]*([#;]|$)` |
+| `separator` | text | separator string to split columns; empty for whitespace | `<empty>` |
+| `ignore` | text | regular expression matching lines to ignore; empty to disable | `^[ \t]*([#;]\|$)` |
 
 | Column | Type | Description
 | --- | --- | --- |

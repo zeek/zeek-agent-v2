@@ -1,37 +1,26 @@
-2.0.4-26 | 2022-03-23 11:19:46 +0100
+2.1.0 | 2022-03-29 12:45:55 +0200
 
-  * Add `files_columns` table that extracts selected columns from
-    on-disk files und sends them over to Zeek as a record. For
-    example: `SELECT columns from files_columns("/etc/passwd",
-    "$1:text,$3:count", ":")` splits `/etc/passwd` into its parts,
-    extracts the user name and ID for each line, and then sends Zeek a
-    record containing two fields: the name as a `string`, and the ID
-    as a `count`. See the `README` for an explanation on the
-    parameters that `files_columns` takes.
+  * GH-25: Add `files_columns` table that extracts selected columns
+    from on-disk files und sends them over to Zeek as a record. See
+    the `README` for documentation.
 
-  * Update SQLite to 3.38.1 to give us built-in JSON support.
+  * GH-7: Extend the type system for table columns. We can now
+    represent addresses, booleans, counts, intervals, ports, records,
+    sets, times, and vectors end-to-end, so that they arrive as such
+    at Zeek. We also update our tables to use the new types where
+    appropriate.
 
-2.0.4-22 | 2022-03-22 17:09:08 +0100
+  * GH-34: Disable communication with a Zeek instance if it's package
+    version is too old.
 
-  * GH-7: Extend the type system for table columns.
-
-    We can now represent addresses, booleans, counts, intervals, ports,
-    records, sets, times, and vectors all end-to-end, so that they arrive
-    as such at Zeek. For those types that don't have a natural SQLite
-    representation we internally serialize them into JSON and store that
-    as BLOBS. For boolean values, we now store real bools instead of
-    turning them into integers, allowing us to render them more nicely
-    even without further type information. This requires a bit of compiler
-    voodoo because of C++ ickyness (and a GCC bug).
-
-    We also update our tables to use the new types where appropriate.
-
-    Closes #7.
-
-  * Add a 2nd 'differences' mode where no initial snapshot is
-    provided. We now have (1) "snapshot-and-diffs", which sends an
+  * Add a 2nd 'differences' mode to queries where no initial snapshot
+    is provided. We now have (1) "snapshot-and-diffs", which sends an
     initial snapshot first, followed by diffs; and (2) "diffs", which
     sends an empty initial result and then just diffs.
+
+  * Move numerical version number computation from CMake to runtime.
+
+  * Update SQLite to 3.38.1 to give us built-in JSON support.
 
   * Add Broker version to agent handshake.
 
@@ -57,8 +46,6 @@
   * Clean up unused state in Zeek communication code.
 
   * Format Zeek scripts with current zeek-format.
-
-  * Update to current Zeek package.
 
 2.0.4 | 2022-03-04 16:55:11 +0100
 

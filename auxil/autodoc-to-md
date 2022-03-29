@@ -58,9 +58,9 @@ def renderTable(name, meta):
             default = column["default"]
             if default != None:
                 if default == "":
-                    default = '""'
+                    default = '<empty>'
 
-                default = "`{}`".format(default)
+                default = "`{}`".format(default.replace("|", "\\|"))
             else:
                 default = ""
 
