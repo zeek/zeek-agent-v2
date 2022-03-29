@@ -94,6 +94,9 @@ struct Options {
     /** Logs a summary of the current settings to the debug log stream. */
     void debugDump();
 
+    /** Agent's numerical version number. This is set automatically and cannot changed externally. */
+    int64_t version_number;
+
     /** Mode of operation for the current process. */
     options::Mode mode = options::Mode::Standard;
 

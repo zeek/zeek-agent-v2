@@ -80,6 +80,7 @@ static void usage(const filesystem::path& name) {
 }
 
 void Options::debugDump() {
+    ZEEK_AGENT_DEBUG("configuration", "[option] version-number: {}", version_number);
     ZEEK_AGENT_DEBUG("configuration", "[option] mode: {}", to_string(mode));
     ZEEK_AGENT_DEBUG("configuration", "[option] agent-id: {}", agent_id);
     ZEEK_AGENT_DEBUG("configuration", "[option] instance-id: {}", instance_id);
@@ -139,6 +140,12 @@ struct Pimpl<Configuration>::Implementation {
 Options Configuration::Implementation::default_() {
     Options options;
 
+    auto version = parseVersion(Version);
+    if ( ! version )
+        throw InternalError("cannot parse our own version number");
+
+    options.version_number = *version;
+
     // Attempt to read our agent's ID from previously created cache file.
     auto uuid_path = (platform::dataDirectory() / "uuid").native();
     if ( filesystem::is_regular_file(uuid_path) ) {
@@ -154,7 +161,6 @@ Options Configuration::Implementation::default_() {
     if ( options.agent_id.empty() ) {
         // Generate a fresh UUID as our agent's ID.
         options.agent_id = format("H{}", randomUUID());
-        ;
 
         // Cache it.
         std::ofstream out(uuid_path, std::ios::out | std::ios::trunc);

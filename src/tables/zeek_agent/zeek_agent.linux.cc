@@ -143,7 +143,7 @@ std::vector<std::vector<Value>> ZeekAgentLinux::snapshot(const std::vector<table
     Value addrs = addresses();
     Value platform = platform::name();
     Value os_name = distribution();
-    Value agent = VersionNumber;
+    Value agent = options().version_number;
     Value broker = broker::version::string();
     Value uptime = std::chrono::system_clock::now() - startupTime();
     Value tables =

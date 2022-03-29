@@ -72,12 +72,6 @@ else ()
     set(ZEEK_AGENT_VERSION_LONG "${ZEEK_AGENT_VERSION}")
 endif ()
 
-string(REGEX MATCH "([0-9]*)\.([0-9]*)\.([0-9]*).*" _ ${ZEEK_AGENT_VERSION})
-set(ZEEK_AGENT_VERSION_MAJOR "${CMAKE_MATCH_1}")
-set(ZEEK_AGENT_VERSION_MINOR "${CMAKE_MATCH_2}")
-set(ZEEK_AGENT_VERSION_PATCH "${CMAKE_MATCH_3}")
-math(EXPR ZEEK_AGENT_VERSION_NUMBER "${ZEEK_AGENT_VERSION_MAJOR} * 10000 + ${ZEEK_AGENT_VERSION_MINOR} * 100 + ${ZEEK_AGENT_VERSION_PATCH}")
-
 ### Platform-specific code.
 
 set(HAVE_POSIX $<bool:${UNIX}>)
@@ -117,7 +111,7 @@ endif ()
 message(
     "\n====================|  Zeek Agent Build Summary  |===================="
     "\n"
-    "\nVersion:               ${ZEEK_AGENT_VERSION_LONG} (${ZEEK_AGENT_VERSION_NUMBER})"
+    "\nVersion:               ${ZEEK_AGENT_VERSION_LONG}"
     "\n"
     "\nBuild type:            ${CMAKE_BUILD_TYPE}"
     "\nBuild directory:       ${PROJECT_BINARY_DIR}"
