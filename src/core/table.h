@@ -27,6 +27,7 @@ namespace value {
  *      `Bool` -> `int64_t`
  *      `Count` -> `int64_t`
  *      `Double` -> `double`
+ *      `Enum` -> `string`
  *      `Integer` -> `int64_t`
  *      `Interval` -> `Interval`
  *      `Null` -> `std::monostate`
@@ -41,7 +42,23 @@ namespace value {
  * serialized into a JSON represetnation for storage. Note that doing so makes
  * it difficult (or even impossible) to use SQL operators on them.
  */
-enum class Type { Address, Blob, Bool, Count, Double, Integer, Interval, Null, Port, Record, Set, Text, Time, Vector };
+enum class Type {
+    Address,
+    Blob,
+    Bool,
+    Count,
+    Double,
+    Enum,
+    Integer,
+    Interval,
+    Null,
+    Port,
+    Record,
+    Set,
+    Text,
+    Time,
+    Vector
+};
 
 /** Returns a human-readable represenation of the type. */
 extern std::string to_string(const Type& type);
