@@ -196,6 +196,7 @@ static int onTableConnect(::sqlite3* db, void* paux, int argc, const char* const
                                               case value::Type::Integer: return name + "INTEGER" + hidden;
                                               case value::Type::Double: return name + "REAL" + hidden;
                                               case value::Type::Address:
+                                              case value::Type::Enum: return name + "TEXT" + hidden;
                                               case value::Type::Text: return name + "TEXT" + hidden;
                                               case value::Type::Port:
                                               case value::Type::Record:
@@ -403,6 +404,7 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
                     case value::Type::Null: return std::holds_alternative<std::monostate>(value);
                     case value::Type::Double: return std::holds_alternative<double>(value);
                     case value::Type::Address:
+                    case value::Type::Enum:
                     case value::Type::Text:
                     case value::Type::Blob: return std::holds_alternative<std::string>(value);
                     case value::Type::Port: return std::holds_alternative<Port>(value);
@@ -481,12 +483,12 @@ static int onColumn(::sqlite3_vtab_cursor* pcursor, ::sqlite3_context* context, 
             ::sqlite3_result_blob(context, v.data(), static_cast<int>(v.size()), SQLITE_STATIC);
             break;
         }
-        case value::Type::Address: {
-            case value::Type::Text: {
-                const auto& v = std::get<std::string>(value);
-                ::sqlite3_result_text(context, v.data(), static_cast<int>(v.size()), SQLITE_STATIC);
-                break;
-            }
+        case value::Type::Address:
+        case value::Type::Enum:
+        case value::Type::Text: {
+            const auto& v = std::get<std::string>(value);
+            ::sqlite3_result_text(context, v.data(), static_cast<int>(v.size()), SQLITE_STATIC);
+            break;
         }
         case value::Type::Port:
         case value::Type::Record:
@@ -794,6 +796,7 @@ TEST_SUITE("SQLite") {
                             {.name = "i2", .type = value::Type::Integer},
                             {.name = "t2", .type = value::Type::Text},
                             {.name = "r2", .type = value::Type::Double},
+                            {.name = "e2", .type = value::Type::Enum},
                             {.name = "b2", .type = value::Type::Blob},
                             {.name = "ti2", .type = value::Type::Time},
                             {.name = "in2", .type = value::Type::Interval},
@@ -815,6 +818,7 @@ TEST_SUITE("SQLite") {
                 x.push_back({{++counter},
                              {"foo1"},
                              {3.14},
+                             {"FooBar::XY1"},
                              {"blobA"},
                              {10_time},
                              {2s},
@@ -828,6 +832,7 @@ TEST_SUITE("SQLite") {
                 x.push_back({{++counter},
                              {"foo2"},
                              {4.14},
+                             {"FooBar::XY2"},
                              {"blobB"},
                              {20_time},
                              {4s},
@@ -841,6 +846,7 @@ TEST_SUITE("SQLite") {
                 x.push_back({{++counter},
                              {"foo3"},
                              {5.14},
+                             {"FooBar::XY3"},
                              {"blobC"},
                              {30_time},
                              {6s},
@@ -854,6 +860,7 @@ TEST_SUITE("SQLite") {
                 x.push_back({{++counter},
                              {"foo4"},
                              {6.14},
+                             {"FooBar::XY4"},
                              {"blobD"},
                              {40_time},
                              {8s},
@@ -942,16 +949,18 @@ TEST_SUITE("SQLite") {
             CHECK_EQ(std::get<int64_t>(v1[0]), 1);
             CHECK_EQ(std::get<std::string>(v1[1]), "foo1");
             CHECK_EQ(std::get<double>(v1[2]), 3.14);
-            CHECK_EQ(std::get<std::string>(v1[3]), "blobA");
-            CHECK_EQ(std::get<Time>(v1[4]), 10_time);
-            CHECK_EQ(std::get<Interval>(v1[5]), 2s);
-            CHECK_EQ(std::get<int64_t>(v1[6]), 42U);
-            CHECK_EQ(std::get<bool>(v1[7]), true);
-            CHECK_EQ(std::get<std::string>(v1[8]), "10.0.0.1");
-            CHECK_EQ(std::get<Record>(v1[9]), Record{{true, value::Type::Bool}, {"192.168.1.1", value::Type::Address}});
-            CHECK_EQ(std::get<Port>(v1[10]), Port(42, port::Protocol::TCP));
-            CHECK_EQ(std::get<Set>(v1[11]), Set(value::Type::Address, {"192.168.1.1", "192.168.1.2", "192.168.1.3"}));
-            CHECK_EQ(std::get<Vector>(v1[12]), Vector(value::Type::Count, {10L, 20L, 30L}));
+            CHECK_EQ(std::get<std::string>(v1[3]), "FooBar::XY1");
+            CHECK_EQ(std::get<std::string>(v1[4]), "blobA");
+            CHECK_EQ(std::get<Time>(v1[5]), 10_time);
+            CHECK_EQ(std::get<Interval>(v1[6]), 2s);
+            CHECK_EQ(std::get<int64_t>(v1[7]), 42U);
+            CHECK_EQ(std::get<bool>(v1[8]), true);
+            CHECK_EQ(std::get<std::string>(v1[9]), "10.0.0.1");
+            CHECK_EQ(std::get<Record>(v1[10]),
+                     Record{{true, value::Type::Bool}, {"192.168.1.1", value::Type::Address}});
+            CHECK_EQ(std::get<Port>(v1[11]), Port(42, port::Protocol::TCP));
+            CHECK_EQ(std::get<Set>(v1[12]), Set(value::Type::Address, {"192.168.1.1", "192.168.1.2", "192.168.1.3"}));
+            CHECK_EQ(std::get<Vector>(v1[13]), Vector(value::Type::Count, {10L, 20L, 30L}));
 
             result = sql.runStatement("SELECT * FROM test_table2 WHERE i2 == 4");
             if ( ! result )
@@ -960,8 +969,8 @@ TEST_SUITE("SQLite") {
             CHECK_EQ(result->rows.size(), 1);
 
             const auto& v4 = result->rows.at(0);
-            CHECK_EQ(std::get<Set>(v4[11]), Set(value::Type::Address, {}));
-            CHECK_EQ(std::get<Vector>(v4[12]), Vector(value::Type::Count, {}));
+            CHECK_EQ(std::get<Set>(v4[12]), Set(value::Type::Address, {}));
+            CHECK_EQ(std::get<Vector>(v4[13]), Vector(value::Type::Count, {}));
         }
 
         SUBCASE("statement with join") {
