@@ -9,6 +9,7 @@ Checks: 'bugprone-*,
          portability-*,
          readability-*,
 
+         -bugprone-easily-swappable-parameters,
          -cert-err58-cpp,
          -clang-analyzer-cplusplus.NewDeleteLeaks,
          -clang-diagnostic-c++2a-designator,
