@@ -1,6 +1,11 @@
 
-set(SPDLOG_FMT_EXTERNAL ON)
-option(UUID_BUILD_TESTS "Build the unit tests" OFF)
+# Configure OpenSSL first, it'll be used by both Broker and IXWebSocket.
+find_package(OpenSSL REQUIRED)
+include_directories(BEFORE ${OPENSSL_INCLUDE_DIR})
+
+if ( USE_STATIC_LINKING )
+    set(OPENSSL_USE_STATIC_LIBS on)
+endif ()
 
 if ( WIN32 )
   # We use C++20 on MSVC, which means we have full std::span support on that
@@ -27,6 +32,11 @@ add_subdirectory(out_ptr EXCLUDE_FROM_ALL)
 set(SPDLOG_FMT_EXTERNAL ON)
 add_subdirectory(spdlog EXCLUDE_FROM_ALL)
 
+# IXWebSocket will pick up on us having configured OpenSSL already.
+set(USE_TLS "Enable TLS support" ON)
+set(USE_OPEN_SSL "Use OpenSSL" ON)
+add_subdirectory(IXWebSocket)
+
 # pathfind's cmake config is too old and not really usable. Set it up ourselves.
 add_library(pathfind STATIC pathfind/src/pathfind.cpp)
 target_include_directories(pathfind PUBLIC pathfind/src)
@@ -49,10 +59,6 @@ set(BROKER_DISABLE_TESTS ON)
 set(DISABLE_PYTHON_BINDINGS ON)
 set(ENABLE_STATIC_ONLY ON)
 set(BROKER_EXTERNAL_SQLITE_TARGET "sqlite::sqlite")
-
-if ( USE_STATIC_LINKING )
-    set(OPENSSL_USE_STATIC_LIBS on)
-endif ()
 
 add_subdirectory(broker EXCLUDE_FROM_ALL)
 target_link_libraries(broker_static INTERFACE ${CMAKE_DL_LIBS}) # linker gets the order wrong w/o this

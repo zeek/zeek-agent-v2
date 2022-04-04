@@ -40,3 +40,6 @@
 [submodule "3rdparty/out_ptr"]
 	path = 3rdparty/out_ptr
 	url = https://github.com/soasis/out_ptr
+[submodule "3rdparty/IXWebSocket"]
+	path = 3rdparty/IXWebSocket
+	url = https://github.com/machinezone/IXWebSocket
