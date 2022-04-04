@@ -13,21 +13,25 @@
 #include "util/platform.h"
 #include "util/testing.h"
 
+#include <algorithm>
 #include <functional>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
-#ifndef HAVE_WINDOWS
 #include <unistd.h>
-#endif
 
 #include "broker/address.hh"
+#include "broker/data.hh"
+#include "broker/enum_value.hh"
 #include "broker/fwd.hh"
+#include "broker/none.hh"
 #include <broker/configuration.hh>
 #include <broker/endpoint.hh>
 #include <broker/topic.hh>
@@ -55,28 +59,99 @@ struct ZeekQuery {
     std::optional<query::ID> query_id;        // database-side query ID once scheduled
 };
 
-// Manages the connection to one external Broker endpoint. Usually that's a
-// Zeek, but it can an also be another process acting as a relay to Zeek
-// instances not directly connected to the agent. Note that in the latter case,
-// more than one Zeek instance may be visible on this connection. The class
-// handles that correctly by tracking which Zeek instances it has seen (through
-// their instance IDs that the Zeek-side agent framework creates)
-class BrokerConnection {
-public:
-    BrokerConnection(Database* db, Scheduler* scheduler, broker::configuration broker_config)
-        : _db(db), _scheduler(scheduler), _endpoint(std::move(broker_config)) {}
-    ~BrokerConnection() { disconnect(); } // NOLINT(bugprone-exception-escape)
+class ZeekConnection;
 
-    // Establishes a Broker connection to `<host>[:<port>]`. Only reports fatal
+// Abstract base class encapsulating event exchange wity a Zeek endpoint,
+// implementing connection setup/tear down and message encoding/decoding.
+class TransportProtocol {
+public:
+    virtual ~TransportProtocol() {}
+
+    // Establishes a connection to `<host>[:<port>]`. Only reports fatal
+    // errors, *not* including when the connection can't be established (it
+    // will be continiously retried).
+    virtual Result<Nothing> connect(const std::string& host, unsigned int port,
+                                    const std::vector<std::string>& topics) = 0;
+
+    // Shutsdown current connection.
+    virtual void disconnect() = 0;
+
+    // Sends an event to endpint.
+    virtual void transmitEvent(const std::string& topic, const std::string& name, Record args) = 0;
+
+    // Returns true if connection is currently down.
+    virtual bool isShutdown() = 0;
+
+    // Returns the connection associated with this transport protocol.
+    auto connection() { return _connection; }
+
+    // Sets the connection associated with this transport protocol. To be used
+    // by the connection itself to register itself with the transport.
+    void setConnection(ZeekConnection* conn) { _connection = conn; }
+
+private:
+    ZeekConnection* _connection; // connection associated with this transport protocol
+};
+
+// Represents a change in connectivity with a Zeek endpoint.
+enum class ConnectivityChange {
+    Added,   // new connection setup
+    Removed, // connection deliberately shut down
+    Lost,    // connection unexpectedly terminated
+    Other    // a change no further classified
+};
+
+// Manages the connection to one external Zeek endpoint. Usually that's
+// actually a Zeek insteance, but it can an also be another process acting as a
+// relay to Zeek instances not directly connected to the agent themselves. Note
+// that in the latter case, more than one Zeek instance may be visible on this
+// connection. The class handles that correctly by tracking which Zeek
+// instances it has seen (through their instance IDs that the Zeek-side agent
+// framework creates)
+class ZeekConnection {
+public:
+    ZeekConnection(std::unique_ptr<TransportProtocol> transport, Database* db, Scheduler* scheduler)
+        : _transport(std::move(transport)), _db(db), _scheduler(scheduler) {
+        _transport->setConnection(this);
+    }
+
+    ~ZeekConnection() {} // NOLINT(bugprone-exception-escape)
+
+    // Establishes a connection to `<host>[:<port>]`. Only reports fatal
     // errors, *not* including when the connection can't be established (it
     // will be continiously retried).
     Result<Nothing> connect(const std::string& destination);
 
-    // Shutsdown current connection to Broker.
+    // Shutsdown current connection.
     void disconnect();
 
     // Performs periodic operations. Must be called reguarly from external.
     void poll();
+
+protected:
+    friend class NativeBrokerTransport;
+
+    // Inject event from transport protocol.
+    void processEvent(const std::string& name, const std::vector<Value>& args);
+
+    // Report error from transport protocol.
+    void processError(const std::string& msg);
+
+    // Report connectivity change from transport protocol.
+    void processConnectivityChange(const ConnectivityChange& status, const std::string& msg);
+
+    // Returns human-readable representation of the current endpoint for log
+    // messages.
+    std::string endpoint() const {
+        if ( _destination )
+            return *_destination;
+        else
+            return "<no dest>";
+    }
+
+    const auto& configuration() const { return _db->configuration(); }
+    const auto& options() const { return _db->configuration().options(); }
+    const auto& scheduler() const { return _scheduler; }
 
 private:
     void installQuery(ZeekQuery zquery);
@@ -86,34 +161,21 @@ private:
 
     void removeZeekInstance(const std::string& zeek_instance);
 
-    void processEvent(const broker::data_message& msg);
-    void processError(const broker::error& err);
-    void processStatus(const broker::status& status);
-
     void transmitResult(const std::string& zeek_id, const query::Result& result);
     void transmitError(const std::string& zeek_instance, const std::string& msg,
                        const std::optional<std::string>& zeek_id, const std::optional<std::string>& cookie);
-    void transmitEvent(std::string event_name, broker::vector args,
-                       const std::optional<std::string>& zeek_instance = {},
+    void transmitEvent(const std::string& event_name, Record args, const std::optional<std::string>& zeek_instance = {},
                        const std::optional<std::string>& zeek_id = {}, const std::optional<std::string>& cookie = {},
                        const std::optional<query::result::ChangeType>& change = {});
 
-    void unexpectedEventArguments(const std::string& zeek_agent, broker::zeek::Event& ev);
+    void unexpectedEventArguments(const std::string& zeek_agent, const std::string& name,
+                                  const std::vector<Value>& args);
 
-    std::string endpoint() const {
-        if ( _destination )
-            return format("{}:{}", _destination->address, _destination->port);
-        else
-            return "<no dest>";
-    }
 
-    const auto& options() const { return _db->configuration().options(); }
-
-    Database* _db = nullptr;                          // as passed into constructor
-    Scheduler* _scheduler = nullptr;                  // as passed into constructor
-    broker::endpoint _endpoint;                       // Broker state
-    std::optional<broker::network_info> _destination; // parsed destination as passed into constructor
-    std::map<std::string, ZeekQuery> _zeek_queries;   // currently active queries
+    std::unique_ptr<TransportProtocol> _transport;  // as passed into constructor
+    Database* _db = nullptr;                        // as passed into constructor
+    Scheduler* _scheduler = nullptr;                // as passed into constructor
+    std::map<std::string, ZeekQuery> _zeek_queries; // currently active queries
 
     // Zeek instance state
     struct ZeekInstance {
@@ -132,415 +194,36 @@ private:
         bool operator!=(const ZeekInstance& other) const { return ! (*this == other); }
     };
 
+    std::optional<std::string> _destination;
     std::map<std::string, ZeekInstance> _zeek_instances; // currently active Zeek instances
 };
 
-Result<Nothing> BrokerConnection::connect(const std::string& destination) {
-    // Parse "host[:port]".
-    std::string address;
-    unsigned long port = 9998; // default port used by the zeek-agent package
-
-    try {
-        auto m = split(trim(destination), ":");
-        if ( m.empty() || m.size() > 2 )
-            throw std::runtime_error("");
-
-        address = trim(m[0]);
-        if ( address.empty() )
-            throw std::runtime_error("");
-
-        if ( m.size() == 2 ) {
-            port = std::stoul(m[1]);
-            if ( port >= 65536 )
-                throw std::out_of_range(""); // msg is ignored below
-        }
-    } catch ( ... ) {
-        return result::Error(format("invalid Zeek address ({})", address));
-    }
-
-    std::vector<broker::topic> topics = {
-        format("/zeek-agent/query/host/{}", options().agent_id),
-        std::string(broker::topic::errors_str),   // internal topic to receive error messages
-        std::string(broker::topic::statuses_str), // internal topic to receive status messages
-    };
-
-    auto groups = options().zeek_groups;
-    groups.emplace_back("all");
-    groups.push_back(tolower(platform::name()));
-
-    for ( const auto& group : groups ) {
-        topics.emplace_back(format("/zeek-agent/query/group/{}", group)); // group broadcast
-        topics.emplace_back(
-            format("/zeek-agent/query/group/{}/{}", options().agent_id, group)); // group msg to individual host
-    }
-
-    _endpoint.subscribe_nosync(
-        topics, []() { /* nop */ },
-        [this](const broker::data_message& msg) {
-            _scheduler->schedule([this, msg]() { // process message on the main thread
-                if ( broker::get_topic(msg) == broker::topic::statuses_str ) {
-                    auto x = broker::to<broker::status>(broker::get_data(msg));
-                    assert(x); // NOLINT(bugprone-lambda-function-name)
-                    processStatus(*x);
-                }
-                else if ( broker::get_topic(msg) == broker::topic::errors_str ) {
-                    auto x = broker::to<broker::error>(broker::get_data(msg));
-                    assert(x); // NOLINT(bugprone-lambda-function-name)
-                    processError(*x);
-                }
-                else {
-                    processEvent(msg);
-                }
-            });
-        },
-        [](const broker::error&) { /* nop */ });
-
-    _destination =
-        broker::network_info(address, port,
-                             std::chrono::duration_cast<broker::timeout::seconds>(options().zeek_reconnect_interval));
-
-    ZEEK_CONN_DEBUG("connecting");
-    for ( const auto& t : topics )
-        ZEEK_CONN_DEBUG("  subscribing to: {}", t.string());
-
-    // Broker's peer_nosync() has not version taking netinfo directly
-    _endpoint.peer_nosync(_destination->address, _destination->port, _destination->retry);
-    return Nothing();
-}
-
-void BrokerConnection::disconnect() {
-    if ( ! _destination )
-        return;
-
-    cancelAllQueries();
-    _zeek_instances.clear();
-
-    ZEEK_CONN_DEBUG("disconnecting");
-
-    // Send out shutdown message. This is best effort, the event might not make
-    // it out anymore. But the Zeek instances will eventually time out their
-    // state if they don't hear from us anymore.
-    transmitEvent("ZeekAgentAPI::agent_shutdown_v1", {});
-
-    if ( ! _endpoint.unpeer(_destination->address, _destination->port) )
-        logger()->warn("failed disconnect from {}", endpoint());
-}
-
-void BrokerConnection::poll() {
-    // Expire any state from Zeek instances we haven't seen in a while.
-    std::vector<std::string> to_remove;
-    for ( const auto& z : _zeek_instances ) {
-        if ( z.second.last_seen + options().zeek_timeout < _scheduler->currentTime() )
-            to_remove.emplace_back(z.first);
-    }
-
-    for ( const auto& id : to_remove ) {
-        logger()->info("inactive Zeek instance, timing out [{}]", id);
-        removeZeekInstance(id);
-    }
-}
-
-void BrokerConnection::installQuery(ZeekQuery zquery) {
-    auto zeek_id = zquery.zeek_id;
-    if ( lookupQuery(zeek_id) )
-        // Already installed.
-        return;
-
-    zquery.query.callback_result = [this, zeek_id](query::ID /* query_id */, const query::Result& result) {
-        transmitResult(zeek_id, result);
-    };
-
-    zquery.query.callback_done = [this, zeek_id](query::ID /* query_id */, bool /* cancelled */) {
-        ZEEK_CONN_DEBUG("database done with query {}, removing", zeek_id);
-        _zeek_queries.erase(zeek_id);
-    };
-
-    if ( auto rc = _db->query(zquery.query) ) {
-        zquery.query_id = *rc; // could be unset
-        _zeek_queries.emplace(zeek_id, std::move(zquery));
-    }
-    else if ( zquery.zeek_instance )
-        // We don't log this as an error locally, but send it back to Zeek.
-        transmitError(*zquery.zeek_instance, format("could not compile query ({})", rc.error()), zquery.zeek_id,
-                      zquery.zeek_cookie);
-}
-
-void BrokerConnection::cancelQuery(const std::string& zeek_id) {
-    auto i = _zeek_queries.find(zeek_id);
-    if ( i == _zeek_queries.end() )
-        // already gone
-        return;
-
-    if ( i->second.query_id )
-        _db->cancel(*i->second.query_id);
-
-    _zeek_queries.erase(i);
-}
-
-void BrokerConnection::removeZeekInstance(const std::string& zeek_instance) {
-    auto z = _zeek_instances.find(zeek_instance);
-    if ( z == _zeek_instances.end() )
-        return;
-
-    std::vector<std::string> to_delete;
-    for ( const auto& q : _zeek_queries ) {
-        if ( q.second.zeek_instance == zeek_instance )
-            to_delete.emplace_back(q.first);
-    }
-
-    for ( const auto& id : to_delete )
-        cancelQuery(id);
-
-    _zeek_instances.erase(z);
-}
-
-void BrokerConnection::cancelAllQueries() {
-    // Need to be careful with the iteration here because canceling a query
-    // will trigger a callback that removes it from _zeek_queries.
-    std::vector<query::ID> query_ids;
-
-    for ( auto i : _zeek_queries ) {
-        if ( i.second.query_id )
-            query_ids.emplace_back(*i.second.query_id);
-    }
-
-    for ( auto i : query_ids )
-        _db->cancel(i);
-
-    _zeek_queries.clear();
-}
-
-void BrokerConnection::unexpectedEventArguments(const std::string& zeek_agent, broker::zeek::Event& ev) {
-    ZEEK_INSTANCE_DEBUG(zeek_agent, "ignoring event with unexpected argument types: {}{}", ev.name(),
-                        broker::to_string(ev.args()));
-}
-
-void BrokerConnection::processEvent(const broker::data_message& msg) {
-    broker::zeek::Event event(std::get<1>(msg.data()));
-    auto args = event.args();
-
-    std::string zeek_instance_id = "<unknown-zeek>";
-    auto zeek_instance = _zeek_instances.end();
-
-    try {
-        if ( args.empty() )
-            throw std::runtime_error("argument error");
-
-        zeek_instance_id = broker::get<std::string>(args[0]);
-        zeek_instance = _zeek_instances.find(zeek_instance_id);
-
-        if ( zeek_instance != _zeek_instances.end() )
-            zeek_instance->second.last_seen = _scheduler->currentTime();
-
-        else {
-            logger()->info("new Zeek instance [{}]", zeek_instance_id);
-            zeek_instance =
-                _zeek_instances.emplace(zeek_instance_id, ZeekInstance{.last_seen = _scheduler->currentTime()}).first;
-        }
-
-    } catch ( const std::exception& e ) {
-        unexpectedEventArguments(zeek_instance_id, event);
-        return;
-    }
-
-    if ( zeek_instance->second.disabled ) {
-        ZEEK_INSTANCE_DEBUG(zeek_instance_id, "ignoring event from disabled Zeek: {}{}", event.name(),
-                            broker::to_string(event.args()));
-        return;
-    }
-
-    ZEEK_INSTANCE_DEBUG(zeek_instance_id, "got event: {}{}", event.name(), broker::to_string(event.args()));
-
-    assert(zeek_instance != _zeek_instances.end());
-
-    if ( event.name() == "ZeekAgentAPI::zeek_hello_v1" ) {
-        try {
-            auto old_hello_record = zeek_instance->second;
-
-            auto hello_record = broker::get<broker::vector>(args[1]);
-            zeek_instance->second.version_string = broker::get<std::string>(hello_record[0]);
-            zeek_instance->second.version_number = broker::get<uint64_t>(hello_record[1]);
-
-            if ( auto pkg_version = broker::get<std::string>(hello_record[2]); ! pkg_version.empty() ) {
-                zeek_instance->second.package_version = pkg_version;
-
-                if ( auto pkg_version_number = parseVersion(pkg_version) ) {
-                    if ( *pkg_version_number < MininumZeekPackageVersion ) {
-                        const auto msg =
-                            format("Zeek package version too old, disabling communication (want {}, but have {})",
-                                   MininumZeekPackageVersion, *pkg_version_number);
-                        logger()->warn("[{}] {}", zeek_instance_id, msg);
-
-                        // We'll try to get the error message through still.
-                        transmitError(zeek_instance_id, msg, {}, {});
-                        zeek_instance->second.disabled = true;
-                        return;
-                    }
-                }
-                else
-                    ZEEK_INSTANCE_DEBUG(zeek_instance_id, "cannot parse Zeek package version number ({})", pkg_version);
-            }
-
-            if ( zeek_instance->second != old_hello_record ) {
-                ZEEK_INSTANCE_DEBUG(zeek_instance_id, "Zeek version: {} ({}), package {}",
-                                    zeek_instance->second.version_string, zeek_instance->second.version_number,
-                                    zeek_instance->second.package_version);
-            }
-        } catch ( const std::exception& e ) {
-            unexpectedEventArguments(zeek_instance_id, event);
-            return;
-        }
-    }
-
-    else if ( event.name() == "ZeekAgentAPI::zeek_shutdown_v1" ) {
-        logger()->info("Zeek instance is shutting down [{}]", zeek_instance_id);
-        removeZeekInstance(zeek_instance_id);
-    }
-
-    else if ( event.name() == "ZeekAgentAPI::install_query_v1" ) {
-        ZeekQuery zquery;
-
-        try {
-            if ( args.size() != 3 )
-                throw std::runtime_error("argument error");
-
-            auto zeek_id = broker::get<std::string>(args[1]);
-            if ( lookupQuery(zeek_id) ) {
-                ZEEK_INSTANCE_DEBUG(zeek_instance_id, "ignoring already known query {}", zquery.zeek_id);
-                return;
-            }
-
-            auto query_record = broker::get<broker::vector>(args[2]);
-            if ( query_record.size() != 7 )
-                throw std::runtime_error("argument error");
-
-            auto sql_stmt = broker::get<std::string>(query_record[0]);
-
-            Interval schedule_ = 0s;
-
-            if ( query_record[1] != broker::data() )
-                schedule_ = std::chrono::duration_cast<Interval>(broker::get<broker::timespan>(query_record[1]));
-
-            std::optional<query::SubscriptionType> subscription;
-            if ( query_record[2] != broker::data() ) {
-                auto enum_ = broker::get<broker::enum_value>(query_record[2]);
-                if ( enum_.name == "ZeekAgent::Snapshots" )
-                    subscription = query::SubscriptionType::Snapshots;
-                else if ( enum_.name == "ZeekAgent::Events" )
-                    subscription = query::SubscriptionType::Events;
-                else if ( enum_.name == "ZeekAgent::Differences" )
-                    subscription = query::SubscriptionType::Differences;
-                else if ( enum_.name == "ZeekAgent::SnapshotPlusDifferences" )
-                    subscription = query::SubscriptionType::SnapshotPlusDifferences;
-                else
-                    ZEEK_INSTANCE_DEBUG(zeek_instance_id, "ignoring event with unknown subscription type: {}",
-                                        enum_.name);
-            }
-
-            auto event_name = broker::get<std::string>(broker::get<broker::vector>(query_record[3])[0]);
-
-            std::optional<std::string> cookie;
-
-            if ( query_record[4] != broker::data() )
-                cookie = broker::get<std::string>(query_record[4]);
-
-            std::set<std::string> requires_tables;
-            for ( const auto& t : broker::get<broker::set>(query_record[5]) )
-                requires_tables.emplace(broker::get<std::string>(t));
-
-            std::set<std::string> if_missing_tables;
-            for ( const auto& t : broker::get<broker::set>(query_record[6]) )
-                if_missing_tables.emplace(broker::get<std::string>(t));
-
-            zquery = ZeekQuery{.zeek_instance = std::move(zeek_instance_id),
-                               .zeek_id = zeek_id,
-                               .event_name = std::move(event_name),
-                               .zeek_cookie = cookie,
-                               .query = Query{
-                                   .sql_stmt = std::move(sql_stmt),
-                                   .subscription = subscription,
-                                   .schedule = schedule_,
-                                   .requires_tables = std::move(requires_tables),
-                                   .if_missing_tables = std::move(if_missing_tables),
-                                   .terminate = false,
-                                   .cookie = cookie,
-                               }};
-        } catch ( const std::exception& e ) {
-            unexpectedEventArguments(zeek_instance_id, event);
-            return;
-        }
-
-        installQuery(std::move(zquery));
-    }
-
-    else if ( event.name() == "ZeekAgentAPI::cancel_query_v1" ) {
-        std::string zeek_id;
-        try {
-            if ( args.size() != 2 )
-                throw std::runtime_error("argument error");
-
-            zeek_id = broker::get<std::string>(args[1]);
-        } catch ( const std::exception& e ) {
-            unexpectedEventArguments(zeek_instance_id, event);
-            return;
-        }
-
-        if ( auto zquery = lookupQuery(zeek_id); zquery && zquery->query_id )
-            _db->cancel(*zquery->query_id);
-    }
-}
-
-void BrokerConnection::processError(const broker::error& err) {
-    std::string msg = "<no error message>";
-    if ( err.message() )
-        msg = *err.message();
-
-    switch ( static_cast<broker::ec>(err.code()) ) {
-        // Prettyify some common errors.
-        case broker::ec::peer_invalid:
-        case broker::ec::peer_unavailable: logger()->info("cannot connect to Zeek endpoint at {}", endpoint()); break;
-
-        default: logger()->info("{} for {}", msg, endpoint());
-    }
-}
-
-void BrokerConnection::processStatus(const broker::status& status) {
-    auto msg = (status.message() ? *status.message() : std::string("<no status description from broker>"));
-
-    switch ( static_cast<broker::sc>(status.code()) ) {
-        // Prettyify some common messages.
-        case broker::sc::peer_added: logger()->info("connected to Zeek endpoint at {}", endpoint()); break;
-        case broker::sc::peer_lost: logger()->info("lost connection to Zeek endpoint at {}", endpoint()); break;
-        case broker::sc::peer_removed: logger()->info("disconnected from Zeek endpoint at {}", endpoint()); break;
-        default: logger()->info("{} at {}", msg, endpoint());
-    }
-
-    switch ( status.code() ) {
-        case broker::sc::peer_added: {
-            // Schedule repeated query sending agent hello.
-            ZeekQuery hello = {.zeek_id = "agent_hello_" + randomUUID(), // unique ID for each query
-                               .event_name = "ZeekAgentAPI::agent_hello_v1",
-                               .query = Query{.sql_stmt = "SELECT * from zeek_agent",
-                                              .subscription = query::SubscriptionType::Snapshots,
-                                              .schedule = options().zeek_hello_interval}};
-
-            installQuery(std::move(hello));
-            break;
-        }
-
-        case broker::sc::peer_lost:
-        case broker::sc::peer_removed:
-            cancelAllQueries();
-            _zeek_instances.clear();
-
-            if ( options().terminate_on_disconnect )
-                _scheduler->terminate();
-
-            break;
-
-        default: break; // ignore
-    }
-}
+///// Native Broker transport.
+
+// Transport implementation using the Broker library for communication.
+class NativeBrokerTransport : public TransportProtocol {
+public:
+    NativeBrokerTransport(const zeek::agent::Configuration& config) : _config(config), _endpoint(brokerConfig()) {}
+    ~NativeBrokerTransport() override {}
+
+    Result<Nothing> connect(const std::string& host, unsigned int port,
+                            const std::vector<std::string>& topics) override;
+    void disconnect() override;
+    bool isShutdown() override { return _endpoint.is_shutdown(); }
+    void transmitEvent(const std::string& topic, const std::string& name, Record args) override;
+
+private:
+    // Helper to prepare Broker config object
+    broker::configuration brokerConfig();
+
+    void processEvent(const broker::data_message& msg);
+    void processError(const broker::error& err);
+    void processConnectivityChange(const broker::status& status);
+
+    const zeek::agent::Configuration& _config;        // as passed into constructor
+    broker::endpoint _endpoint;                       // Broker state
+    std::optional<broker::network_info> _destination; // parsed destination
+};
 
 static broker::data to_broker(const Value& v, const value::Type& t) {
     broker::data value;
@@ -552,6 +235,7 @@ static broker::data to_broker(const Value& v, const value::Type& t) {
             case value::Type::Text: value = std::get<std::string>(v); break;
             case value::Type::Bool: value = (std::get<bool>(v) != 0); break;
             case value::Type::Double: value = std::get<double>(v); break;
+            case value::Type::Enum: value = broker::enum_value(std::get<std::string>(v)); break;
 
             case value::Type::Interval:
                 value = std::chrono::duration_cast<broker::timespan>(std::get<Interval>(v));
@@ -569,7 +253,7 @@ static broker::data to_broker(const Value& v, const value::Type& t) {
 
             case value::Type::Port: {
                 const auto& p = std::get<Port>(v);
-                broker::port::protocol proto = broker::port::protocol::unknown;
+                broker::port::protocol proto;
                 switch ( p.protocol ) {
                     case port::Protocol::ICMP: proto = broker::port::protocol::icmp; break;
                     case port::Protocol::TCP: proto = broker::port::protocol::tcp; break;
@@ -615,130 +299,82 @@ static broker::data to_broker(const Value& v, const value::Type& t) {
     return value;
 }
 
-void BrokerConnection::transmitResult(const std::string& zeek_id, const query::Result& result) {
-    if ( _endpoint.is_shutdown() )
-        // Nothing connected.
-        return;
+// Best effort type guessing.
+static std::pair<Value, value::Type> from_broker(const broker::data& v) {
+    if ( auto x = broker::get_if<broker::none>(&v) )
+        return {{}, value::Type::Null};
 
-    auto zquery = lookupQuery(zeek_id);
-    if ( ! zquery )
-        // Cancelled in the meantime.
-        return;
+    if ( auto x = broker::get_if<broker::boolean>(&v) )
+        return {*x, value::Type::Bool};
 
-    for ( const auto& row : result.rows ) {
-        std::vector<broker::data> columns;
-        columns.reserve(result.columns.size());
+    if ( auto x = broker::get_if<broker::count>(&v) )
+        return {static_cast<int64_t>(*x), value::Type::Count};
 
-        for ( auto i = 0U; i < result.columns.size(); i++ )
-            columns.push_back(to_broker(row.values[i], result.columns[i].type));
+    if ( auto x = broker::get_if<broker::integer>(&v) )
+        return {static_cast<int64_t>(*x), value::Type::Integer};
 
-        transmitEvent(zquery->event_name, {{std::move(columns)}}, zquery->zeek_instance, zquery->zeek_id,
-                      zquery->zeek_cookie, row.type);
+    if ( auto x = broker::get_if<broker::real>(&v) )
+        return {*x, value::Type::Double};
+
+    if ( auto x = broker::get_if<std::string>(&v) )
+        return {*x, value::Type::Text};
+
+    if ( auto x = broker::get_if<broker::enum_value>(&v) )
+        return {x->name, value::Type::Enum};
+
+    if ( auto x = broker::get_if<broker::set>(&v) ) {
+        // We can't distinguish vectors from records, but we only need the
+        // latter right now ...
+        auto type = value::Type::Null;
+        if ( ! x->empty() )
+            type = from_broker(*x->begin()).second;
+
+        Set y(type);
+        for ( const auto& i : *x )
+            y.insert(from_broker(i).first);
+
+        return {y, value::Type::Record};
     }
+
+    if ( auto x = broker::get_if<broker::vector>(&v) ) {
+        // We can't distinguish vectors from records, but we only need the
+        // latter right now ...
+        Record y;
+        for ( const auto& i : *x )
+            y.emplace_back(from_broker(i));
+
+        return {y, value::Type::Record};
+    }
+
+    if ( auto x = broker::get_if<broker::timespan>(&v) )
+        return {std::chrono::duration_cast<Interval>(*x), value::Type::Interval};
+
+    /* Not supported, don't need these.
+     *
+     * if ( auto x = broker::get_if<broker::address>(&v) )
+     * else if ( auto x = broker::get_if<broker::subnet>(&v) )
+     * else if ( auto x = broker::get_if<broker::port>(&v) )
+     * else if ( auto x = broker::get_if<broker::table>(&v) )
+     * else if ( auto x = broker::get_if<broker::timestamp>(&v) )
+     */
+
+    throw InternalError(format("unsupported Broker data type received ({})", broker::to_string(v)));
 }
 
-void BrokerConnection::transmitError(const std::string& zeek_instance, const std::string& msg,
-                                     const std::optional<std::string>& zeek_id,
-                                     const std::optional<std::string>& cookie) {
-    if ( auto i = _zeek_instances.find(zeek_instance); i != _zeek_instances.end() && i->second.disabled ) {
-        ZEEK_INSTANCE_DEBUG(zeek_instance, "not sending error to disabled Zeek: {}", msg);
-        return;
-    }
-
-    ZEEK_INSTANCE_DEBUG(zeek_instance, "sending error: {}", msg);
-    transmitEvent("ZeekAgentAPI::agent_error_v1", {msg}, zeek_instance, zeek_id, cookie);
-}
-
-void BrokerConnection::transmitEvent(std::string event_name, broker::vector args,
-                                     const std::optional<std::string>& zeek_instance,
-                                     const std::optional<std::string>& zeek_id,
-                                     const std::optional<std::string>& cookie,
-                                     const std::optional<query::result::ChangeType>& change) {
-    assert(! zeek_instance.has_value() || ! zeek_instance->empty());
-    assert(! cookie.has_value() || ! cookie->empty());
-
-    if ( zeek_instance ) {
-        if ( auto i = _zeek_instances.find(*zeek_instance); i != _zeek_instances.end() && i->second.disabled ) {
-            ZEEK_INSTANCE_DEBUG(*zeek_instance, "not sending event {} to disabled Zeek", event_name);
-            return;
-        }
-    }
-
-    broker::data change_data;
-    if ( change ) {
-        switch ( *change ) {
-            case query::result::ChangeType::Add: change_data = broker::enum_value("ZeekAgent::Add"); break;
-            case query::result::ChangeType::Delete: change_data = broker::enum_value("ZeekAgent::Delete"); break;
-        }
-    }
-
-    std::vector<broker::data> context;
-    context.emplace_back(options().agent_id);
-    context.emplace_back(static_cast<broker::timestamp>(std::chrono::system_clock::now()));
-    context.emplace_back(zeek_id ? broker::data(*zeek_id) : broker::data());
-    context.emplace_back(std::move(change_data));
-    context.emplace_back(cookie ? broker::data(*cookie) : broker::data());
-
-    args.insert(args.begin(), 1, std::move(context));
-    broker::zeek::Event event(std::move(event_name), std::move(args));
-
-    if ( zeek_instance ) {
-        ZEEK_INSTANCE_DEBUG(*zeek_instance, "sending event: {}{}", event.name(), to_string(event.args()));
-        _endpoint.publish(format("/zeek-agent/response/{}/{}", *zeek_instance, options().agent_id), std::move(event));
-    }
-    else {
-        ZEEK_INSTANCE_DEBUG("all", "sending event: {}{}", event.name(), to_string(event.args()));
-        _endpoint.publish(format("/zeek-agent/response/all/{}", options().agent_id), std::move(event));
-    }
-}
-
-const ZeekQuery* BrokerConnection::lookupQuery(const std::string& zeek_id) {
-    if ( auto i = _zeek_queries.find(zeek_id); i != _zeek_queries.end() )
-        return &i->second;
-    else
-        return nullptr;
-}
-
-template<>
-struct Pimpl<Zeek>::Implementation {
-    // Starts communication with external Zeek instances.
-    void start(const std::vector<std::string>& zeeks);
-
-    // Terminates all Zeek communication.
-    void stop();
-
-    // Performs periodic operations. Must be called reguarly from external.
-    void poll();
-
-    // Returns current configuration object.
-    const auto& options() const;
-
-    // Helper to prepare Broker config object
-    broker::configuration brokerConfig();
-
-    Database* _db = nullptr;         // as passed into constructor
-    Scheduler* _scheduler = nullptr; // as passed into constructor
-
-    std::vector<std::unique_ptr<BrokerConnection>>
-        _connections;      // one connection per desintation passed into constructor
-    bool _stopped = false; // true once stop() can been executed
-};
-
-const auto& Pimpl<Zeek>::Implementation::options() const { return _db->configuration().options(); }
-
-broker::configuration Zeek::Implementation::brokerConfig() {
+broker::configuration NativeBrokerTransport::brokerConfig() {
+    const auto& options = _config.options();
     // Configure Broker/CAF for lower resource consumption.
     broker::broker_options broker_options;
     broker_options.forward = false;
     broker_options.ignore_broker_conf = true;
-    broker_options.disable_ssl = options().zeek_ssl_disable;
+    broker_options.disable_ssl = options.zeek_ssl_disable;
 
     broker::configuration broker_config(broker_options);
-    broker_config.openssl_cafile(options().zeek_ssl_cafile);
-    broker_config.openssl_capath(options().zeek_ssl_capath);
-    broker_config.openssl_certificate(options().zeek_ssl_certificate);
-    broker_config.openssl_key(options().zeek_ssl_keyfile);
-    broker_config.openssl_passphrase(options().zeek_ssl_passphrase);
+    broker_config.openssl_cafile(options.zeek_ssl_cafile);
+    broker_config.openssl_capath(options.zeek_ssl_capath);
+    broker_config.openssl_certificate(options.zeek_ssl_certificate);
+    broker_config.openssl_key(options.zeek_ssl_keyfile);
+    broker_config.openssl_passphrase(options.zeek_ssl_passphrase);
 
 #if 1
     broker_config.set("caf.scheduler.policy", "sharing");
@@ -758,9 +394,576 @@ broker::configuration Zeek::Implementation::brokerConfig() {
     return broker_config;
 }
 
+Result<Nothing> NativeBrokerTransport::connect(const std::string& host, unsigned int port,
+                                               const std::vector<std::string>& topics) {
+    auto broker_topics = transform(topics, [](const auto& t) { return broker::topic(t); });
+    broker_topics.emplace_back(std::string(broker::topic::errors_str));
+    broker_topics.emplace_back(std::string(broker::topic::statuses_str));
+
+    _endpoint.subscribe_nosync(
+        std::move(broker_topics), []() { /* nop */ },
+        [this](const broker::data_message& msg) {
+            connection()->scheduler()->schedule([this, msg]() { // process message on the main thread
+                if ( broker::get_topic(msg) == broker::topic::statuses_str ) {
+                    auto x = broker::to<broker::status>(broker::get_data(msg));
+                    assert(x); // NOLINT(bugprone-lambda-function-name)
+                    processConnectivityChange(*x);
+                }
+                else if ( broker::get_topic(msg) == broker::topic::errors_str ) {
+                    auto x = broker::to<broker::error>(broker::get_data(msg));
+                    assert(x); // NOLINT(bugprone-lambda-function-name)
+                    processError(*x);
+                }
+                else {
+                    processEvent(msg);
+                }
+            });
+        },
+        [](const broker::error&) { /* nop */ });
+
+    _destination = broker::network_info(host, port,
+                                        std::chrono::duration_cast<broker::timeout::seconds>(
+                                            _config.options().zeek_reconnect_interval));
+
+    // Broker's peer_nosync() has not version taking netinfo directly
+    _endpoint.peer_nosync(_destination->address, _destination->port, _destination->retry);
+    return Nothing();
+}
+
+void NativeBrokerTransport::disconnect() {
+    if ( ! _endpoint.unpeer(_destination->address, _destination->port) )
+        logger()->warn("failed disconnect from {}", connection()->endpoint());
+}
+
+void NativeBrokerTransport::transmitEvent(const std::string& topic, const std::string& event_name, Record args) {
+    broker::zeek::Event event(event_name, broker::get<broker::vector>(to_broker(std::move(args), value::Type::Record)));
+    _endpoint.publish(topic, std::move(event));
+}
+
+void NativeBrokerTransport::processEvent(const broker::data_message& msg) {
+    broker::zeek::Event event(std::get<1>(msg.data()));
+
+    std::vector<Value> args;
+    for ( const auto& a : event.args() )
+        args.push_back(from_broker(a).first);
+
+    connection()->processEvent(event.name(), args);
+}
+
+void NativeBrokerTransport::processError(const broker::error& err) {
+    std::string msg = "<no error message>";
+    if ( err.message() )
+        msg = *err.message();
+
+    switch ( static_cast<broker::ec>(err.code()) ) {
+        // Prettyify some common errors.
+        case broker::ec::peer_invalid:
+        case broker::ec::peer_unavailable:
+            connection()->processError(format("cannot connect to Zeek endpoint at {}", connection()->endpoint()));
+            break;
+
+        default: connection()->processError(format("{} for {}", msg, connection()->endpoint()));
+    }
+}
+
+void NativeBrokerTransport::processConnectivityChange(const broker::status& status) {
+    ConnectivityChange change = ConnectivityChange::Other;
+    auto msg = (status.message() ? *status.message() : std::string("<no status description from broker>"));
+
+    switch ( static_cast<broker::sc>(status.code()) ) {
+        // Prettyify some common messages.
+        case broker::sc::peer_added:
+            change = ConnectivityChange::Added;
+            msg = format("connected to Zeek endpoint at {}", connection()->endpoint());
+            break;
+        case broker::sc::peer_lost:
+            change = ConnectivityChange::Lost;
+            msg = format("lost connection to Zeek endpoint at {}", connection()->endpoint());
+            break;
+        case broker::sc::peer_removed:
+            change = ConnectivityChange::Removed;
+            msg = format("disconnected from Zeek endpoint at {}", connection()->endpoint());
+            break;
+        default: break;
+    }
+
+    connection()->processConnectivityChange(change, msg);
+}
+
+///// Transport-indenpendent Zeek communication code.
+
+Result<Nothing> ZeekConnection::connect(const std::string& destination) {
+    // Parse "host[:port]".
+    std::string address;
+    unsigned long port = 9998; // default port used by the zeek-agent package
+
+    try {
+        auto m = split(trim(destination), ":");
+        if ( m.empty() || m.size() > 2 )
+            throw std::runtime_error("");
+
+        address = trim(m[0]);
+        if ( address.empty() )
+            throw std::runtime_error("");
+
+        if ( m.size() == 2 ) {
+            port = std::stoul(m[1]);
+            if ( port >= 65536 )
+                throw std::out_of_range(""); // msg is ignored below
+        }
+    } catch ( ... ) {
+        return result::Error(format("invalid Zeek address ({})", address));
+    }
+
+    std::vector<std::string> topics = {
+        format("/zeek-agent/query/host/{}", options().agent_id),
+    };
+
+    auto groups = options().zeek_groups;
+    groups.emplace_back("all");
+    groups.push_back(tolower(platform::name()));
+
+    for ( const auto& group : groups ) {
+        topics.emplace_back(format("/zeek-agent/query/group/{}", group)); // group broadcast
+        topics.emplace_back(
+            format("/zeek-agent/query/group/{}/{}", options().agent_id, group)); // group msg to individual host
+    }
+
+    ZEEK_CONN_DEBUG("connecting");
+    for ( const auto& t : topics )
+        ZEEK_CONN_DEBUG("  subscribing to: {}", t);
+
+    _destination = format("{}:{}", address, port);
+    return _transport->connect(address, port, topics);
+}
+
+void ZeekConnection::disconnect() {
+    if ( ! _destination )
+        return;
+
+    cancelAllQueries();
+    _zeek_instances.clear();
+
+    ZEEK_CONN_DEBUG("disconnecting");
+
+    // Send out shutdown message. This is best effort, the event might not make
+    // it out anymore. But the Zeek instances will eventually time out their
+    // state if they don't hear from us anymore.
+    transmitEvent("ZeekAgentAPI::agent_shutdown_v1", {});
+
+    _transport->disconnect();
+}
+
+void ZeekConnection::poll() {
+    // Expire any state from Zeek instances we haven't seen in a while.
+    std::vector<std::string> to_remove;
+    for ( const auto& z : _zeek_instances ) {
+        if ( z.second.last_seen + options().zeek_timeout < _scheduler->currentTime() )
+            to_remove.emplace_back(z.first);
+    }
+
+    for ( const auto& id : to_remove ) {
+        logger()->info("inactive Zeek instance, timing out [{}]", id);
+        removeZeekInstance(id);
+    }
+}
+
+void ZeekConnection::installQuery(ZeekQuery zquery) {
+    auto zeek_id = zquery.zeek_id;
+    if ( lookupQuery(zeek_id) )
+        // Already installed.
+        return;
+
+    zquery.query.callback_result = [this, zeek_id](query::ID /* query_id */, const query::Result& result) {
+        transmitResult(zeek_id, result);
+    };
+
+    zquery.query.callback_done = [this, zeek_id](query::ID /* query_id */, bool /* cancelled */) {
+        ZEEK_CONN_DEBUG("database done with query {}, removing", zeek_id);
+        _zeek_queries.erase(zeek_id);
+    };
+
+    if ( auto rc = _db->query(zquery.query) ) {
+        zquery.query_id = *rc; // could be unset
+        _zeek_queries.emplace(zeek_id, std::move(zquery));
+    }
+    else if ( zquery.zeek_instance )
+        // We don't log this as an error locally, but send it back to Zeek.
+        transmitError(*zquery.zeek_instance, format("could not compile query ({})", rc.error()), zquery.zeek_id,
+                      zquery.zeek_cookie);
+}
+
+void ZeekConnection::cancelQuery(const std::string& zeek_id) {
+    auto i = _zeek_queries.find(zeek_id);
+    if ( i == _zeek_queries.end() )
+        // already gone
+        return;
+
+    if ( i->second.query_id )
+        _db->cancel(*i->second.query_id);
+
+    _zeek_queries.erase(i);
+}
+
+void ZeekConnection::removeZeekInstance(const std::string& zeek_instance) {
+    auto z = _zeek_instances.find(zeek_instance);
+    if ( z == _zeek_instances.end() )
+        return;
+
+    std::vector<std::string> to_delete;
+    for ( const auto& q : _zeek_queries ) {
+        if ( q.second.zeek_instance == zeek_instance )
+            to_delete.emplace_back(q.first);
+    }
+
+    for ( const auto& id : to_delete )
+        cancelQuery(id);
+
+    _zeek_instances.erase(z);
+}
+
+void ZeekConnection::cancelAllQueries() {
+    // Need to be careful with the iteration here because canceling a query
+    // will trigger a callback that removes it from _zeek_queries.
+    std::vector<query::ID> query_ids;
+
+    for ( auto i : _zeek_queries ) {
+        if ( i.second.query_id )
+            query_ids.emplace_back(*i.second.query_id);
+    }
+
+    for ( auto i : query_ids )
+        _db->cancel(i);
+
+    _zeek_queries.clear();
+}
+
+void ZeekConnection::unexpectedEventArguments(const std::string& zeek_agent, const std::string& name,
+                                              const std::vector<Value>& args) {
+    ZEEK_INSTANCE_DEBUG(zeek_agent, "ignoring event with unexpected argument types: {}{}", name, to_string(args));
+}
+
+void ZeekConnection::processEvent(const std::string& name, const std::vector<Value>& args) {
+    std::string zeek_instance_id = "<unknown-zeek>";
+    auto zeek_instance = _zeek_instances.end();
+
+    try {
+        if ( args.empty() )
+            throw std::runtime_error("argument error");
+
+        zeek_instance_id = std::get<std::string>(args[0]);
+        zeek_instance = _zeek_instances.find(zeek_instance_id);
+
+        if ( zeek_instance != _zeek_instances.end() )
+            zeek_instance->second.last_seen = _scheduler->currentTime();
+
+        else {
+            logger()->info("new Zeek instance [{}]", zeek_instance_id);
+            zeek_instance =
+                _zeek_instances.emplace(zeek_instance_id, ZeekInstance{.last_seen = _scheduler->currentTime()}).first;
+        }
+
+    } catch ( const std::exception& e ) {
+        unexpectedEventArguments(zeek_instance_id, name, args);
+        return;
+    }
+
+    if ( zeek_instance->second.disabled ) {
+        ZEEK_INSTANCE_DEBUG(zeek_instance_id, "ignoring event from disabled Zeek: {}{}", name, to_string(args));
+        return;
+    }
+
+    ZEEK_INSTANCE_DEBUG(zeek_instance_id, "got event: {}{}", name, to_string(args));
+
+    assert(zeek_instance != _zeek_instances.end());
+
+    if ( name == "ZeekAgentAPI::zeek_hello_v1" ) {
+        try {
+            auto old_hello_record = zeek_instance->second;
+
+            auto hello_record = std::get<Record>(args[1]);
+            zeek_instance->second.version_string = std::get<std::string>(hello_record[0].first);
+            zeek_instance->second.version_number = std::get<int64_t>(hello_record[1].first);
+
+            if ( auto pkg_version = std::get<std::string>(hello_record[2].first); ! pkg_version.empty() ) {
+                zeek_instance->second.package_version = pkg_version;
+
+                if ( auto pkg_version_number = parseVersion(pkg_version) ) {
+                    if ( *pkg_version_number < MininumZeekPackageVersion ) {
+                        const auto msg =
+                            format("Zeek package version too old, disabling communication (want {}, but have {})",
+                                   MininumZeekPackageVersion, *pkg_version_number);
+                        logger()->warn("[{}] {}", zeek_instance_id, msg);
+
+                        // We'll try to get the error message through still.
+                        transmitError(zeek_instance_id, msg, {}, {});
+                        zeek_instance->second.disabled = true;
+                        return;
+                    }
+                }
+                else
+                    ZEEK_INSTANCE_DEBUG(zeek_instance_id, "cannot parse Zeek package version number ({})", pkg_version);
+            }
+
+            if ( zeek_instance->second != old_hello_record ) {
+                ZEEK_INSTANCE_DEBUG(zeek_instance_id, "Zeek version: {} ({}), package {}",
+                                    zeek_instance->second.version_string, zeek_instance->second.version_number,
+                                    zeek_instance->second.package_version);
+            }
+        } catch ( const std::exception& e ) {
+            unexpectedEventArguments(zeek_instance_id, name, args);
+            return;
+        }
+    }
+
+    else if ( name == "ZeekAgentAPI::zeek_shutdown_v1" ) {
+        logger()->info("Zeek instance is shutting down [{}]", zeek_instance_id);
+        removeZeekInstance(zeek_instance_id);
+    }
+
+    else if ( name == "ZeekAgentAPI::install_query_v1" ) {
+        ZeekQuery zquery;
+
+        try {
+            if ( args.size() != 3 )
+                throw std::runtime_error("argument error");
+
+            auto zeek_id = std::get<std::string>(args[1]);
+            if ( lookupQuery(zeek_id) ) {
+                ZEEK_INSTANCE_DEBUG(zeek_instance_id, "ignoring already known query {}", zquery.zeek_id);
+                return;
+            }
+
+            auto query_record = std::get<Record>(args[2]);
+            if ( query_record.size() != 7 )
+                throw std::runtime_error("argument error");
+
+            auto sql_stmt = std::get<std::string>(query_record[0].first);
+
+            Interval schedule_ = 0s;
+
+            if ( ! std::holds_alternative<std::monostate>(query_record[1].first) )
+                schedule_ = std::get<Interval>(query_record[1].first);
+
+            std::optional<query::SubscriptionType> subscription;
+            if ( ! std::holds_alternative<std::monostate>(query_record[2].first) ) {
+                auto enum_name = std::get<std::string>(query_record[2].first);
+                if ( enum_name == "ZeekAgent::Snapshots" )
+                    subscription = query::SubscriptionType::Snapshots;
+                else if ( enum_name == "ZeekAgent::Events" )
+                    subscription = query::SubscriptionType::Events;
+                else if ( enum_name == "ZeekAgent::Differences" )
+                    subscription = query::SubscriptionType::Differences;
+                else if ( enum_name == "ZeekAgent::SnapshotPlusDifferences" )
+                    subscription = query::SubscriptionType::SnapshotPlusDifferences;
+                else
+                    ZEEK_INSTANCE_DEBUG(zeek_instance_id, "ignoring event with unknown subscription type: {}",
+                                        enum_name);
+            }
+
+            auto event_name = std::get<std::string>(std::get<Record>(query_record[3].first)[0].first);
+
+            std::optional<std::string> cookie;
+
+            if ( ! std::holds_alternative<std::monostate>(query_record[4].first) )
+                cookie = std::get<std::string>(query_record[4].first);
+
+            std::set<std::string> requires_tables;
+            for ( const auto& t : std::get<Set>(query_record[5].first) )
+                requires_tables.emplace(std::get<std::string>(t));
+
+            std::set<std::string> if_missing_tables;
+            for ( const auto& t : std::get<Set>(query_record[6].first) )
+                if_missing_tables.emplace(std::get<std::string>(t));
+
+            zquery = ZeekQuery{.zeek_instance = std::move(zeek_instance_id),
+                               .zeek_id = zeek_id,
+                               .event_name = std::move(event_name),
+                               .zeek_cookie = cookie,
+                               .query = Query{
+                                   .sql_stmt = std::move(sql_stmt),
+                                   .subscription = subscription,
+                                   .schedule = schedule_,
+                                   .requires_tables = std::move(requires_tables),
+                                   .if_missing_tables = std::move(if_missing_tables),
+                                   .terminate = false,
+                                   .cookie = *cookie,
+                               }};
+        } catch ( const std::exception& e ) {
+            unexpectedEventArguments(zeek_instance_id, name, args);
+            return;
+        }
+
+        installQuery(std::move(zquery));
+    }
+
+    else if ( name == "ZeekAgentAPI::cancel_query_v1" ) {
+        std::string zeek_id;
+        try {
+            if ( args.size() != 2 )
+                throw std::runtime_error("argument error");
+
+            zeek_id = std::get<std::string>(args[1]);
+        } catch ( const std::exception& e ) {
+            unexpectedEventArguments(zeek_instance_id, name, args);
+            return;
+        }
+
+        if ( auto zquery = lookupQuery(zeek_id); zquery && zquery->query_id )
+            _db->cancel(*zquery->query_id);
+    }
+}
+
+void ZeekConnection::processError(const std::string& msg) { logger()->info(msg); }
+
+void ZeekConnection::processConnectivityChange(const ConnectivityChange& status, const std::string& msg) {
+    logger()->info(msg);
+
+    switch ( status ) {
+        case ConnectivityChange::Added: {
+            // Schedule repeated query sending agent hello.
+            ZeekQuery hello = {.zeek_id = "agent_hello_" + randomUUID(), // unique ID for each query
+                               .event_name = "ZeekAgentAPI::agent_hello_v1",
+                               .query = Query{.sql_stmt = "SELECT * from zeek_agent",
+                                              .subscription = query::SubscriptionType::Snapshots,
+                                              .schedule = options().zeek_hello_interval}};
+
+            installQuery(std::move(hello));
+            break;
+        }
+
+        case ConnectivityChange::Lost:
+        case ConnectivityChange::Removed:
+            cancelAllQueries();
+            _zeek_instances.clear();
+
+            if ( options().terminate_on_disconnect )
+                _scheduler->terminate();
+
+            break;
+
+        default: break; // ignore
+    }
+}
+
+void ZeekConnection::transmitResult(const std::string& zeek_id, const query::Result& result) {
+    if ( _transport->isShutdown() )
+        // Nothing connected.
+        return;
+
+    auto zquery = lookupQuery(zeek_id);
+    if ( ! zquery )
+        // Cancelled in the meantime.
+        return;
+
+    for ( const auto& row : result.rows ) {
+        Record columns;
+        columns.reserve(result.columns.size());
+
+        for ( auto i = 0U; i < result.columns.size(); i++ )
+            columns.emplace_back(row.values[i], result.columns[i].type);
+
+        auto args = Record({{std::move(columns), value::Type::Record}});
+        transmitEvent(zquery->event_name, std::move(args), zquery->zeek_instance, zquery->zeek_id, zquery->zeek_cookie,
+                      row.type);
+    }
+}
+
+void ZeekConnection::transmitError(const std::string& zeek_instance, const std::string& msg,
+                                   const std::optional<std::string>& zeek_id,
+                                   const std::optional<std::string>& cookie) {
+    if ( auto i = _zeek_instances.find(zeek_instance); i != _zeek_instances.end() && i->second.disabled ) {
+        ZEEK_INSTANCE_DEBUG(zeek_instance, "not sending error to disabled Zeek: {}", msg);
+        return;
+    }
+
+    ZEEK_INSTANCE_DEBUG(zeek_instance, "sending error: {}", msg);
+    transmitEvent("ZeekAgentAPI::agent_error_v1", {{msg, value::Type::Text}}, zeek_instance, zeek_id, cookie);
+}
+
+void ZeekConnection::transmitEvent(const std::string& event_name, Record args,
+                                   const std::optional<std::string>& zeek_instance,
+                                   const std::optional<std::string>& zeek_id, const std::optional<std::string>& cookie,
+                                   const std::optional<query::result::ChangeType>& change) {
+    assert(! zeek_instance.has_value() || ! zeek_instance->empty());
+    assert(! cookie.has_value() || ! cookie->empty());
+
+    if ( zeek_instance ) {
+        if ( auto i = _zeek_instances.find(*zeek_instance); i != _zeek_instances.end() && i->second.disabled ) {
+            ZEEK_INSTANCE_DEBUG(*zeek_instance, "not sending event {} to disabled Zeek", event_name);
+            return;
+        }
+    }
+
+    Value change_data;
+    if ( change ) {
+        switch ( *change ) {
+            case query::result::ChangeType::Add: change_data = "ZeekAgent::Add"; break;
+            case query::result::ChangeType::Delete: change_data = "ZeekAgent::Delete"; break;
+        }
+    }
+
+    Value v_zeek_id;
+    Value v_cookie;
+
+    if ( zeek_id )
+        v_zeek_id = *zeek_id;
+
+    if ( cookie )
+        v_cookie = *cookie;
+
+    Record context;
+    context.emplace_back(options().agent_id, value::Type::Text);
+    context.emplace_back(std::chrono::system_clock::now(), value::Type::Time);
+    context.emplace_back(v_zeek_id, value::Type::Text);
+    context.emplace_back(std::move(change_data), value::Type::Enum);
+    context.emplace_back(v_cookie, value::Type::Text);
+
+    args.insert(args.begin(), 1, {std::move(context), value::Type::Record});
+
+    if ( zeek_instance ) {
+        ZEEK_INSTANCE_DEBUG(*zeek_instance, "sending event: {}{}", event_name, to_string(args));
+        _transport->transmitEvent(format("/zeek-agent/response/{}/{}", *zeek_instance, options().agent_id), event_name,
+                                  std::move(args));
+    }
+    else {
+        ZEEK_INSTANCE_DEBUG("all", "sending event: {}{}", event_name, to_string(args));
+        _transport->transmitEvent(format("/zeek-agent/response/all/{}", options().agent_id), event_name,
+                                  std::move(args));
+    }
+}
+
+const ZeekQuery* ZeekConnection::lookupQuery(const std::string& zeek_id) {
+    if ( auto i = _zeek_queries.find(zeek_id); i != _zeek_queries.end() )
+        return &i->second;
+    else
+        return nullptr;
+}
+
+template<>
+struct Pimpl<Zeek>::Implementation {
+    // Starts communication with external Zeek instances.
+    void start(const std::vector<std::string>& zeeks);
+
+    // Terminates all Zeek communication.
+    void stop();
+
+    // Performs periodic operations. Must be called reguarly from external.
+    void poll();
+
+    const auto& options() const { return _db->configuration().options(); }
+
+    Database* _db = nullptr;         // as passed into constructor
+    Scheduler* _scheduler = nullptr; // as passed into constructor
+
+    std::vector<std::unique_ptr<ZeekConnection>> _connections; // one connection per desintation passed into constructor
+    bool _stopped = false;                                     // true once stop() can been executed
+};
+
 void Zeek::Implementation::start(const std::vector<std::string>& zeeks) {
     for ( const auto& z : zeeks ) {
-        auto conn = std::make_unique<BrokerConnection>(_db, _scheduler, brokerConfig());
+        std::unique_ptr<TransportProtocol> transport = std::make_unique<NativeBrokerTransport>(_db->configuration());
+        auto conn = std::make_unique<ZeekConnection>(std::move(transport), _db, _scheduler);
         if ( auto rc = conn->connect(z) )
             _connections.push_back(std::move(conn));
         else
@@ -802,7 +1005,7 @@ void Zeek::poll() {
 }
 
 TEST_SUITE("Zeek") {
-    TEST_CASE("connect/hello/disconnect/reconnect" * doctest::timeout(10.0)) {
+    TEST_CASE("connect/hello/disconnect/reconnect - native Broker" * doctest::timeout(10.0)) {
         Configuration cfg;
         Scheduler tmgr;
         Database db(&cfg, &tmgr);
@@ -845,8 +1048,9 @@ TEST_SUITE("Zeek") {
             } while ( hello.name() == "ZeekAgentAPI::agent_shutdown_v1" ); // ignore shutdown event
 
             CHECK_EQ(hello.name(), "ZeekAgentAPI::agent_hello_v1");
-            CHECK_EQ(hello.args().size(), 2);                                  // context plus columns record
-            CHECK_EQ(broker::get<broker::vector>(hello.args()[1]).size(), 13); // zeek_agent table has 12 columns
+            CHECK_EQ(hello.args().size(), 2); // context plus columns record
+            CHECK_EQ(broker::get<broker::vector>(hello.args()[1]).size(),
+                     13); // zeek_agent table has 12 columns
 
             return hello;
         };
@@ -868,7 +1072,7 @@ TEST_SUITE("Zeek") {
             // GCC may report "p.peer.network->port" as potentially
             // uninitialized. Not under our control so ignore. Note that this
             // needs to work with clang-tidy too even when compiler is GCC.
-#ifndef HAVE_WINDOWS
+
 #if ! defined(__has_warning) // Clang always has this
 #define __suppress_warning
 #elif __has_warning("-Wmaybe-uninitialized")
@@ -878,13 +1082,10 @@ TEST_SUITE("Zeek") {
 #ifdef __suppress_warning
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
-#endif
             receiver.unpeer(p.peer.network->address, p.peer.network->port);
-#ifndef HAVE_WINDOWS
 #ifdef __suppress_warning
 #pragma GCC diagnostic pop
 #undef __suppress_warning
-#endif
 #endif
         }
 
