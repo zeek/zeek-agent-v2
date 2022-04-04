@@ -45,46 +45,36 @@ static std::string priority_string(DWORD value) {
 }
 
 std::vector<std::vector<Value>> ProcessesWindows::snapshot(const std::vector<table::Argument>& args) {
-    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if ( snapshot == INVALID_HANDLE_VALUE )
+    HandlePtr snapshot(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0));
+    if ( snapshot.get() == INVALID_HANDLE_VALUE )
         return {};
 
     PROCESSENTRY32 entry{};
     entry.dwSize = sizeof(PROCESSENTRY32);
 
-    if ( ! Process32First(snapshot, &entry) ) {
-        CloseHandle(snapshot);
+    if ( ! Process32First(snapshot.get(), &entry) )
         return {};
-    }
 
     std::vector<std::vector<Value>> rows;
     do {
-        HANDLE proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, entry.th32ProcessID);
+        HandlePtr proc(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, entry.th32ProcessID));
 
         CHAR proc_name[MAX_PATH];
-        HRESULT res = GetModuleFileNameExA(proc, NULL, proc_name, MAX_PATH);
-        if ( FAILED(res) ) {
-            CloseHandle(proc);
+        HRESULT res = GetModuleFileNameExA(proc.get(), NULL, proc_name, MAX_PATH);
+        if ( FAILED(res) )
             continue;
-        }
 
         PROCESS_MEMORY_COUNTERS_EX memory{};
-        if ( ! GetProcessMemoryInfo(proc, reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&memory), sizeof(memory)) ) {
-            CloseHandle(proc);
+        if ( ! GetProcessMemoryInfo(proc.get(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&memory), sizeof(memory)) )
             continue;
-        }
 
-        DWORD prio = GetPriorityClass(proc);
-        if ( prio == 0 ) {
-            CloseHandle(proc);
+        DWORD prio = GetPriorityClass(proc.get());
+        if ( prio == 0 )
             continue;
-        }
 
         FILETIME creation_time, exit_time, kernel_time, user_time;
-        if ( ! GetProcessTimes(proc, &creation_time, &exit_time, &kernel_time, &user_time) ) {
-            CloseHandle(proc);
+        if ( ! GetProcessTimes(proc.get(), &creation_time, &exit_time, &kernel_time, &user_time) )
             continue;
-        }
 
         Value name = proc_name;
         Value pid = static_cast<int64_t>(entry.th32ProcessID);
@@ -109,8 +99,8 @@ std::vector<std::vector<Value>> ProcessesWindows::snapshot(const std::vector<tab
         Value startup{};
 
         rows.push_back({name, pid, ppid, uid, gid, ruid, rgid, priority, startup, vsize, rsize, utime, stime});
-        CloseHandle(proc);
-    } while ( Process32Next(snapshot, &entry) );
+
+    } while ( Process32Next(snapshot.get(), &entry) );
 
     return rows;
 }

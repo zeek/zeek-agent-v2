@@ -15,8 +15,11 @@
 #include <string>
 #include <vector>
 
+#include <ztd/out_ptr/out_ptr.hpp>
+
 using namespace zeek::agent;
 using namespace zeek::agent::table;
+using namespace ztd::out_ptr;
 
 namespace {
 
@@ -50,12 +53,6 @@ struct LogEntry {
     std::string message;
 };
 
-struct LogHandle {
-    HANDLE handle;
-    DWORD last_read;
-    LogKind kind;
-};
-
 class SystemLogsWindows : public SystemLogs {
 public:
     void activate() override;
@@ -63,6 +60,22 @@ public:
     void poll() override;
 
 private:
+    struct RegKeyCloser {
+        void operator()(HKEY key) const { RegCloseKey(key); }
+    };
+    using RegKeyPtr = std::unique_ptr<std::remove_pointer<HKEY>::type, RegKeyCloser>;
+
+    struct EventLogCloser {
+        void operator()(HANDLE h) const { CloseEventLog(h); /* TODO: error log? */ }
+    };
+    using EventLogPtr = std::unique_ptr<std::remove_pointer<HANDLE>::type, EventLogCloser>;
+
+    struct LogHandle {
+        EventLogPtr handle;
+        DWORD last_read;
+        LogKind kind;
+    };
+
     void getLogs(LogHandle& log_handle, std::vector<LogEntry>& results);
     std::optional<LogEntry> processRecord(char* buffer, PEVENTLOGRECORD record, LogKind kind);
 
@@ -75,7 +88,7 @@ private:
 database::RegisterTable<SystemLogsWindows> _;
 
 void SystemLogsWindows::activate() {
-    system.handle = OpenEventLog(NULL, "System");
+    system.handle = EventLogPtr{OpenEventLog(NULL, "System")};
     if ( ! system.handle ) {
         std::error_condition cond = std::system_category().default_error_condition(GetLastError());
         logger()->info(format("Failed to open System event log: {}", cond.message()));
@@ -83,7 +96,7 @@ void SystemLogsWindows::activate() {
 
     // The system log requires elevated privileges to open. Right now, it'll just log something if it
     // fails to open it.
-    security.handle = OpenEventLog(NULL, "Security");
+    security.handle = EventLogPtr{OpenEventLog(NULL, "Security")};
     if ( ! security.handle ) {
         std::error_condition cond = std::system_category().default_error_condition(GetLastError());
         logger()->info(format("Failed to open Security event log: {}", cond.message()));
@@ -91,29 +104,22 @@ void SystemLogsWindows::activate() {
 }
 
 void SystemLogsWindows::deactivate() {
-    if ( system.handle ) {
-        CloseEventLog(system.handle);
-        system.handle = nullptr;
-    }
-
-    if ( security.handle ) {
-        CloseEventLog(security.handle);
-        security.handle = nullptr;
-    }
+    system.handle.reset();
+    security.handle.reset();
 
     logger()->debug(format("SystemLogsWindows: {} entries in dll cache at shutdown", dll_cache.size()));
     for ( auto& [key, library] : dll_cache )
         FreeLibrary(library);
+
+    dll_cache.clear();
 }
 
 void SystemLogsWindows::poll() {
     std::vector<LogEntry> logs;
     logs.reserve(MAX_RECORDS_TO_READ);
 
-    if ( system.handle )
-        getLogs(system, logs);
-    if ( security.handle )
-        getLogs(security, logs);
+    getLogs(system, logs);
+    getLogs(security, logs);
 
     std::sort(logs.begin(), logs.end(),
               [](const auto& a, const auto& b) { return std::tie(a.ts, a.kind, a.id) < std::tie(b.ts, b.kind, b.id); });
@@ -129,6 +135,9 @@ void SystemLogsWindows::poll() {
 }
 
 void SystemLogsWindows::getLogs(LogHandle& log_handle, std::vector<LogEntry>& results) {
+    if ( ! log_handle.handle )
+        return;
+
     DWORD status = ERROR_SUCCESS;
     DWORD bytes_to_read = 0x10000;
     DWORD bytes_needed;
@@ -152,8 +161,8 @@ void SystemLogsWindows::getLogs(LogHandle& log_handle, std::vector<LogEntry>& re
 
     while ( status == ERROR_SUCCESS && records_read < MAX_RECORDS_TO_READ ) {
         // If reading in SEEK mode, read from the record after the last record read.
-        if ( ! ReadEventLogW(log_handle.handle, read_flag, log_handle.last_read + 1, buffer, bytes_to_read, &bytes_read,
-                             &bytes_needed) ) {
+        if ( ! ReadEventLogW(log_handle.handle.get(), read_flag, log_handle.last_read + 1, buffer, bytes_to_read,
+                             &bytes_read, &bytes_needed) ) {
             status = GetLastError();
             if ( status == ERROR_INSUFFICIENT_BUFFER ) {
                 auto temp = reinterpret_cast<wchar_t*>(realloc(buffer, bytes_needed));
@@ -217,25 +226,22 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
     // TODO: we could potentially add some caching here to avoid needing to do this registry look up every
     // single time we come through here. Maybe something keyed off the key_name above.
 
-    HKEY key_handle;
+    RegKeyPtr key_handle;
     wchar_t message_file[KEY_SIZE];
 
     // Look in the registry for a key called EventMessageFile for the above directory. This key will store
     // the path to a DLL used for formatting the strings from the event log entry.
-    DWORD res = RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_name.c_str(), 0, KEY_READ, &key_handle);
+    DWORD res = RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_name.c_str(), 0, KEY_READ, out_ptr<HKEY>(key_handle));
     if ( FAILED(res) ) {
         std::error_condition cond = std::system_category().default_error_condition(static_cast<int>(GetLastError()));
         logger()->error(format("Failed open registry for key {}: {}", narrow_wstring(key_name), cond.message()));
-
-        RegCloseKey(key_handle);
         return entry;
     }
     else {
         DWORD key_size = KEY_SIZE;
         DWORD key_type;
-        res = RegQueryValueExW(key_handle, L"EventMessageFile", NULL, &key_type,
+        res = RegQueryValueExW(key_handle.get(), L"EventMessageFile", NULL, &key_type,
                                reinterpret_cast<LPBYTE>(message_file), &key_size);
-        RegCloseKey(key_handle);
 
         // It's not really an error if we don't find the key here. It just means that we won't be able
         // to format the strings. We still want the rest of the event log entry. Log something just so

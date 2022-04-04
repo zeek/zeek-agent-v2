@@ -4,7 +4,10 @@
 #include "util/fmt.h"
 #include "util/helpers.h"
 
+#include <ztd/out_ptr/out_ptr.hpp>
+
 using namespace zeek::agent;
+using namespace ztd::out_ptr;
 
 WMIManager& WMIManager::Get() {
     static WMIManager wmi;
@@ -21,39 +24,38 @@ WMIManager::WMIManager() {
     if ( FAILED(res) )
         return;
 
+    IWbemLocatorPtr loc{nullptr};
     res = CoCreateInstance(CLSID_WbemLocator, NULL, CLSCTX_INPROC_SERVER, IID_IWbemLocator,
-                           reinterpret_cast<LPVOID*>(&locator));
-    if ( FAILED(res) )
+                           out_ptr<IWbemLocatorPtr::pointer>(loc));
+    if ( FAILED(res) || ! loc )
         return;
 
+    IWbemServicesPtr cimv2{nullptr};
     cimv2_root = make_bstr(L"root\\CIMV2");
-    res = locator->ConnectServer(cimv2_root.get(), NULL, NULL, NULL, WBEM_FLAG_CONNECT_USE_MAX_WAIT, NULL, NULL,
-                                 &cimv2_service);
-    if ( FAILED(res) )
-        locator->Release();
+    res = loc->ConnectServer(cimv2_root.get(), NULL, NULL, NULL, WBEM_FLAG_CONNECT_USE_MAX_WAIT, NULL, NULL,
+                             out_ptr<IWbemServicesPtr::pointer>(cimv2));
+    if ( FAILED(res) || ! cimv2 )
+        return;
 
     wql = make_bstr(L"WQL");
     stdregprov = make_bstr(L"StdRegProv");
+
+    locator = std::move(loc);
+    cimv2_service = std::move(cimv2);
 }
 
 WMIManager::~WMIManager() { Shutdown(); }
 
 void WMIManager::Shutdown() {
-    if ( cimv2_service ) {
-        cimv2_service->Release();
-        cimv2_service = nullptr;
-    }
-
-    if ( locator ) {
-        locator->Release();
-        locator = nullptr;
-    }
+    cimv2_service.reset();
+    locator.reset();
 }
 
-IEnumWbemClassObject* WMIManager::GetQueryEnumerator(const std::wstring& query) const {
+zeek::agent::WMIManager::IEnumWbemClassObjectPtr WMIManager::GetQueryEnumerator(const std::wstring& query) const {
     auto b_query = make_bstr(query);
-    IEnumWbemClassObject* enumerator = nullptr;
-    HRESULT res = cimv2_service->ExecQuery(wql.get(), b_query.get(), WBEM_FLAG_FORWARD_ONLY, NULL, &enumerator);
+    IEnumWbemClassObjectPtr enumerator = nullptr;
+    HRESULT res = cimv2_service->ExecQuery(wql.get(), b_query.get(), WBEM_FLAG_FORWARD_ONLY, NULL,
+                                           out_ptr<IEnumWbemClassObject*>(enumerator));
     if ( FAILED(res) ) {
         IErrorInfo* error;
         auto result = GetErrorInfo(0, &error);
@@ -61,7 +63,6 @@ IEnumWbemClassObject* WMIManager::GetQueryEnumerator(const std::wstring& query) 
             BSTR description = NULL;
             result = error->GetDescription(&description);
             if ( SUCCEEDED(result) && description ) {
-                std::wstring(static_cast<wchar_t*>(description));
                 logger()->debug(format("Failed to fetch WMI data: {}", narrow_wstring(description)));
             }
         }
@@ -69,20 +70,21 @@ IEnumWbemClassObject* WMIManager::GetQueryEnumerator(const std::wstring& query) 
         return nullptr;
     }
 
-    return enumerator;
+    return std::move(enumerator);
 }
 
 std::string WMIManager::GetOSVersion() const {
     std::wstring version;
 
-    IEnumWbemClassObject* enumerator = GetQueryEnumerator(L"SELECT * from Win32_OperatingSystem");
+    IEnumWbemClassObjectPtr enumerator = GetQueryEnumerator(L"SELECT * from Win32_OperatingSystem");
     if ( ! enumerator )
         return "";
 
     HRESULT res;
-    IWbemClassObject* obj = nullptr;
+    IWbemClassObjectPtr obj = nullptr;
     int num_elems = 0;
-    while ( (res = enumerator->Next(WBEM_INFINITE, 1, &obj, reinterpret_cast<ULONG*>(&num_elems))) != WBEM_S_FALSE ) {
+    while ( (res = enumerator->Next(WBEM_INFINITE, 1, out_ptr<IWbemClassObjectPtr::pointer>(obj),
+                                    reinterpret_cast<ULONG*>(&num_elems))) != WBEM_S_FALSE ) {
         if ( FAILED(res) )
             break;
 
@@ -97,8 +99,6 @@ std::string WMIManager::GetOSVersion() const {
         VariantInit(&var);
         if ( SUCCEEDED(obj->Get(L"Version", 0, &var, NULL, NULL)) && var.vt == VT_BSTR )
             version += var.bstrVal;
-
-        obj->Release();
     }
 
     return narrow_wstring(version);
@@ -115,14 +115,15 @@ std::vector<AccountInfo> WMIManager::GetUserData() const {
 
 void WMIManager::GetUserData(const std::wstring& key, bool system_accounts, std::vector<AccountInfo>& out) const {
     std::wstring query = L"SELECT Caption, Name, SID from " + key;
-    IEnumWbemClassObject* enumerator = GetQueryEnumerator(query);
+    auto enumerator = GetQueryEnumerator(query);
     if ( ! enumerator )
         return;
 
     HRESULT res;
-    IWbemClassObject* obj = nullptr;
+    IWbemClassObjectPtr obj = nullptr;
     int num_elems = 0;
-    while ( (res = enumerator->Next(WBEM_INFINITE, 1, &obj, reinterpret_cast<ULONG*>(&num_elems))) != WBEM_S_FALSE ) {
+    while ( (res = enumerator->Next(WBEM_INFINITE, 1, out_ptr<IWbemClassObject*>(obj),
+                                    reinterpret_cast<ULONG*>(&num_elems))) != WBEM_S_FALSE ) {
         if ( FAILED(res) )
             break;
 
@@ -140,7 +141,7 @@ void WMIManager::GetUserData(const std::wstring& key, bool system_accounts, std:
         VariantClear(&var);
 
         VariantInit(&var);
-        if ( SUCCEEDED(obj->Get(L"FullName", 0, &var, NULL, NULL)) && var.vt == VT_BSTR )
+        if ( SUCCEEDED(obj->Get(L"Name", 0, &var, NULL, NULL)) && var.vt == VT_BSTR )
             info.full_name = narrow_wstring(var.bstrVal);
         VariantClear(&var);
 
@@ -151,19 +152,16 @@ void WMIManager::GetUserData(const std::wstring& key, bool system_accounts, std:
 
         std::wstring path_query = format(L"SELECT LocalPath from Win32_UserProfile WHERE SID = \"{}\"", var.bstrVal);
 
-        if ( IEnumWbemClassObject* user_enum = GetQueryEnumerator(path_query) ) {
-            IWbemClassObject* user_obj;
+        if ( auto user_enum = GetQueryEnumerator(path_query) ) {
+            IWbemClassObjectPtr user_obj = nullptr;
             int num_user_elems = 0;
-            if ( user_enum->Next(WBEM_INFINITE, 1, &user_obj, reinterpret_cast<ULONG*>(&num_elems)) != WBEM_S_FALSE ) {
+            if ( user_enum->Next(WBEM_INFINITE, 1, out_ptr<IWbemClassObject*>(user_obj),
+                                 reinterpret_cast<ULONG*>(&num_elems)) != WBEM_S_FALSE ) {
                 VariantInit(&var);
                 if ( SUCCEEDED(user_obj->Get(L"LocalPath", 0, &var, NULL, NULL)) && var.vt == VT_BSTR )
                     info.home_directory = narrow_wstring(var.bstrVal);
                 VariantClear(&var);
-
-                user_obj->Release();
             }
-
-            user_enum->Release();
         }
 
         // Adapted from
@@ -172,8 +170,5 @@ void WMIManager::GetUserData(const std::wstring& key, bool system_accounts, std:
             info.is_admin = true;
 
         out.push_back(std::move(info));
-        obj->Release();
     }
-
-    enumerator->Release();
 }

@@ -68,6 +68,11 @@ struct AccountInfo {
     bool is_system_acct = false;
 };
 
+struct HandleCloser {
+    void operator()(HANDLE h) const { CloseHandle(h); }
+};
+using HandlePtr = std::unique_ptr<std::remove_pointer<HANDLE>::type, HandleCloser>;
+
 class WMIManager {
 public:
     static WMIManager& Get();
@@ -85,13 +90,26 @@ public:
     std::vector<AccountInfo> GetUserData() const;
 
 private:
+    struct WMIDeleter {
+        void operator()(IWbemLocator* l) const { l->Release(); }
+        void operator()(IWbemServices* s) const { s->Release(); }
+        void operator()(IEnumWbemClassObject* o) const { o->Release(); }
+        void operator()(IWbemClassObject* o) const { o->Release(); }
+    };
+
+    using IWbemServicesPtr = std::unique_ptr<IWbemServices, WMIDeleter>;
+    using IWbemLocatorPtr = std::unique_ptr<IWbemLocator, WMIDeleter>;
+    using IEnumWbemClassObjectPtr = std::unique_ptr<IEnumWbemClassObject, WMIDeleter>;
+    using IWbemClassObjectPtr = std::unique_ptr<IWbemClassObject, WMIDeleter>;
+
     WMIManager();
-    [[nodiscard]] IEnumWbemClassObject* GetQueryEnumerator(const std::wstring& query) const;
+
+    IEnumWbemClassObjectPtr GetQueryEnumerator(const std::wstring& query) const;
 
     void GetUserData(const std::wstring& key, bool system_accounts, std::vector<AccountInfo>& out) const;
 
-    IWbemLocator* locator = nullptr;
-    IWbemServices* cimv2_service = nullptr;
+    IWbemLocatorPtr locator = nullptr;
+    IWbemServicesPtr cimv2_service = nullptr;
 
     bstr_ptr cimv2_root = nullptr;
     bstr_ptr wql = nullptr;

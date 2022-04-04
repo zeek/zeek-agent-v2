@@ -20,7 +20,10 @@
 #include "util/windows-util.h"
 #endif
 
+#include <ztd/out_ptr/out_ptr.hpp>
+
 using namespace zeek::agent;
+using namespace ztd::out_ptr;
 
 SignalManager* zeek::agent::signal_mgr = nullptr;
 signal::Handler* sigint;
@@ -29,21 +32,26 @@ static void log_termination() { logger()->info("process terminated", VersionLong
 
 static bool running_as_admin() {
 #ifdef WIN32
+
+    struct SIDFreer {
+        void operator()(PSID sid) { FreeSid(sid); }
+    };
+    using SIDPtr = std::unique_ptr<std::remove_pointer<PSID>::type, SIDFreer>;
+
     // Adapted from
     // https://docs.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-checktokenmembership
     BOOL is_member;
-    PSID administrator_group = nullptr;
+    SIDPtr administrator_group;
     SID_IDENTIFIER_AUTHORITY auth_nt = SECURITY_NT_AUTHORITY;
     is_member = AllocateAndInitializeSid(&auth_nt, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0,
-                                         0, 0, &administrator_group);
+                                         0, 0, out_ptr<PSID>(administrator_group));
 
     if ( ! is_member )
         return false;
 
-    if ( ! CheckTokenMembership(nullptr, administrator_group, &is_member) )
+    if ( ! CheckTokenMembership(nullptr, administrator_group.get(), &is_member) )
         is_member = false;
 
-    FreeSid(administrator_group);
     return is_member;
 #else
     return geteuid() != 0;

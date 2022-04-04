@@ -16,6 +16,11 @@
 
 namespace zeek::agent::table {
 
+struct FindCloser {
+    void operator()(HANDLE h) const { FindClose(h); }
+};
+using FindHandlePtr = std::unique_ptr<std::remove_pointer<HANDLE>::type, FindCloser>;
+
 class FilesListWindows final : public FilesListCommon {
 public:
     std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
@@ -80,10 +85,10 @@ std::vector<Value> FilesListWindows::buildFileRow(const std::string& pattern, co
         // returned isn't a file handle (it's a search handle). Open the file separately
         // and call GetFileType(), and then close it again.
         DWORD file_type = FILE_TYPE_UNKNOWN;
-        HANDLE file_handle = CreateFileA(full_path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL);
+        HandlePtr file_handle{CreateFileA(full_path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL)};
 
-        if ( file_handle != INVALID_HANDLE_VALUE ) {
-            file_type = GetFileType(file_handle);
+        if ( file_handle.get() != INVALID_HANDLE_VALUE ) {
+            file_type = GetFileType(file_handle.get());
             if ( file_type == FILE_TYPE_UNKNOWN && GetLastError() != NO_ERROR ) {
                 std::error_condition cond =
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
@@ -97,8 +102,6 @@ std::vector<Value> FilesListWindows::buildFileRow(const std::string& pattern, co
             logger()->error(
                 format("Couldn't open file {} to check for type: {} ({})", full_path, cond.message(), cond.value()));
         }
-
-        CloseHandle(file_handle);
 
         // A few fields here don't match the counterparts on Linux. Added is 'remote',
         // and missing is 'block' and 'socket'.
@@ -134,8 +137,8 @@ std::vector<std::vector<Value>> FilesListWindows::snapshot(const std::vector<tab
             // like **.
 
             WIN32_FIND_DATAA find_data{};
-            HANDLE handle = FindFirstFileA(pattern.c_str(), &find_data);
-            if ( handle == INVALID_HANDLE_VALUE )
+            FindHandlePtr handle{FindFirstFileA(pattern.c_str(), &find_data)};
+            if ( handle.get() == INVALID_HANDLE_VALUE )
                 continue;
 
             int find_ret = NO_ERROR;
@@ -144,7 +147,7 @@ std::vector<std::vector<Value>> FilesListWindows::snapshot(const std::vector<tab
                 if ( strcmp(find_data.cFileName, ".") != 0 && strcmp(find_data.cFileName, "..") != 0 )
                     rows.emplace_back(buildFileRow(pattern, find_data));
 
-                find_ret = FindNextFile(handle, &find_data);
+                find_ret = FindNextFile(handle.get(), &find_data);
 
             } while ( find_ret != 0 );
 
@@ -153,8 +156,6 @@ std::vector<std::vector<Value>> FilesListWindows::snapshot(const std::vector<tab
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
                 logger()->error(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
             }
-
-            FindClose(handle);
         }
     }
 
@@ -173,8 +174,8 @@ std::vector<std::vector<Value>> FilesLinesWindows::snapshot(const std::vector<ta
             // like **. I could support recursion, but it doesn't at the moment.
 
             WIN32_FIND_DATAA find_data{};
-            HANDLE handle = FindFirstFileA(pattern.c_str(), &find_data);
-            if ( handle == INVALID_HANDLE_VALUE )
+            FindHandlePtr handle{FindFirstFileA(pattern.c_str(), &find_data)};
+            if ( handle.get() == INVALID_HANDLE_VALUE )
                 continue;
 
             int find_ret = NO_ERROR;
@@ -200,7 +201,7 @@ std::vector<std::vector<Value>> FilesLinesWindows::snapshot(const std::vector<ta
                     in.close();
                 }
 
-                find_ret = FindNextFile(handle, &find_data);
+                find_ret = FindNextFile(handle.get(), &find_data);
 
             } while ( find_ret != 0 );
 
@@ -209,8 +210,6 @@ std::vector<std::vector<Value>> FilesLinesWindows::snapshot(const std::vector<ta
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
                 logger()->error(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
             }
-
-            FindClose(handle);
         }
     }
 
@@ -252,8 +251,8 @@ std::vector<std::vector<Value>> FilesColumnsWindows::snapshot(const std::vector<
             // like **. I could support recursion, but it doesn't at the moment.
 
             WIN32_FIND_DATAA find_data{};
-            HANDLE handle = FindFirstFileA(pattern.c_str(), &find_data);
-            if ( handle == INVALID_HANDLE_VALUE )
+            FindHandlePtr handle{FindFirstFileA(pattern.c_str(), &find_data)};
+            if ( handle.get() == INVALID_HANDLE_VALUE )
                 continue;
 
             int find_ret = NO_ERROR;
@@ -298,7 +297,7 @@ std::vector<std::vector<Value>> FilesColumnsWindows::snapshot(const std::vector<
                     in.close();
                 }
 
-                find_ret = FindNextFile(handle, &find_data);
+                find_ret = FindNextFile(handle.get(), &find_data);
 
             } while ( find_ret != 0 );
 
@@ -307,8 +306,6 @@ std::vector<std::vector<Value>> FilesColumnsWindows::snapshot(const std::vector<
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
                 logger()->error(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
             }
-
-            FindClose(handle);
         }
     }
 

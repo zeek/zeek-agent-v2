@@ -77,17 +77,14 @@ void SocketsWindows::getTCPSockets(std::vector<Socket>& result) const {
     if ( (ret != NO_ERROR && ret != ERROR_INSUFFICIENT_BUFFER) || buffer_size < sizeof(MIB_TCPTABLE_OWNER_MODULE) )
         return;
 
-    char* table = new char[buffer_size];
-
-    ret = GetExtendedTcpTable(table, &buffer_size, FALSE, AF_INET, TCP_TABLE_OWNER_MODULE_ALL, 0);
-    if ( ret != NO_ERROR ) {
-        delete[] table;
+    auto table = make_unique_array<char>(buffer_size);
+    ret = GetExtendedTcpTable(table.get(), &buffer_size, FALSE, AF_INET, TCP_TABLE_OWNER_MODULE_ALL, 0);
+    if ( ret != NO_ERROR )
         return;
-    }
 
     char addr_str[16]{};
 
-    auto tcp_table = reinterpret_cast<PMIB_TCPTABLE_OWNER_MODULE>(table);
+    auto tcp_table = reinterpret_cast<PMIB_TCPTABLE_OWNER_MODULE>(table.get());
     for ( DWORD i = 0; i < tcp_table->dwNumEntries; i++ ) {
         Socket s{};
         s.pid = tcp_table->table[i].dwOwningPid;
@@ -108,8 +105,6 @@ void SocketsWindows::getTCPSockets(std::vector<Socket>& result) const {
 
         result.push_back(std::move(s));
     }
-
-    delete[] table;
 }
 
 void SocketsWindows::getTCP6Sockets(std::vector<Socket>& result) const {
@@ -118,16 +113,14 @@ void SocketsWindows::getTCP6Sockets(std::vector<Socket>& result) const {
     if ( (ret != NO_ERROR && ret != ERROR_INSUFFICIENT_BUFFER) || buffer_size < sizeof(MIB_TCP6TABLE_OWNER_MODULE) )
         return;
 
-    char* table = new char[buffer_size];
-    ret = GetExtendedTcpTable(table, &buffer_size, FALSE, AF_INET6, TCP_TABLE_OWNER_MODULE_ALL, 0);
-    if ( ret != NO_ERROR ) {
-        delete[] table;
+    auto table = make_unique_array<char>(buffer_size);
+    ret = GetExtendedTcpTable(table.get(), &buffer_size, FALSE, AF_INET6, TCP_TABLE_OWNER_MODULE_ALL, 0);
+    if ( ret != NO_ERROR )
         return;
-    }
 
     char addr_str[128]{};
 
-    auto tcp_table = reinterpret_cast<PMIB_TCP6TABLE_OWNER_MODULE>(table);
+    auto tcp_table = reinterpret_cast<PMIB_TCP6TABLE_OWNER_MODULE>(table.get());
     for ( DWORD i = 0; i < tcp_table->dwNumEntries; i++ ) {
         Socket s{};
         s.pid = tcp_table->table[i].dwOwningPid;
@@ -148,8 +141,6 @@ void SocketsWindows::getTCP6Sockets(std::vector<Socket>& result) const {
 
         result.push_back(std::move(s));
     }
-
-    delete[] table;
 }
 
 void SocketsWindows::getUDPSockets(std::vector<Socket>& result) const {
@@ -158,17 +149,14 @@ void SocketsWindows::getUDPSockets(std::vector<Socket>& result) const {
     if ( ret != NO_ERROR && ret != ERROR_INSUFFICIENT_BUFFER )
         return;
 
-    char* table = new char[buffer_size];
-
-    ret = GetExtendedUdpTable(table, &buffer_size, FALSE, AF_INET, UDP_TABLE_OWNER_MODULE, 0);
-    if ( ret != NO_ERROR ) {
-        delete[] table;
+    auto table = make_unique_array<char>(buffer_size);
+    ret = GetExtendedUdpTable(table.get(), &buffer_size, FALSE, AF_INET, UDP_TABLE_OWNER_MODULE, 0);
+    if ( ret != NO_ERROR )
         return;
-    }
 
     char addr_str[16]{};
 
-    auto udp_table = reinterpret_cast<PMIB_UDPTABLE_OWNER_MODULE>(table);
+    auto udp_table = reinterpret_cast<PMIB_UDPTABLE_OWNER_MODULE>(table.get());
     for ( DWORD i = 0; i < udp_table->dwNumEntries; i++ ) {
         Socket s{};
         s.pid = udp_table->table[i].dwOwningPid;
@@ -183,8 +171,6 @@ void SocketsWindows::getUDPSockets(std::vector<Socket>& result) const {
 
         result.push_back(std::move(s));
     }
-
-    delete[] table;
 }
 
 void SocketsWindows::getUDP6Sockets(std::vector<Socket>& result) const {
@@ -193,17 +179,14 @@ void SocketsWindows::getUDP6Sockets(std::vector<Socket>& result) const {
     if ( ret != NO_ERROR && ret != ERROR_INSUFFICIENT_BUFFER )
         return;
 
-    char* table = new char[buffer_size];
-
-    ret = GetExtendedUdpTable(table, &buffer_size, FALSE, AF_INET6, UDP_TABLE_OWNER_MODULE, 0);
-    if ( ret != NO_ERROR ) {
-        delete[] table;
+    auto table = make_unique_array<char>(buffer_size);
+    ret = GetExtendedUdpTable(table.get(), &buffer_size, FALSE, AF_INET6, UDP_TABLE_OWNER_MODULE, 0);
+    if ( ret != NO_ERROR )
         return;
-    }
 
     char addr_str[128]{};
 
-    auto udp_table = reinterpret_cast<PMIB_UDP6TABLE_OWNER_MODULE>(table);
+    auto udp_table = reinterpret_cast<PMIB_UDP6TABLE_OWNER_MODULE>(table.get());
     for ( DWORD i = 0; i < udp_table->dwNumEntries; i++ ) {
         Socket s{};
         s.pid = udp_table->table[i].dwOwningPid;
@@ -218,8 +201,6 @@ void SocketsWindows::getUDP6Sockets(std::vector<Socket>& result) const {
 
         result.push_back(std::move(s));
     }
-
-    delete[] table;
 }
 
 std::string SocketsWindows::getProcessFromPID(unsigned long pid) const {
@@ -231,7 +212,7 @@ std::string SocketsWindows::getProcessFromPID(unsigned long pid) const {
         return "System Idle Process";
 
     // This requires the process to be run as Administrator in order to get the information needed
-    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    HandlePtr process{OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid)};
     if ( ! process ) {
         std::error_condition cond = std::system_category().default_error_condition(static_cast<int>(GetLastError()));
         logger()->trace(format("SocketsWindows: Failed to open process handle for pid {}: {}", pid, cond.message()));
@@ -239,7 +220,7 @@ std::string SocketsWindows::getProcessFromPID(unsigned long pid) const {
     }
 
     char name[MAX_PATH];
-    if ( GetProcessImageFileNameA(process, name, sizeof(name)) == 0 ) {
+    if ( GetProcessImageFileNameA(process.get(), name, sizeof(name)) == 0 ) {
         std::error_condition cond = std::system_category().default_error_condition(static_cast<int>(GetLastError()));
         logger()->trace(format("SocketsWindows: Failed to get process name for pid {}: {}", pid, cond.message()));
         return {};

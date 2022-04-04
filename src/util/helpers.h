@@ -338,12 +338,21 @@ inline bool endsWith(const std::string& s, const std::string& suffix) {
 }
 
 /**
- * Makes a unique_ptr containing an array. Useful for RAII on dynamically-allocated arrays.
+ * Makes a unique_ptr containing an array. Useful for RAII on dynamically-allocated arrays. There's no
+ * need to include a custom deleter here, as unique_ptr handles that on its own.
+ *
+ * @param len the length of the array to build. If this is zero, the array is created set to
+ * nullptr. It does not create a zero-length array in this instance.
+ * @param init whether or not to initialize the memory stored in the array to zeros after creation.
  */
 template<typename C>
-auto make_unique_array(size_t len, bool init = true) {
-    auto arr = std::unique_ptr<C[]>(new C[len]);
-    memset(arr.get(), 0, sizeof(C) * len);
+auto make_unique_array(size_t len = 0, bool init = true) {
+    if ( len == 0 )
+        return std::unique_ptr<C[]>{nullptr};
+
+    auto arr = std::unique_ptr<C[]>{new C[len]};
+    if ( init )
+        memset(arr.get(), 0, sizeof(C) * len);
     return arr;
 }
 
