@@ -8,25 +8,20 @@
 # @TEST-EXEC: cat zeek/.stdout | sed 's/version=[0-9]\{1,\}/version=<version>/g' >zeek/output
 # @TEST-EXEC: btest-diff zeek/output
 
-@if ( getenv("ZEEK_PORT") != "" )
-redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
-@endif
+@load test-setup
 
 type Columns: record {
 	version: count;
 };
 
 event got_result(ctx: ZeekAgent::Context, data: Columns)
-{
+	{
 	print ctx$cookie, data;
 	terminate();
-}
+	}
 
 event zeek_init()
-{
-	ZeekAgent::query([
-	    $sql_stmt="SELECT agent_version FROM zeek_agent",
-	    $event_=got_result,
-	    $cookie="Hurz",
-	    $schedule_=20 secs]);
-}
+	{
+	ZeekAgent::query([$sql_stmt="SELECT agent_version FROM zeek_agent",
+	    $event_=got_result, $cookie="Hurz", $schedule_=20 secs]);
+	}

@@ -8,9 +8,7 @@
 # @TEST-EXEC: cat zeek/.stdout | sed 's/version=[0-9]\{1,\}/version=<version>/g' >zeek/output
 # @TEST-EXEC: btest-diff zeek/output
 
-@if ( getenv("ZEEK_PORT") != "" )
-redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
-@endif
+@load test-setup
 
 type Columns: record {
 	id: string;
@@ -18,29 +16,28 @@ type Columns: record {
 };
 
 event do_terminate()
-{
+	{
 	terminate();
-}
+	}
 
 global query_id: string;
 global n = 0;
 
 event got_result(ctx: ZeekAgent::Context, data: Columns)
-{
+	{
 	print "got result:", data;
 
-	if ( ++n == 2 ) {
+	if ( ++n == 2 )
+		{
 		ZeekAgent::cancel(query_id);
 		print "terminating soon - there should not be another 'got result' after this";
 		schedule 2 secs { do_terminate() };
+		}
 	}
-}
 
 event zeek_init()
-{
+	{
 	query_id = ZeekAgent::query([
 	    $sql_stmt="SELECT id, agent_version FROM zeek_agent",
-	    $event_=got_result,
-	    $cookie="Hurz",
-	    $schedule_=3 secs]);
-}
+	    $event_=got_result, $cookie="Hurz", $schedule_=3 secs]);
+	}

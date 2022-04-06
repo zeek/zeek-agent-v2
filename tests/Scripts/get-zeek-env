@@ -8,10 +8,6 @@ zeek_dist=$(cat ${base}/../../build/CMakeCache.txt 2>/dev/null | grep ZEEK_DIST 
 if [ -n "${zeek_dist}" ]; then
     if [ "$1" = "zeekpath" ]; then
         ${zeek_dist}/build/zeek-path-dev
-    elif [ "$1" = "zeek_plugin_path" ]; then
-        ( cd ${base}/../.. && pwd )
-    elif [ "$1" = "path" ]; then
-        echo ${zeek_dist}/build/src:${zeek_dist}/auxil/btest:${base}/:${zeek_dist}/auxil/zeek-cut:$PATH
     else
         echo "usage: $(basename $0) <var>" >&2
         exit 1
@@ -24,14 +20,7 @@ else
     fi
 
     if [ "$1" = "zeekpath" ]; then
-        zeek-config --zeekpath
-    elif [ "$1" = "zeek_plugin_path" ]; then
-        # Combine the local tree and the system-wide path. This allows
-        # us to test on a local build or an installation made via zkg,
-        # which squirrels away the build. --cpk
-        echo "$(cd ${base}/../.. && pwd):$(zeek-config --plugin_dir)"
-    elif [ "$1" = "path" ]; then
-        echo ${PATH}
+        echo "$(cd ${base}/.. && pwd):$(zeek-config --zeekpath)"
     else
         echo "usage: $(basename $0) <var>" >&2
         exit 1

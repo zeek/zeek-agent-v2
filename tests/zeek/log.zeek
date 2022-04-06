@@ -8,13 +8,11 @@
 # @TEST-EXEC: cat zeek/zeek-agent.log | zeek-cut type_ >changes
 # @TEST-EXEC: btest-diff changes
 
-@if ( getenv("ZEEK_PORT") != "" )
-redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
-@endif
+@load test-setup
 
 hook ZeekAgent::log_policy(rec: ZeekAgent::Info, id: Log::ID,
     filter: Log::Filter)
-{
+	{
 	if ( rec$type_ == "join" )
 		terminate();
-}
+	}

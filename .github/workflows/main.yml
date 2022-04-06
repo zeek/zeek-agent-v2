@@ -2,13 +2,17 @@ name: CI pipeline
 
 on: push
 
-env:
-  ZEEK_LTS: -lts
-  ZEEK_VERSION: 4.0.4-0
-
 jobs:
   debug_ubuntu_latest:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        zeek: [{version: 4.0.4-0, tag: -lts}, {version: 5.0.0-0, tag: -rc}]
+
+    env:
+      ZEEK_VERSION: ${{ matrix.zeek.version }}
+      ZEEK_TAG: ${{ matrix.zeek.tag }}
 
     steps:
       - name: Prepare
@@ -21,8 +25,8 @@ jobs:
 
       - name: Install Zeek
         run: |
-          (cd /tmp && curl -L -O https://download.zeek.org/binary-packages/xUbuntu_20.04/amd64/zeek${ZEEK_LTS}-core_${ZEEK_VERSION}_amd64.deb)
-          sudo apt install -y /tmp/zeek${ZEEK_LTS}-core_${ZEEK_VERSION}_amd64.deb
+          (cd /tmp && curl -L -O https://download.zeek.org/binary-packages/xUbuntu_20.04/amd64/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb)
+          sudo apt install -y /tmp/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb
           echo "/opt/zeek/bin:$PATH" >> $GITHUB_PATH
 
       - name: Checkout repository
@@ -68,7 +72,7 @@ jobs:
       - name: Prepare
         run: |
           apk update
-          apk add linux-headers ccache cmake g++ gcc git make ninja tar openssl3-libs-static openssl-dev python3 py3-pip
+          apk add linux-headers ccache cmake g++ gcc git make ninja tar zlib-static zlib-dev openssl-libs-static openssl-dev python3 py3-pip
           pip3 install btest zkg
 
       - name: Checkout repository

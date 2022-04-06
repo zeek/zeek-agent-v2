@@ -1,11 +1,16 @@
 
+if ( USE_STATIC_LINKING )
+    set(OPENSSL_USE_STATIC_LIBS on)
+
+    # CMake 3.24 has an option to find zlib's static library, but that's too
+    # recent for us. So we use a hammer instead.
+    # set(ZLIB_USE_STATIC_LIBS on)
+    SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+endif ()
+
 # Configure OpenSSL first, it'll be used by both Broker and IXWebSocket.
 find_package(OpenSSL REQUIRED)
 include_directories(BEFORE ${OPENSSL_INCLUDE_DIR})
-
-if ( USE_STATIC_LINKING )
-    set(OPENSSL_USE_STATIC_LIBS on)
-endif ()
 
 if ( WIN32 )
   # We use C++20 on MSVC, which means we have full std::span support on that
