@@ -8,9 +8,7 @@
 # @TEST-EXEC: cat zeek/zeek-agent-system-logs.log | zeek-cut -cn host >tmp && mv tmp zeek/zeek-agent-system-logs.log
 # @TEST-EXEC: btest-diff zeek/zeek-agent-system-logs.log
 
-@if ( getenv("ZEEK_PORT") != "" )
-redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
-@endif
+@load test-setup
 
 redef ZeekAgent_SystemLogs::query_interval = 1 sec;
 
@@ -20,18 +18,18 @@ global already_logged = 0;
 
 hook ZeekAgent_SystemLogs::log_policy(rec: any, id: Log::ID,
     filter: Log::Filter)
-{
+	{
 	if ( ++already_logged != 2 )
 		break;
-}
+	}
 
 event do_terminate()
-{
+	{
 	terminate();
-}
+	}
 
 event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context,
     columns: ZeekAgentAPI::AgentHelloV1)
-{
+	{
 	schedule 4 secs { do_terminate() };
-}
+	}
