@@ -170,7 +170,11 @@ TEST_SUITE("Helpers") {
     TEST_CASE("getenv") {
         CHECK_EQ(::zeek::agent::getenv(""), std::nullopt);
 
+#ifndef WIN32
         const auto home = ::zeek::agent::getenv("HOME");
+#else
+        const auto home = ::zeek::agent::getenv("HOMEPATH");
+#endif
         REQUIRE(home);
         CHECK_FALSE(home->empty());
 
