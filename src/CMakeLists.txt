@@ -22,17 +22,16 @@ if ( NOT WIN32 )
     endif()
 
     add_compile_options($<$<BOOL:${USE_WERROR}>:-Werror>)
+    add_compile_options(-Wno-unused-parameter)
 endif()
 
 if ( HAVE_CLANG )
-    add_compile_options(-Wno-unused-parameter)
     add_compile_options(-Wpedantic)
     add_compile_options(-Wno-c99-designator)
     add_compile_options(-Wno-vla-extension)
 endif ()
 
 if ( HAVE_GCC )
-    add_compile_options(-Wno-unused-parameter)
     add_compile_options(-Wno-missing-field-initializers)
 endif ()
 

@@ -6,14 +6,15 @@ if ( WIN32 )
   # We use C++20 on MSVC, which means we have full std::span support on that
   # platform
   option(UUID_USING_CXX20_SPAN "Using span from std instead of gsl" ON)
-
-  # std::filesystem returns everything as UTF8 on Windows which means any call
-  # to native() returns a std::wstring or a wchar_t. We need to trigger the
-  # inclusion of fmt/xchar.h so that there's support for wide characters in
-  # fmtlib when it includes it.
-  set(SPDLOG_WCHAR_FILENAMES ON)
-  set(SPDLOG_WCHAR_SUPPORT ON)
 endif()
+
+# std::filesystem returns everything as UTF8 on Windows which means any call
+# to native() returns a std::wstring or a wchar_t. We need to trigger the
+# inclusion of fmt/xchar.h so that there's support for wide characters in
+# fmtlib when it includes it. We might as well just turn it on all the time,
+# since it shouldn't break anything on platforms not using wide characters.
+set(SPDLOG_WCHAR_FILENAMES ON)
+set(SPDLOG_WCHAR_SUPPORT ON)
 
 add_subdirectory(doctest EXCLUDE_FROM_ALL)
 add_subdirectory(filesystem EXCLUDE_FROM_ALL)
