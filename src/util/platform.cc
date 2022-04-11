@@ -32,6 +32,10 @@ std::vector<filesystem::path> platform::glob(const filesystem::path& pattern, si
     return result;
 }
 
+int platform::setenv(const char* name, const char* value, int overwrite) { return ::setenv(name, value, overwrite); }
+
+bool platform::runningAsAdmin() { return geteuid() != 0; }
+
 #endif
 
 #ifdef HAVE_DARWIN
@@ -98,6 +102,11 @@ filesystem::path platform::dataDirectory() {
 
 #ifdef HAVE_WINDOWS
 
+#include <memory>
+
+#include <ztd/out_ptr/out_ptr.hpp>
+using namespace ztd::out_ptr;
+
 std::string platform::name() { return "Windows"; }
 
 filesystem::path platform::configurationFile() {
@@ -128,6 +137,47 @@ bool platform::isTTY() { return false; }
 std::vector<filesystem::path> platform::glob(const filesystem::path& pattern, size_t max) {
     logger()->error("platform::glob is not implemented on Windows");
     return {};
+}
+
+int platform::setenv(const char* name, const char* value, int overwrite) {
+    if ( overwrite == 0 ) {
+        // It doesn't matter what the length is set to here. The array is just being used
+        // to check for existence.
+        char existing[10];
+        int ret = GetEnvironmentVariableA(name, existing, 10);
+
+        // Anything non-zero means that a length of the existing value was returned and
+        // that the variable exists.
+        if ( ret != 0 )
+            return 0;
+    }
+
+    if ( ! SetEnvironmentVariableA(name, value) )
+        return -1;
+    return 0;
+}
+
+struct SIDFreer {
+    void operator()(PSID sid) { FreeSid(sid); }
+};
+using SIDPtr = std::unique_ptr<std::remove_pointer<PSID>::type, SIDFreer>;
+
+bool platform::runningAsAdmin() {
+    // Adapted from
+    // https://docs.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-checktokenmembership
+    BOOL is_member;
+    SIDPtr administrator_group;
+    SID_IDENTIFIER_AUTHORITY auth_nt = SECURITY_NT_AUTHORITY;
+    is_member = AllocateAndInitializeSid(&auth_nt, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0,
+                                         0, 0, out_ptr<PSID>(administrator_group));
+
+    if ( ! is_member )
+        return false;
+
+    if ( ! CheckTokenMembership(nullptr, administrator_group.get(), &is_member) )
+        is_member = false;
+
+    return is_member;
 }
 
 #endif

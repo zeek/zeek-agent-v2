@@ -147,16 +147,6 @@ std::string randomUUID() {
     return format("{}{}", base62_encode(p[0]), base62_encode(p[1]));
 }
 
-#ifdef HAVE_WINDOWS
-
-int setenv(const char* name, const char* value, int overwrite) {
-    if ( ! SetEnvironmentVariableA(name, value) )
-        return -1;
-    return 0;
-}
-
-#endif
-
 TEST_SUITE("Helpers") {
     TEST_CASE("scope guard") {
         int i = 0;

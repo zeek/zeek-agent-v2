@@ -11,6 +11,7 @@
 #include "io/zeek.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
+#include "util/platform.h"
 
 #include <csignal>
 #include <iostream>
@@ -20,43 +21,12 @@
 #include "util/windows-util.h"
 #endif
 
-#include <ztd/out_ptr/out_ptr.hpp>
-
 using namespace zeek::agent;
-using namespace ztd::out_ptr;
 
 SignalManager* zeek::agent::signal_mgr = nullptr;
 signal::Handler* sigint;
 
 static void log_termination() { logger()->info("process terminated", VersionLong); }
-
-static bool running_as_admin() {
-#ifdef HAVE_WINDOWS
-
-    struct SIDFreer {
-        void operator()(PSID sid) { FreeSid(sid); }
-    };
-    using SIDPtr = std::unique_ptr<std::remove_pointer<PSID>::type, SIDFreer>;
-
-    // Adapted from
-    // https://docs.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-checktokenmembership
-    BOOL is_member;
-    SIDPtr administrator_group;
-    SID_IDENTIFIER_AUTHORITY auth_nt = SECURITY_NT_AUTHORITY;
-    is_member = AllocateAndInitializeSid(&auth_nt, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0,
-                                         0, 0, out_ptr<PSID>(administrator_group));
-
-    if ( ! is_member )
-        return false;
-
-    if ( ! CheckTokenMembership(nullptr, administrator_group.get(), &is_member) )
-        is_member = false;
-
-    return is_member;
-#else
-    return geteuid() != 0;
-#endif
-}
 
 int main(int argc, char** argv) {
     try {
@@ -75,7 +45,7 @@ int main(int argc, char** argv) {
         logger()->info("Zeek Agent {} starting up", VersionLong);
         atexit(log_termination);
 
-        if ( running_as_admin() && ! cfg.options().use_mock_data )
+        if ( platform::runningAsAdmin() && ! cfg.options().use_mock_data )
             logger()->warn("not running as root, information may be incomplete");
 
         Scheduler scheduler;

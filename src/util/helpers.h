@@ -382,9 +382,3 @@ inline std::ostream& operator<<(std::ostream& out, const zeek::agent::Interval& 
 }
 
 } // namespace std::chrono
-
-#ifdef HAVE_WINDOWS
-
-extern int setenv(const char* name, const char* value, int overwrite);
-
-#endif

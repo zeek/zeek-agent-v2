@@ -194,7 +194,7 @@ void Configuration::Implementation::apply(Options options) {
             logger()->set_level(options::LogLevel::off);
 
         auto argv = preprocessArgv(true);
-        setenv("TZ", "GMT", 1);
+        platform::setenv("TZ", "GMT", 1);
         doctest::Context context(static_cast<int>(argv.size()), argv.data());
         exit(context.run());
 #else
