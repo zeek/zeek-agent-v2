@@ -16,7 +16,7 @@
 #include <iostream>
 #include <optional>
 
-#ifdef _WIN32
+#ifdef HAVE_WINDOWS
 #include "util/windows-util.h"
 #endif
 
@@ -31,7 +31,7 @@ signal::Handler* sigint;
 static void log_termination() { logger()->info("process terminated", VersionLong); }
 
 static bool running_as_admin() {
-#ifdef WIN32
+#ifdef HAVE_WINDOWS
 
     struct SIDFreer {
         void operator()(PSID sid) { FreeSid(sid); }
@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
             db.expire();
         }
 
-#ifdef _WIN32
+#ifdef HAVE_WINDOWS
         WMIManager::Get().Shutdown();
 #endif
 

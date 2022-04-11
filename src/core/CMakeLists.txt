@@ -12,6 +12,6 @@ target_sources(zeek-agent
 
 if ( HAVE_POSIX )
     target_sources(zeek-agent PRIVATE signal.posix.cc)
-elseif ( WIN32 )
+elseif ( HAVE_WINDOWS )
     target_sources(zeek-agent PRIVATE signal.windows.cc)
 endif ()

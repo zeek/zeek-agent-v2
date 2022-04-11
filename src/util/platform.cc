@@ -96,7 +96,7 @@ filesystem::path platform::dataDirectory() {
 
 #endif
 
-#ifdef WIN32
+#ifdef HAVE_WINDOWS
 
 std::string platform::name() { return "Windows"; }
 

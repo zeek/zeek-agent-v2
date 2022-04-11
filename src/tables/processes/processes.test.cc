@@ -11,7 +11,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "processes" * doctest::test_suite("Tables"
     useTable("processes");
 
     // We should be able to see ourselves.
-#ifdef _WIN32
+#ifdef HAVE_WINDOWS
     int ret = 0;
     TCHAR filename[MAX_PATH];
 

@@ -8,6 +8,6 @@ target_sources(zeek-agent
         result.cc
 )
 
-if (WIN32)
+if ( HAVE_WINDOWS )
     target_sources(zeek-agent PRIVATE windows-util.cc)
 endif ()

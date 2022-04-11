@@ -8,7 +8,7 @@
 
 #include <random>
 
-#ifndef WIN32
+#ifndef HAVE_WINDOWS
 #include <netinet/in.h>
 #else
 #include "util/windows-util.h"
@@ -24,7 +24,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables"))
     std::random_device rd;
     std::uniform_int_distribution<int32_t> dist(1024, 65536);
 
-#ifdef WIN32
+#ifdef HAVE_WINDOWS
     WSADATA wsa{};
     int res = WSAStartup(MAKEWORD(2, 2), &wsa);
     if ( res ) {
@@ -39,7 +39,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables"))
         fd = socket(AF_INET, SOCK_STREAM, 0);
         REQUIRE(fd >= 0);
 
-#ifndef WIN32
+#ifndef HAVE_WINDOWS
         fchmod(fd, 0777);
 #endif
 
@@ -55,7 +55,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables"))
             // port presumably already in use, try another one
             continue;
 
-#ifndef WIN32
+#ifndef HAVE_WINDOWS
         fchmod(fd, 0777);
 #endif
         REQUIRE(listen(fd, SOMAXCONN) >= 0);
@@ -69,7 +69,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables"))
     CHECK_EQ(result.get<std::string>(0, "state"), std::string("LISTEN"));
 
     // Clean up
-#ifdef WIN32
+#ifdef HAVE_WINDOWS
     closesocket(fd);
     WSACleanup();
 #else

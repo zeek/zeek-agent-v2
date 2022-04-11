@@ -147,7 +147,7 @@ std::string randomUUID() {
     return format("{}{}", base62_encode(p[0]), base62_encode(p[1]));
 }
 
-#ifdef WIN32
+#ifdef HAVE_WINDOWS
 
 int setenv(const char* name, const char* value, int overwrite) {
     if ( ! SetEnvironmentVariableA(name, value) )
@@ -170,7 +170,7 @@ TEST_SUITE("Helpers") {
     TEST_CASE("getenv") {
         CHECK_EQ(::zeek::agent::getenv(""), std::nullopt);
 
-#ifndef WIN32
+#ifndef HAVE_WINDOWS
         const auto home = ::zeek::agent::getenv("HOME");
 #else
         const auto home = ::zeek::agent::getenv("HOMEPATH");

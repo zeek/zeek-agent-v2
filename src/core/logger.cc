@@ -13,7 +13,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/stdout_sinks-inl.h>
 
-#ifndef WIN32
+#ifndef HAVE_WINDOWS
 
 #include <spdlog/sinks/syslog_sink.h>
 
@@ -48,7 +48,7 @@ Result<Nothing> zeek::agent::setGlobalLogger(options::LogType type, options::Log
             // TODO: Should log directly to oslog here. Use
             // https://github.com/L1MeN9Yu/Senna? Roll our own sink?
             sink = std::make_shared<spdlog::sinks::syslog_sink_mt>("zeek-agent", 0, LOG_USER, false);
-#elif defined(WIN32)
+#elif defined(HAVE_WINDOWS)
             // TODO: Where should Windows system logging go? The event log?
 #else
 #error "Unsupported platform in setGlobalLogger()"

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "autogen/config.h"
 #include "util/fmt.h"
 #include "util/result.h"
 
@@ -382,7 +383,7 @@ inline std::ostream& operator<<(std::ostream& out, const zeek::agent::Interval& 
 
 } // namespace std::chrono
 
-#ifdef WIN32
+#ifdef HAVE_WINDOWS
 
 extern int setenv(const char* name, const char* value, int overwrite);
 

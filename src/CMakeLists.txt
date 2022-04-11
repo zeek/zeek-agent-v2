@@ -2,7 +2,7 @@
 
 ### Setup compiler
 
-if ( WIN32 )
+if ( HAVE_WINDOWS )
     # We require C++20 on MSVC because designated-initializers don't exist in C++17 mode.
     set(CMAKE_CXX_STANDARD 20)
 else()
@@ -16,7 +16,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(CheckCompiler)
 include(CheckFunctions)
 
-if ( NOT WIN32 )
+if ( NOT HAVE_WINDOWS )
     if ( CMAKE_BUILD_TYPE STREQUAL "Debug" )
         add_compile_options(-O0)
     endif()
@@ -35,7 +35,7 @@ if ( HAVE_GCC )
     add_compile_options(-Wno-missing-field-initializers)
 endif ()
 
-if ( WIN32 )
+if ( HAVE_WINDOWS )
     # Keep min and max macros from being defined, which breaks std::min and std::max
     add_compile_options(/DNOMINMAX)
     # Reduce the amount of stuff that gets included with windows.h
@@ -57,7 +57,7 @@ endif ()
 if ( USE_SANITIZERS )
     add_compile_options(-fsanitize=${USE_SANITIZERS})
 
-    if ( NOT WIN32 )
+    if ( NOT HAVE_WINDOWS )
         # Recommended flags per https://github.com/google/sanitizers/wiki/AddressSanitizer
         # GCC vs clang: https://stackoverflow.com/a/47022141
         add_compile_options(-fno-omit-frame-pointer -fno-optimize-sibling-calls) # Removed -O1
@@ -102,7 +102,7 @@ if ( NOT HAVE_GETOPT_LONG )
     target_link_libraries(zeek-agent PRIVATE 3rdparty:3rdparty)
 endif()
 
-if ( WIN32 )
+if ( HAVE_WINDOWS )
     # Windows requires administrator rights for various things (especially getting process names in the socket module)
 #    set_target_properties(zeek-agent PROPERTIES LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\" /SUBSYSTEM:WINDOWS")
     target_link_libraries(zeek-agent PRIVATE ntdll)

@@ -6,6 +6,6 @@ if ( HAVE_POSIX )
     target_sources(zeek-agent PRIVATE files.posix.cc)
 endif ()
 
-if ( WIN32 )
+if ( HAVE_WINDOWS )
     target_sources(zeek-agent PRIVATE files.windows.cc)
 endif ()
