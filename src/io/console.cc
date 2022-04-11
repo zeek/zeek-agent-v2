@@ -351,6 +351,15 @@ void Console::scheduleStatementWithTermination(std::string stmt) { pimpl()->_sch
 void Console::start() {
     ZEEK_AGENT_DEBUG("console", "starting");
 
+#ifdef HAVE_WINDOWS
+    static const HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD flags;
+    GetConsoleMode(handle, &flags);
+    flags |= ENABLE_PROCESSED_OUTPUT;
+    flags |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(handle, flags);
+#endif
+
     pimpl()->init();
 
     pimpl()->_thread = std::make_unique<std::thread>([this]() {
