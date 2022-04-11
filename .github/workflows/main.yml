@@ -200,7 +200,6 @@ jobs:
           path: build/dist/${{env.ZA_TGZ}}
 
   debug_windows_2022:
-    name: debug-windows
     runs-on: windows-2022
     steps:
       - name: Checkout repository
@@ -216,7 +215,7 @@ jobs:
       - name: Build
         run: |
           cmake --version
-          cmake -S . -B build -A x64 -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_VERBOSE_MAKEFILE=ON -DOPENSSL_ROOT_DIR="C:\vcpkg\packages\openssl_x64-windows"
+          cmake -S . -B build -A x64 -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_VERBOSE_MAKEFILE=ON -DOPENSSL_ROOT_DIR="C:\Program Files\OpenSSL-Win64"
           cmake --build build --target install --config Debug --parallel 2
         shell: cmd
 
