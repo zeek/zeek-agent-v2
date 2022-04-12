@@ -35,6 +35,12 @@ extern std::vector<filesystem::path> glob(const filesystem::path& pattern, size_
 extern int setenv(const char* name, const char* value, int overwrite);
 
 /**
+ * Gets a variable from the environment, returning an unset optional if the
+ * variable isn't set.
+ */
+extern std::optional<std::string> getenv(const std::string& name);
+
+/**
  * Checks for whether the process is running with administrator rights.
  */
 extern bool runningAsAdmin();

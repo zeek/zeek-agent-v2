@@ -17,13 +17,6 @@
 
 using namespace zeek::agent;
 
-std::optional<std::string> zeek::agent::getenv(const std::string& name) {
-    if ( auto x = ::getenv(name.c_str()) )
-        return {x};
-    else
-        return {};
-}
-
 void zeek::agent::cannot_be_reached() { throw InternalError("code is executing that should not be reachable"); }
 
 std::string zeek::agent::tolower(const std::string& s) {
@@ -156,21 +149,6 @@ TEST_SUITE("Helpers") {
         }
         CHECK_EQ(i, 1);
     }
-
-    TEST_CASE("getenv") {
-        CHECK_EQ(::zeek::agent::getenv(""), std::nullopt);
-
-#ifndef HAVE_WINDOWS
-        const auto home = ::zeek::agent::getenv("HOME");
-#else
-        const auto home = ::zeek::agent::getenv("HOMEPATH");
-#endif
-        REQUIRE(home);
-        CHECK_FALSE(home->empty());
-
-        CHECK_EQ(::zeek::agent::getenv("TEST_ENV_DOES_NOT_EXIST"), std::nullopt);
-    }
-
 
     TEST_CASE("time") { CHECK_EQ(to_string(42_time), "1970-01-01-00-00-42"); }
 

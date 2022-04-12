@@ -103,12 +103,6 @@ inline std::string to_string(Interval t) {
     return std::string(b.str());
 }
 
-/**
- * Wrapper around `getenv(3)`, returning an unset optional if the environment
- * isn't set.
- */
-extern std::optional<std::string> getenv(const std::string& name);
-
 /** Aborts with an internal error saying we should not be where we are. */
 #if defined(_MSC_VER)
 __declspec(noreturn) extern void cannot_be_reached();

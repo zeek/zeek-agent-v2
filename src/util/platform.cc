@@ -6,6 +6,7 @@
 #include "core/logger.h"
 #include "fmt.h"
 #include "helpers.h"
+#include "testing.h"
 
 #include <pathfind.hpp>
 
@@ -34,6 +35,13 @@ std::vector<filesystem::path> platform::glob(const filesystem::path& pattern, si
 
 int platform::setenv(const char* name, const char* value, int overwrite) { return ::setenv(name, value, overwrite); }
 
+std::optional<std::string> platform::getenv(const std::string& name) {
+    if ( auto x = ::getenv(name.c_str()) )
+        return {x};
+    else
+        return {};
+}
+
 bool platform::runningAsAdmin() { return geteuid() != 0; }
 
 #endif
@@ -44,7 +52,7 @@ std::string platform::name() { return "Darwin"; }
 
 filesystem::path platform::configurationFile() {
     // TODO: These paths aren't necessarily right yet.
-    if ( auto home = getenv("HOME") )
+    if ( auto home = platform::getenv("HOME") )
         return filesystem::path(*home) / ".config" / "zeek-agent";
     else {
         filesystem::path exec = PathFind::FindExecutable();
@@ -56,7 +64,7 @@ filesystem::path platform::dataDirectory() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path dir;
 
-    if ( auto home = getenv("HOME") )
+    if ( auto home = platform::getenv("HOME") )
         dir = filesystem::path(*home) / ".cache" / "zeek-agent";
     else
         dir = "/var/run/org.zeek.agent";
@@ -85,7 +93,7 @@ filesystem::path platform::dataDirectory() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path dir;
 
-    if ( auto home = getenv("HOME") )
+    if ( auto home = platform::getenv("HOME") )
         dir = filesystem::path(*home) / ".cache" / "zeek-agent";
     else
         dir = "/var/run/zeek-agent";
@@ -119,7 +127,7 @@ filesystem::path platform::dataDirectory() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path dir;
 
-    if ( auto home = getenv("HOME") )
+    if ( auto home = platform::getenv("HOME") )
         dir = filesystem::path(*home) / ".cache" / "zeek-agent";
     else
         dir = "/var/run/zeek-agent";
@@ -157,6 +165,39 @@ int platform::setenv(const char* name, const char* value, int overwrite) {
     return 0;
 }
 
+extern std::optional<std::string> platform::getenv(const std::string& name) {
+    constexpr DWORD max_buffer_size = 32768; // From GetEnvironmentVariable's documentation
+    char* buf = NULL;
+    char* tmp = NULL;
+    DWORD ret = 1;
+    DWORD requested_size = 0;
+
+    while ( true ) {
+        tmp = reinterpret_cast<char*>(realloc(NULL, ret));
+        if ( ! tmp ) {
+            free(buf);
+            return std::nullopt;
+        }
+
+        buf = tmp;
+        requested_size = ret;
+
+        ret = GetEnvironmentVariableA(name.c_str(), buf, requested_size);
+        if ( ret == 0 ) {
+            free(buf);
+            return std::nullopt;
+        }
+
+        // If ret is less than the size, then we got a good value and can just return.
+        // Otherwise we need to expand the buffer and try again.
+        if ( ret < requested_size ) {
+            std::string value{buf};
+            free(buf);
+            return value;
+        }
+    }
+}
+
 struct SIDFreer {
     void operator()(PSID sid) { FreeSid(sid); }
 };
@@ -181,3 +222,19 @@ bool platform::runningAsAdmin() {
 }
 
 #endif
+
+TEST_SUITE("Platform") {
+    TEST_CASE("getenv") {
+        CHECK_EQ(platform::getenv(""), std::nullopt);
+
+#ifndef HAVE_WINDOWS
+        const auto home = platform::getenv("HOME");
+#else
+        const auto home = platform::getenv("HOMEPATH");
+#endif
+        REQUIRE(home);
+        CHECK_FALSE(home->empty());
+
+        CHECK_EQ(platform::getenv("TEST_ENV_DOES_NOT_EXIST"), std::nullopt);
+    }
+}
