@@ -6,7 +6,7 @@
 #include "core/database.h"
 #include "util/helpers.h"
 #include "util/platform.h"
-#include "util/windows-util.h"
+#include "util/platform.windows.h"
 
 #include <chrono>
 
@@ -18,6 +18,7 @@
 #include <broker/version.hh>
 
 using namespace zeek::agent;
+using namespace zeek::agent::platform::windows;
 using namespace zeek::agent::table;
 
 namespace {

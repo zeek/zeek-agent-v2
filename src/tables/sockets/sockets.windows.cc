@@ -8,7 +8,7 @@
 #include "core/table.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "util/windows-util.h"
+#include "util/platform.windows.h"
 
 // These have to remain in this order or the build fails.
 // clang-format off
@@ -18,6 +18,8 @@
 #include <winternl.h>
 #include <Psapi.h>
 // clang-format on
+
+using namespace zeek::agent::platform::windows;
 
 namespace zeek::agent::table {
 

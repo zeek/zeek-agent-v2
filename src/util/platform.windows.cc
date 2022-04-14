@@ -1,4 +1,4 @@
-#include "./windows-util.h"
+#include "./platform.windows.h"
 
 #include "core/logger.h"
 #include "util/fmt.h"
@@ -6,7 +6,7 @@
 
 #include <ztd/out_ptr/out_ptr.hpp>
 
-using namespace zeek::agent;
+using namespace zeek::agent::platform::windows;
 using namespace ztd::out_ptr;
 
 WMIManager& WMIManager::Get() {
@@ -51,7 +51,7 @@ void WMIManager::Shutdown() {
     locator.reset();
 }
 
-zeek::agent::WMIManager::IEnumWbemClassObjectPtr WMIManager::GetQueryEnumerator(const std::wstring& query) const {
+WMIManager::IEnumWbemClassObjectPtr WMIManager::GetQueryEnumerator(const std::wstring& query) const {
     auto b_query = make_bstr(query);
     IEnumWbemClassObjectPtr enumerator = nullptr;
     HRESULT res = cimv2_service->ExecQuery(wql.get(), b_query.get(), WBEM_FLAG_FORWARD_ONLY, NULL,

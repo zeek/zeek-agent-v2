@@ -11,7 +11,7 @@
 #ifndef HAVE_WINDOWS
 #include <netinet/in.h>
 #else
-#include "util/windows-util.h"
+#include "util/platform.windows.h"
 #endif
 
 using namespace zeek::agent;

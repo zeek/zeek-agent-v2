@@ -8,7 +8,7 @@
 #include "core/database.h"
 #include "core/logger.h"
 #include "util/fmt.h"
-#include "util/windows-util.h"
+#include "util/platform.windows.h"
 
 #include <iostream>
 #include <map>
@@ -18,6 +18,7 @@
 #include <ztd/out_ptr/out_ptr.hpp>
 
 using namespace zeek::agent;
+using namespace zeek::agent::platform::windows;
 using namespace zeek::agent::table;
 using namespace ztd::out_ptr;
 

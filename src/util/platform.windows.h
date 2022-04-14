@@ -13,7 +13,7 @@
 #include <WbemCli.h>
 // clang-format on
 
-namespace zeek::agent {
+namespace zeek::agent::platform::windows {
 
 using bstr_ptr = std::unique_ptr<OLECHAR, std::function<void(BSTR)>>;
 
@@ -116,4 +116,4 @@ private:
     bstr_ptr stdregprov = nullptr;
 };
 
-} // namespace zeek::agent
+} // namespace zeek::agent::platform::windows

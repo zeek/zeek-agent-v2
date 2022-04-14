@@ -17,11 +17,13 @@
 #include <iostream>
 #include <optional>
 
+using namespace zeek::agent;
+
 #ifdef HAVE_WINDOWS
-#include "util/windows-util.h"
+#include "util/platform.windows.h"
+using namespace zeek::agent::platform::windows;
 #endif
 
-using namespace zeek::agent;
 
 SignalManager* zeek::agent::signal_mgr = nullptr;
 signal::Handler* sigint;

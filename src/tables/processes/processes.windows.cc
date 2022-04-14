@@ -6,10 +6,12 @@
 #include "core/database.h"
 #include "core/table.h"
 #include "util/fmt.h"
-#include "util/windows-util.h"
+#include "util/platform.windows.h"
 
 #include <Psapi.h>
 #include <TlHelp32.h>
+
+using namespace zeek::agent::platform::windows;
 
 namespace zeek::agent::table {
 

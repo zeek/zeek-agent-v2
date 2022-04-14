@@ -9,5 +9,5 @@ target_sources(zeek-agent
 )
 
 if ( HAVE_WINDOWS )
-    target_sources(zeek-agent PRIVATE windows-util.cc)
+    target_sources(zeek-agent PRIVATE platform.windows.cc)
 endif ()

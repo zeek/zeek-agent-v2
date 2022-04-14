@@ -6,7 +6,9 @@
 
 #include "core/database.h"
 #include "core/table.h"
-#include "util/windows-util.h"
+#include "util/platform.windows.h"
+
+using namespace zeek::agent::platform::windows;
 
 namespace zeek::agent::table {
 

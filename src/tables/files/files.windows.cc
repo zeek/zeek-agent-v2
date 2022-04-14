@@ -8,11 +8,13 @@
 #include "util/fmt.h"
 #include "util/helpers.h"
 #include "util/platform.h"
-#include "util/windows-util.h"
+#include "util/platform.windows.h"
 
 #include <regex>
 
 #include <Shlwapi.h>
+
+using namespace zeek::agent::platform::windows;
 
 namespace zeek::agent::table {
 
