@@ -147,9 +147,8 @@ private:
     IWbemLocatorPtr locator = nullptr;
     IWbemServicesPtr cimv2_service = nullptr;
 
-    bstr_ptr cimv2_root = nullptr;
-    bstr_ptr wql = nullptr;
-    bstr_ptr stdregprov = nullptr;
+    BstrPtr cimv2_root = nullptr;
+    BstrPtr wql = nullptr;
 };
 
 } // namespace zeek::agent::platform::windows

@@ -10,6 +10,8 @@ using namespace zeek::agent;
 TEST_CASE_FIXTURE(test::TableFixture, "processes" * doctest::test_suite("Tables")) {
     useTable("processes");
 
+    std::string name = "zeek-agent";
+
     // We should be able to see ourselves.
 #ifdef HAVE_WINDOWS
     int ret = 0;
@@ -20,10 +22,9 @@ TEST_CASE_FIXTURE(test::TableFixture, "processes" * doctest::test_suite("Tables"
         FAIL("Failed to get path to executable: ", cond.message());
     }
 
-    auto result = query(format("SELECT pid from processes where name = \"{}\" AND pid = {}", filename, getpid()));
-#else
-    auto result = query(format("SELECT pid from processes WHERE name = \"zeek-agent\" AND pid = {}", getpid()));
+    name = filename;
 #endif
 
+    auto result = query(format("SELECT pid from processes WHERE name = \"{}\" AND pid = {}", name, getpid()));
     REQUIRE_EQ(result.rows.size(), 1);
 }

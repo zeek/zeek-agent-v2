@@ -17,7 +17,7 @@ public:
                 The table provides a list of all IP sockets that are open on
                 the endpoint at the time of the query.
                 )",
-            .platforms = { Platform::Darwin, Platform::Linux },
+            .platforms = { Platform::Darwin, Platform::Linux, Platform::Windows },
             .columns = {
                 {.name = "pid", .type = value::Type::Count, .summary = "ID of process holding socket"},
                 {.name = "process", .type = value::Type::Text, .summary = "name of process holding socket"},
