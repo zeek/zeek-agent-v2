@@ -27,6 +27,9 @@ namespace {
 // See the comment in getLogs() for info about this.
 constexpr int MAX_RECORDS_TO_READ = 50;
 
+// Maximum amount of time that a registry key handle should remain in the cache, in seconds.
+constexpr int MAX_REG_KEY_AGE = 600;
+
 enum class LogKind { System, Security };
 
 static std::string kindString(LogKind kind) {
@@ -84,6 +87,7 @@ private:
     LogHandle security{nullptr, 0, LogKind::Security};
 
     std::map<std::wstring, HMODULE> dll_cache;
+    std::map<std::wstring, std::pair<time_t, std::wstring>> message_file_cache;
 };
 
 database::RegisterTable<SystemLogsWindows> _;
@@ -220,48 +224,67 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
     entry.kind = kind;
 
     std::wstring source = reinterpret_cast<wchar_t*>(buffer + sizeof(*record));
-    entry.source = narrow_wstring(source);
+    entry.source = narrowWstring(source);
 
-    std::wstring key_name = L"SYSTEM\\CurrentControlSet\\Services\\Eventlog\\" + kind_wstring(kind) + L"\\" + source;
+    std::wstring key_name = L"SYSTEM\\CurrentControlSet\\Services\\Eventlog\\" + kindWstring(kind) + L"\\" + source;
 
     // TODO: we could potentially add some caching here to avoid needing to do this registry look up every
     // single time we come through here. Maybe something keyed off the key_name above.
-
-    RegKeyPtr key_handle;
-    wchar_t message_file[KEY_SIZE];
-
-    // Look in the registry for a key called EventMessageFile for the above directory. This key will store
-    // the path to a DLL used for formatting the strings from the event log entry.
-    DWORD res = RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_name.c_str(), 0, KEY_READ, out_ptr<HKEY>(key_handle));
-    if ( FAILED(res) ) {
-        std::error_condition cond = std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-        logger()->error(format("Failed open registry for key {}: {}", narrow_wstring(key_name), cond.message()));
-        return entry;
+    time_t now = time(NULL);
+    auto cache_entry = message_file_cache.find(key_name);
+    if ( cache_entry != message_file_cache.end() ) {
+        if ( now >= cache_entry->second.first + MAX_REG_KEY_AGE ) {
+            message_file_cache.erase(cache_entry);
+            cache_entry = message_file_cache.end();
+        }
     }
-    else {
-        DWORD key_size = KEY_SIZE;
-        DWORD key_type;
-        res = RegQueryValueExW(key_handle.get(), L"EventMessageFile", NULL, &key_type,
-                               reinterpret_cast<LPBYTE>(message_file), &key_size);
 
-        // It's not really an error if we don't find the key here. It just means that we won't be able
-        // to format the strings. We still want the rest of the event log entry. Log something just so
-        // we know what happened.
-        if ( res != ERROR_SUCCESS ) {
-            if ( res != ERROR_FILE_NOT_FOUND ) {
-                std::error_condition cond =
-                    std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->error(format("Failed to find EventMessageFile registry entry for {}: {}",
-                                       narrow_wstring(key_name), cond.message()));
+    DWORD res;
+    std::wstring message_file_str;
+    if ( cache_entry == message_file_cache.end() ) {
+        RegKeyPtr key_handle;
+        wchar_t message_file[KEY_SIZE];
+
+        // Look in the registry for a key called EventMessageFile for the above directory. This key will store
+        // the path to a DLL used for formatting the strings from the event log entry.
+        res = RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_name.c_str(), 0, KEY_READ, out_ptr<HKEY>(key_handle));
+        if ( FAILED(res) ) {
+            std::error_condition cond =
+                std::system_category().default_error_condition(static_cast<int>(GetLastError()));
+            logger()->warn(format("Failed open registry for key {}: {}", narrowWstring(key_name), cond.message()));
+            return entry;
+        }
+        else {
+            DWORD key_size = KEY_SIZE;
+            DWORD key_type;
+            res = RegQueryValueExW(key_handle.get(), L"EventMessageFile", NULL, &key_type,
+                                   reinterpret_cast<LPBYTE>(message_file), &key_size);
+
+            // It's not really an error if we don't find the key here. It just means that we won't be able
+            // to format the strings. We still want the rest of the event log entry. Log something just so
+            // we know what happened.
+            if ( res != ERROR_SUCCESS ) {
+                if ( res != ERROR_FILE_NOT_FOUND ) {
+                    std::error_condition cond =
+                        std::system_category().default_error_condition(static_cast<int>(GetLastError()));
+                    logger()->warn(format("Failed to find EventMessageFile registry entry for {}: {}",
+                                          narrowWstring(key_name), cond.message()));
+                }
             }
         }
+
+        message_file_str = message_file;
+        message_file_cache.insert_or_assign(key_name, make_pair(now, message_file_str));
+    }
+    else {
+        message_file_str = cache_entry->second.second;
     }
 
     wchar_t formatted[KEY_SIZE];
 
     // The filename from the registry entry might have things like %SYSTEMROOT% in it. Calling ExpandEnvironementStrings
     // will expand any of those into the value stored in the matching environment variables.
-    res = ExpandEnvironmentStringsW(message_file, formatted, KEY_SIZE);
+    res = ExpandEnvironmentStringsW(message_file_str.c_str(), formatted, KEY_SIZE);
     if ( res == 0 ) {
         std::error_condition cond = std::system_category().default_error_condition(static_cast<int>(GetLastError()));
         logger()->warn(format("Failed to expand strings for {}: {}", narrowWstring(message_file_str), cond.message()));
