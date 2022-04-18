@@ -60,7 +60,7 @@ static std::string get_full_path(const std::string& pattern, const char* filenam
 }
 
 std::pair<std::string, std::vector<filesystem::path>> FilesBase::expandPaths(const std::vector<table::Argument>& args) {
-    logger()->error("FilesBase::expandPaths is not implemented on Windows");
+    logger()->warn("FilesBase::expandPaths is not implemented on Windows");
     return {};
 }
 
@@ -89,19 +89,10 @@ std::vector<Value> FilesListWindows::buildFileRow(const std::string& pattern, co
         DWORD file_type = FILE_TYPE_UNKNOWN;
         HandlePtr file_handle{CreateFileA(full_path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL)};
 
-        if ( file_handle.get() != INVALID_HANDLE_VALUE ) {
-            file_type = GetFileType(file_handle.get());
-            if ( file_type == FILE_TYPE_UNKNOWN && GetLastError() != NO_ERROR ) {
-                std::error_condition cond =
-                    std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->error(
-                    format("Failed to get file type for {}: {} ({})", full_path, cond.message(), cond.value()));
-            }
-        }
-        else {
+        if ( file_handle.get() == INVALID_HANDLE_VALUE ) {
             std::error_condition cond =
                 std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-            logger()->error(
+            logger()->warn(
                 format("Couldn't open file {} to check for type: {} ({})", full_path, cond.message(), cond.value()));
         }
 
@@ -156,7 +147,7 @@ std::vector<std::vector<Value>> FilesListWindows::snapshot(const std::vector<tab
             if ( GetLastError() != ERROR_NO_MORE_FILES ) {
                 std::error_condition cond =
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->error(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
+                logger()->warn(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
             }
         }
     }
@@ -210,7 +201,7 @@ std::vector<std::vector<Value>> FilesLinesWindows::snapshot(const std::vector<ta
             if ( GetLastError() != ERROR_NO_MORE_FILES ) {
                 std::error_condition cond =
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->error(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
+                logger()->warn(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
             }
         }
     }
@@ -306,7 +297,7 @@ std::vector<std::vector<Value>> FilesColumnsWindows::snapshot(const std::vector<
             if ( GetLastError() != ERROR_NO_MORE_FILES ) {
                 std::error_condition cond =
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->error(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
+                logger()->warn(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
             }
         }
     }

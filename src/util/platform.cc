@@ -143,7 +143,7 @@ filesystem::path platform::dataDirectory() {
 bool platform::isTTY() { return true; }
 
 std::vector<filesystem::path> platform::glob(const filesystem::path& pattern, size_t max) {
-    logger()->error("platform::glob is not implemented on Windows");
+    logger()->warn("platform::glob is not implemented on Windows");
     return {};
 }
 

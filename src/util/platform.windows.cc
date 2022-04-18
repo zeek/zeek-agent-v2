@@ -63,7 +63,7 @@ WMIManager::IEnumWbemClassObjectPtr WMIManager::GetQueryEnumerator(const std::ws
             BSTR description = NULL;
             result = error->GetDescription(&description);
             if ( SUCCEEDED(result) && description ) {
-                logger()->debug(format("Failed to fetch WMI data: {}", narrow_wstring(description)));
+                ZEEK_AGENT_DEBUG("WMIManager", "Failed to fetch WMI data: {}", narrowWstring(description));
             }
         }
 

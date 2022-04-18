@@ -430,8 +430,7 @@ Result<Nothing> Configuration::read(const filesystem::path& path) {
 }
 
 Result<Nothing> Configuration::read(std::istream& in, const filesystem::path& path) {
-    logger()->debug(::zeek::agent::format("[{}] ", "configuration") +
-                    ::zeek::agent::format("reading stream associated with file {}", path.string()));
+    ZEEK_AGENT_DEBUG("configuration", "reading stream associated with file {}", path.string());
     return pimpl()->read(in, path);
 }
 

@@ -92,7 +92,7 @@ void SystemLogsWindows::activate() {
     system.handle = EventLogPtr{OpenEventLog(NULL, "System")};
     if ( ! system.handle ) {
         std::error_condition cond = std::system_category().default_error_condition(GetLastError());
-        logger()->info(format("Failed to open System event log: {}", cond.message()));
+        ZEEK_AGENT_DEBUG("SystemLogsWindows", "Failed to open System event log: {}", cond.message());
     }
 
     // The system log requires elevated privileges to open. Right now, it'll just log something if it
@@ -100,7 +100,7 @@ void SystemLogsWindows::activate() {
     security.handle = EventLogPtr{OpenEventLog(NULL, "Security")};
     if ( ! security.handle ) {
         std::error_condition cond = std::system_category().default_error_condition(GetLastError());
-        logger()->info(format("Failed to open Security event log: {}", cond.message()));
+        ZEEK_AGENT_DEBUG("SystemLogsWindows", "Failed to open Security event log: {}", cond.message());
     }
 }
 
@@ -108,7 +108,7 @@ void SystemLogsWindows::deactivate() {
     system.handle.reset();
     security.handle.reset();
 
-    logger()->debug(format("SystemLogsWindows: {} entries in dll cache at shutdown", dll_cache.size()));
+    ZEEK_AGENT_DEBUG("SystemLogsWindows", "{} entries in dll cache at shutdown", dll_cache.size());
     for ( auto& [key, library] : dll_cache )
         FreeLibrary(library);
 
@@ -175,7 +175,7 @@ void SystemLogsWindows::getLogs(LogHandle& log_handle, std::vector<LogEntry>& re
             }
             else if ( status != ERROR_HANDLE_EOF ) {
                 std::error_condition cond = std::system_category().default_error_condition(static_cast<int>(status));
-                logger()->debug(format("Failed to read the event log: {}", cond.message()));
+                ZEEK_AGENT_DEBUG("SystemLogsWindows", "Failed to read the event log: {}", cond.message());
                 break;
             }
         }
@@ -264,7 +264,7 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
     res = ExpandEnvironmentStringsW(message_file, formatted, KEY_SIZE);
     if ( res == 0 ) {
         std::error_condition cond = std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-        logger()->error(format("Failed to expand strings for {}: {}", narrow_wstring(message_file), cond.message()));
+        logger()->warn(format("Failed to expand strings for {}: {}", narrowWstring(message_file_str), cond.message()));
     }
 
     // Break up the strings from the record into an array of strings so we can
@@ -296,7 +296,7 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
             else {
                 std::error_condition cond =
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->error(format("Failed to load dll from {}: {}", narrow_wstring(filename), cond.message()));
+                logger()->warn(format("Failed to load dll from {}: {}", narrowWstring(filename), cond.message()));
             }
         }
 
@@ -308,7 +308,7 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
         if ( res == 0 && GetLastError() != ERROR_MR_MID_NOT_FOUND ) {
             std::error_condition cond =
                 std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-            logger()->error(format("Failed to format message: {}", narrow_wstring(filename), cond.message()));
+            logger()->warn(format("Failed to format message: {}", narrowWstring(filename), cond.message()));
         }
 
         if ( actual_message ) {
