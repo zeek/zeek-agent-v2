@@ -29,7 +29,7 @@ constexpr int MAX_RECORDS_TO_READ = 50;
 
 enum class LogKind { System, Security };
 
-static std::string kind_string(LogKind kind) {
+static std::string kindString(LogKind kind) {
     switch ( kind ) {
         case LogKind::System: return "System";
         case LogKind::Security: return "Security";
@@ -37,7 +37,7 @@ static std::string kind_string(LogKind kind) {
     }
 }
 
-static std::wstring kind_wstring(LogKind kind) {
+static std::wstring kindWstring(LogKind kind) {
     switch ( kind ) {
         case LogKind::System: return L"System";
         case LogKind::Security: return L"Security";
@@ -128,7 +128,7 @@ void SystemLogsWindows::poll() {
     int count = 0;
     for ( const auto& log : logs ) {
         Value t = Time(std::chrono::time_point<std::chrono::system_clock>(std::chrono::seconds(log.ts)));
-        Value id = format("{} {}", kind_string(log.kind), log.id);
+        Value id = format("{} {}", kindString(log.kind), log.id);
         newEvent({t, log.source, log.priority, log.message, id});
         if ( ++count > MAX_RECORDS_TO_READ )
             break;
@@ -312,7 +312,7 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
         }
 
         if ( actual_message ) {
-            entry.message = narrow_wstring(std::wstring(actual_message));
+            entry.message = narrowWstring(std::wstring(actual_message));
             LocalFree(actual_message);
             break;
         }
@@ -323,7 +323,7 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
     // from the event.
     if ( entry.message.empty() ) {
         auto trans =
-            transform(all_strings, [](const wchar_t* s) -> std::string { return narrow_wstring(std::wstring(s)); });
+            transform(all_strings, [](const wchar_t* s) -> std::string { return narrowWstring(std::wstring(s)); });
         entry.message = join(trans, ", ");
     }
 

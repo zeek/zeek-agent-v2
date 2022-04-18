@@ -31,14 +31,13 @@ WMIManager::WMIManager() {
         return;
 
     IWbemServicesPtr cimv2{nullptr};
-    cimv2_root = make_bstr(L"root\\CIMV2");
+    cimv2_root = makeBstr(L"root\\CIMV2");
     res = loc->ConnectServer(cimv2_root.get(), NULL, NULL, NULL, WBEM_FLAG_CONNECT_USE_MAX_WAIT, NULL, NULL,
                              out_ptr<IWbemServicesPtr::pointer>(cimv2));
     if ( FAILED(res) || ! cimv2 )
         return;
 
-    wql = make_bstr(L"WQL");
-    stdregprov = make_bstr(L"StdRegProv");
+    wql = makeBstr(L"WQL");
 
     locator = std::move(loc);
     cimv2_service = std::move(cimv2);
@@ -52,7 +51,7 @@ void WMIManager::Shutdown() {
 }
 
 WMIManager::IEnumWbemClassObjectPtr WMIManager::GetQueryEnumerator(const std::wstring& query) const {
-    auto b_query = make_bstr(query);
+    auto b_query = makeBstr(query);
     IEnumWbemClassObjectPtr enumerator = nullptr;
     HRESULT res = cimv2_service->ExecQuery(wql.get(), b_query.get(), WBEM_FLAG_FORWARD_ONLY, NULL,
                                            out_ptr<IEnumWbemClassObject*>(enumerator));
@@ -101,7 +100,7 @@ std::string WMIManager::GetOSVersion() const {
             version += var.bstrVal;
     }
 
-    return narrow_wstring(version);
+    return narrowWstring(version);
 }
 
 std::vector<AccountInfo> WMIManager::GetUserData() const {
@@ -137,17 +136,17 @@ void WMIManager::GetUserData(const std::wstring& key, bool system_accounts, std:
         VARIANT var;
         VariantInit(&var);
         if ( SUCCEEDED(obj->Get(L"Caption", 0, &var, NULL, NULL)) && var.vt == VT_BSTR )
-            info.name = narrow_wstring(var.bstrVal);
+            info.name = narrowWstring(var.bstrVal);
         VariantClear(&var);
 
         VariantInit(&var);
         if ( SUCCEEDED(obj->Get(L"Name", 0, &var, NULL, NULL)) && var.vt == VT_BSTR )
-            info.full_name = narrow_wstring(var.bstrVal);
+            info.full_name = narrowWstring(var.bstrVal);
         VariantClear(&var);
 
         VariantInit(&var);
         if ( SUCCEEDED(obj->Get(L"SID", 0, &var, NULL, NULL)) && var.vt == VT_BSTR )
-            info.sid = narrow_wstring(var.bstrVal);
+            info.sid = narrowWstring(var.bstrVal);
         VariantClear(&var);
 
         std::wstring path_query = format(L"SELECT LocalPath from Win32_UserProfile WHERE SID = \"{}\"", var.bstrVal);
@@ -159,7 +158,7 @@ void WMIManager::GetUserData(const std::wstring& key, bool system_accounts, std:
                                  reinterpret_cast<ULONG*>(&num_elems)) != WBEM_S_FALSE ) {
                 VariantInit(&var);
                 if ( SUCCEEDED(user_obj->Get(L"LocalPath", 0, &var, NULL, NULL)) && var.vt == VT_BSTR )
-                    info.home_directory = narrow_wstring(var.bstrVal);
+                    info.home_directory = narrowWstring(var.bstrVal);
                 VariantClear(&var);
             }
         }

@@ -112,8 +112,8 @@ std::vector<Value> FilesListWindows::buildFileRow(const std::string& pattern, co
     }
 
     Value mode = format("{:o}", temp_mode);
-    Value size = combine_high_low(data.nFileSizeHigh, data.nFileSizeLow);
-    Value mtime = to_time(convert_filetime(data.ftLastWriteTime));
+    Value size = combineHighLow(data.nFileSizeHigh, data.nFileSizeLow);
+    Value mtime = to_time(convertFiletime(data.ftLastWriteTime));
 
     return {pattern, path, type, {}, {}, mode, mtime, size};
 }

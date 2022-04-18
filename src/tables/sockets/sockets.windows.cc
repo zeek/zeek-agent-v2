@@ -79,7 +79,7 @@ void SocketsWindows::getTCPSockets(std::vector<Socket>& result) const {
     if ( (ret != NO_ERROR && ret != ERROR_INSUFFICIENT_BUFFER) || buffer_size < sizeof(MIB_TCPTABLE_OWNER_MODULE) )
         return;
 
-    auto table = make_unique_array<char>(buffer_size);
+    auto table = makeUniqueArray<char>(buffer_size);
     ret = GetExtendedTcpTable(table.get(), &buffer_size, FALSE, AF_INET, TCP_TABLE_OWNER_MODULE_ALL, 0);
     if ( ret != NO_ERROR )
         return;
@@ -115,7 +115,7 @@ void SocketsWindows::getTCP6Sockets(std::vector<Socket>& result) const {
     if ( (ret != NO_ERROR && ret != ERROR_INSUFFICIENT_BUFFER) || buffer_size < sizeof(MIB_TCP6TABLE_OWNER_MODULE) )
         return;
 
-    auto table = make_unique_array<char>(buffer_size);
+    auto table = makeUniqueArray<char>(buffer_size);
     ret = GetExtendedTcpTable(table.get(), &buffer_size, FALSE, AF_INET6, TCP_TABLE_OWNER_MODULE_ALL, 0);
     if ( ret != NO_ERROR )
         return;
@@ -151,7 +151,7 @@ void SocketsWindows::getUDPSockets(std::vector<Socket>& result) const {
     if ( ret != NO_ERROR && ret != ERROR_INSUFFICIENT_BUFFER )
         return;
 
-    auto table = make_unique_array<char>(buffer_size);
+    auto table = makeUniqueArray<char>(buffer_size);
     ret = GetExtendedUdpTable(table.get(), &buffer_size, FALSE, AF_INET, UDP_TABLE_OWNER_MODULE, 0);
     if ( ret != NO_ERROR )
         return;
@@ -181,7 +181,7 @@ void SocketsWindows::getUDP6Sockets(std::vector<Socket>& result) const {
     if ( ret != NO_ERROR && ret != ERROR_INSUFFICIENT_BUFFER )
         return;
 
-    auto table = make_unique_array<char>(buffer_size);
+    auto table = makeUniqueArray<char>(buffer_size);
     ret = GetExtendedUdpTable(table.get(), &buffer_size, FALSE, AF_INET6, UDP_TABLE_OWNER_MODULE, 0);
     if ( ret != NO_ERROR )
         return;

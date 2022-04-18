@@ -341,7 +341,7 @@ inline bool endsWith(const std::string& s, const std::string& suffix) {
  * @param init whether or not to initialize the memory stored in the array to zeros after creation.
  */
 template<typename C>
-auto make_unique_array(size_t len = 0, bool init = true) {
+auto makeUniqueArray(size_t len = 0, bool init = true) {
     if ( len == 0 )
         return std::unique_ptr<C[]>{nullptr};
 
@@ -361,7 +361,6 @@ zeek::agent::Result<int64_t> parseVersion(std::string v);
 
 /** Creates a new random UUID, encoded in base62 ASCII. */
 std::string randomUUID();
-
 
 namespace std::chrono { // NOLINT(cert-dcl58-cpp)
 

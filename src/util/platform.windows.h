@@ -15,17 +15,29 @@
 
 namespace zeek::agent::platform::windows {
 
-using bstr_ptr = std::unique_ptr<OLECHAR, std::function<void(BSTR)>>;
+/** Unique_ptr template containing a BSTR pointer, can store a deletion function for managing lifetime. */
+using BstrPtr = std::unique_ptr<OLECHAR, std::function<void(BSTR)>>;
 
-inline bstr_ptr make_bstr(const wchar_t* str) {
+/**
+ * Creates a unique_ptr containing a copy of a wchar_t string. Sets the deletion method to
+ * SysFreeString() to properly clean up the data.
+ */
+inline BstrPtr makeBstr(const wchar_t* str) {
     return {::SysAllocString(str), [](BSTR b) { ::SysFreeString(b); }};
 }
 
-inline bstr_ptr make_bstr(const std::wstring& str) {
+/**
+ * Creates a unique_ptr containing a copy of a std::wstring string. Sets the deletion method to
+ * SysFreeString() to properly clean up the data.
+ */
+inline BstrPtr makeBstr(const std::wstring& str) {
     return {::SysAllocString(str.c_str()), [](BSTR b) { ::SysFreeString(b); }};
 }
 
-inline int64_t combine_high_low(DWORD high, DWORD low) {
+/**
+ * Combines two values into the high and low 32 bit portions of a 64-bit number.
+ */
+inline int64_t combineHighLow(DWORD high, DWORD low) {
     LARGE_INTEGER li{.LowPart = low, .HighPart = static_cast<LONG>(high)};
     return li.QuadPart;
 }
@@ -35,7 +47,7 @@ inline int64_t combine_high_low(DWORD high, DWORD low) {
  * since January 1, 1601 (UTC). This method converts it to the number of seconds
  * since POSIX epoch.
  */
-inline int64_t convert_filetime(const FILETIME& t) {
+inline int64_t convertFiletime(const FILETIME& t) {
     constexpr int64_t TICKS_PER_SECOND = 10000000;
     constexpr int64_t EPOCH_DIFFERENCE = 11644473600LL;
 
@@ -49,7 +61,10 @@ inline int64_t convert_filetime(const FILETIME& t) {
     return date.QuadPart / TICKS_PER_SECOND;
 }
 
-inline std::string narrow_wstring(const std::wstring& str) {
+/**
+ * Narrows a std::wstring to a std::string.
+ */
+inline std::string narrowWstring(const std::wstring& str) {
     const wchar_t* from = str.c_str();
     std::size_t len = str.size();
 
@@ -73,8 +88,15 @@ struct HandleCloser {
 };
 using HandlePtr = std::unique_ptr<std::remove_pointer<HANDLE>::type, HandleCloser>;
 
+/**
+ * Manager class for dealing with the Windows Management Instrumentation system in Windows.
+ * This class implements various helper methods for requesting data from WMI.
+ */
 class WMIManager {
 public:
+    /**
+     * Singleton interface to WMIManager.
+     */
     static WMIManager& Get();
 
     ~WMIManager();
@@ -84,12 +106,26 @@ public:
     WMIManager& operator=(const WMIManager&) = delete;
     WMIManager& operator=(WMIManager&&) = delete;
 
+    /**
+     * Shuts down the Manager and closes all open connections to WMI. This should
+     * only be called during shutdown of ZeekAgent.
+     */
     void Shutdown();
 
+    /**
+     * Returns the current OS version in string form with the format "Microsoft Windows major.minor.buildnumber".
+     */
     std::string GetOSVersion() const;
+
+    /**
+     * Returns a list of the users on the system.
+     */
     std::vector<AccountInfo> GetUserData() const;
 
 private:
+    /**
+     * Collection of deleter operations for various WMI types. Used by the unique_ptr definitions.
+     */
     struct WMIDeleter {
         void operator()(IWbemLocator* l) const { l->Release(); }
         void operator()(IWbemServices* s) const { s->Release(); }
