@@ -239,6 +239,7 @@ TEST_SUITE("Helpers") {
 
     TEST_CASE("split") {
         using str_vec = std::vector<std::string>;
+        using wstr_vec = std::vector<std::wstring>;
 
         SUBCASE("w/ delim") {
             CHECK_EQ(split("a:b:c", ""), str_vec({"a:b:c"}));
@@ -267,6 +268,24 @@ TEST_SUITE("Helpers") {
             CHECK_EQ(split(""), str_vec{});
             CHECK_EQ(split("\t\v\n\r"), str_vec{});
             CHECK_EQ(split(" \n "), str_vec{});
+        }
+
+        SUBCASE("wchar_t w/ delim") {
+            CHECK_EQ(split(L"a:b:c", L""), wstr_vec({L"a:b:c"}));
+            CHECK_EQ(split(L"", L""), wstr_vec({L""}));
+            CHECK_EQ(split(L"a:b:c", L":"), wstr_vec({L"a", L"b", L"c"}));
+            CHECK_EQ(split(L"a:b::c", L":"), wstr_vec({L"a", L"b", L"", L"c"}));
+            CHECK_EQ(split(L"a:b:::c", L":"), wstr_vec({L"a", L"b", L"", L"", L"c"}));
+            CHECK_EQ(split(L":a:b:c", L":"), wstr_vec({L"", L"a", L"b", L"c"}));
+            CHECK_EQ(split(L"::a:b:c", L":"), wstr_vec({L"", L"", L"a", L"b", L"c"}));
+            CHECK_EQ(split(L"a:b:c:", L":"), wstr_vec({L"a", L"b", L"c", L""}));
+            CHECK_EQ(split(L"a:b:c::", L":"), wstr_vec({L"a", L"b", L"c", L"", L""}));
+            CHECK_EQ(split(L"", L":"), wstr_vec({L""}));
+
+            CHECK_EQ(split(L"12345", L"1"), wstr_vec({L"", L"2345"}));
+            CHECK_EQ(split(L"12345", L"23"), wstr_vec{L"1", L"45"});
+            CHECK_EQ(split(L"12345", L"a"), wstr_vec{L"12345"});
+            CHECK_EQ(split(L"12345", L""), wstr_vec{L"12345"});
         }
     }
 
@@ -300,5 +319,15 @@ TEST_SUITE("Helpers") {
         CHECK(! parseVersion(""));
         CHECK(! parseVersion("x.x.x"));
         CHECK(! parseVersion("x.x"));
+    }
+
+    TEST_CASE("startsWith") {
+        CHECK(startsWith("abcd", "ab"));
+        CHECK(! startsWith("abcd", "cd"));
+    }
+
+    TEST_CASE("endsWith") {
+        CHECK(endsWith("abcd", "cd"));
+        CHECK(! endsWith("abcd", "ab"));
     }
 }
