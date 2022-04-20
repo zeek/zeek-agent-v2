@@ -217,14 +217,14 @@ std::string SocketsWindows::getProcessFromPID(unsigned long pid) const {
     HandlePtr process{OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid)};
     if ( ! process ) {
         std::error_condition cond = std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-        logger()->warn(format("SocketsWindows: Failed to open process handle for pid {}: {}", pid, cond.message()));
+        ZEEK_AGENT_DEBUG("SocketsWindows", "Failed to open process handle for pid {}: {}", pid, cond.message());
         return {};
     }
 
     char name[MAX_PATH];
     if ( GetProcessImageFileNameA(process.get(), name, sizeof(name)) == 0 ) {
         std::error_condition cond = std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-        logger()->warn(format("SocketsWindows: Failed to get process name for pid {}: {}", pid, cond.message()));
+        ZEEK_AGENT_DEBUG("SocketsWindows", "Failed to get process name for pid {}: {}", pid, cond.message());
         return {};
     }
 

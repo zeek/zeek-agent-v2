@@ -95,6 +95,9 @@ std::vector<Value> FilesListWindows::buildFileRow(const std::string& pattern, co
             logger()->warn(
                 format("Couldn't open file {} to check for type: {} ({})", full_path, cond.message(), cond.value()));
         }
+        else {
+            file_type = GetFileType(file_handle.get());
+        }
 
         // A few fields here don't match the counterparts on Linux. Added is 'remote',
         // and missing is 'block' and 'socket'.

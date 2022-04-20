@@ -285,7 +285,7 @@ Result<Nothing> Configuration::Implementation::initFromArgv(std::vector<std::str
 Result<Nothing> Configuration::Implementation::read(const filesystem::path& path) {
     auto in = std::ifstream(path);
     if ( ! in.is_open() )
-        return result::Error(format("cannot open configuration file {}", path.string()));
+        return result::Error(format("cannot open configuration file {}: {}", path.string(), strerror(errno)));
 
     return read(in, path);
 }

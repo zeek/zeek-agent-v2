@@ -50,7 +50,7 @@ Result<Nothing> zeek::agent::setGlobalLogger(options::LogType type, options::Log
             sink = std::make_shared<spdlog::sinks::syslog_sink_mt>("zeek-agent", 0, LOG_USER, false);
 #elif defined(HAVE_WINDOWS)
             // TODO: Where should Windows system logging go? The event log?
-            logger()->warning("system logging currently not supported on Windows");
+            logger()->warn("system logging currently not supported on Windows");
 #else
 #error "Unsupported platform in setGlobalLogger()"
 #endif
@@ -61,6 +61,7 @@ Result<Nothing> zeek::agent::setGlobalLogger(options::LogType type, options::Log
                 return result::Error("file logging requires a path");
 
             sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->native());
+            break;
     }
 
     global_logger = std::make_shared<spdlog::logger>("Zeek Agent", std::move(sink));
