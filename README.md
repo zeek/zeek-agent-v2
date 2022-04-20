@@ -242,7 +242,7 @@ accounts.`
 </details>
 
 <details>
-<summary><tt>files_list:</tt> file system paths matching a pattern [Linux, macOS, windows]</summary><br />
+<summary><tt>files_list:</tt> file system paths matching a pattern [Linux, Windows, macOS]</summary><br />
 
 The table provides a list of all files on the endpoint's file
 system that match a custom glob pattern. The pattern gets
@@ -271,7 +271,7 @@ to match on absolute file paths.
 </details>
 
 <details>
-<summary><tt>processes:</tt> current processes [Linux, macOS, windows]</summary><br />
+<summary><tt>processes:</tt> current processes [Linux, Windows, macOS]</summary><br />
 
 The table provides a list of all processes that are running on
 the endpoint at the time of the query.
@@ -294,7 +294,7 @@ the endpoint at the time of the query.
 </details>
 
 <details>
-<summary><tt>sockets:</tt> open network sockets [Linux, macOS, windows]</summary><br />
+<summary><tt>sockets:</tt> open network sockets [Linux, Windows, macOS]</summary><br />
 
 The table provides a list of all IP sockets that are open on
 the endpoint at the time of the query.
@@ -313,7 +313,7 @@ the endpoint at the time of the query.
 </details>
 
 <details>
-<summary><tt>system_logs_events:</tt> log messages recorded by the operating systems [Linux, macOS, windows]</summary><br />
+<summary><tt>system_logs_events:</tt> log messages recorded by the operating systems [Linux, Windows, macOS]</summary><br />
 
 The table provides access to log messages recorded by the
 operating system.
@@ -337,7 +337,7 @@ New messages will be returned with the next query.
 </details>
 
 <details>
-<summary><tt>users:</tt> user accounts [Linux, macOS, windows]</summary><br />
+<summary><tt>users:</tt> user accounts [Linux, Windows, macOS]</summary><br />
 
 The table provides a list of all user accounts that exist on
 the endpoint, retrieved at the time of the query from the
@@ -357,7 +357,7 @@ operating system.
 </details>
 
 <details>
-<summary><tt>zeek_agent:</tt> Zeek Agent information [Linux, macOS, windows]</summary><br />
+<summary><tt>zeek_agent:</tt> Zeek Agent information [Linux, Windows, macOS]</summary><br />
 
 An internal table providing information about the Zeek
 Agent process and the endpoint it's running on.
