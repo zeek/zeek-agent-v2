@@ -710,6 +710,7 @@ struct Pimpl<Zeek>::Implementation {
     // Performs periodic operations. Must be called reguarly from external.
     void poll();
 
+    // Returns current configuration object.
     const auto& options() const;
 
     // Helper to prepare Broker config object
@@ -867,7 +868,6 @@ TEST_SUITE("Zeek") {
             // GCC may report "p.peer.network->port" as potentially
             // uninitialized. Not under our control so ignore. Note that this
             // needs to work with clang-tidy too even when compiler is GCC.
-
 #ifndef HAVE_WINDOWS
 #if ! defined(__has_warning) // Clang always has this
 #define __suppress_warning

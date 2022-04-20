@@ -14,10 +14,10 @@
 #include <spdlog/sinks/stdout_sinks-inl.h>
 
 #ifndef HAVE_WINDOWS
-
 #include <spdlog/sinks/syslog_sink.h>
+#endif
 
-#else
+#ifdef HAVE_WINDOWS
 #define STDOUT_FILENO 0
 #endif
 
@@ -50,6 +50,7 @@ Result<Nothing> zeek::agent::setGlobalLogger(options::LogType type, options::Log
             sink = std::make_shared<spdlog::sinks::syslog_sink_mt>("zeek-agent", 0, LOG_USER, false);
 #elif defined(HAVE_WINDOWS)
             // TODO: Where should Windows system logging go? The event log?
+            logger()->warning("system logging currently not supported on Windows");
 #else
 #error "Unsupported platform in setGlobalLogger()"
 #endif

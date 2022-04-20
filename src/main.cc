@@ -21,9 +21,7 @@ using namespace zeek::agent;
 
 #ifdef HAVE_WINDOWS
 #include "util/platform.windows.h"
-using namespace zeek::agent::platform::windows;
 #endif
-
 
 SignalManager* zeek::agent::signal_mgr = nullptr;
 signal::Handler* sigint;
@@ -86,7 +84,7 @@ int main(int argc, char** argv) {
         }
 
 #ifdef HAVE_WINDOWS
-        WMIManager::Get().Shutdown();
+        platform::windows::WMIManager::Get().Shutdown();
 #endif
 
         delete sigint;

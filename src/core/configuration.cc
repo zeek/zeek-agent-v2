@@ -274,8 +274,6 @@ Result<Nothing> Configuration::Implementation::initFromArgv(std::vector<std::str
     if ( config->config_file ) {
         auto rc = read(*config->config_file);
         if ( ! rc )
-            // NOTE: This could use native(), but we'd have to pass a wide string for the format and then
-            // result::Error would need to handle it as well.
             return result::Error(format("error reading {}: {}", config->config_file->string(), rc.error()));
     }
     else

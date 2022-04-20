@@ -104,7 +104,7 @@ inline std::string to_string(Interval t) {
 }
 
 /** Aborts with an internal error saying we should not be where we are. */
-#if defined(_MSC_VER)
+#ifdef HAVE_MSVC
 __declspec(noreturn) extern void cannot_be_reached();
 #else
 extern void cannot_be_reached() __attribute__((noreturn));

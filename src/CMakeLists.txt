@@ -36,9 +36,9 @@ if ( HAVE_GCC )
 endif ()
 
 if ( HAVE_WINDOWS )
-    # Keep min and max macros from being defined, which breaks std::min and std::max
+    # Keep min and max macros from being defined, which breaks std::min and std::max.
     add_compile_options(/DNOMINMAX)
-    # Reduce the amount of stuff that gets included with windows.h
+    # Reduce the amount of stuff that gets included with windows.h.
     add_compile_options(/DWIN32_LEAN_AND_MEAN)
 
     add_compile_options($<$<BOOL:${USE_WERROR}>:/WX>)

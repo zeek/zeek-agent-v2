@@ -242,7 +242,7 @@ accounts.`
 </details>
 
 <details>
-<summary><tt>files_list:</tt> file system paths matching a pattern [Linux, macOS, windows]</summary><br />
+<summary><tt>files_list:</tt> file system paths matching a pattern [Linux, macOS]</summary><br />
 
 The table provides a list of all files on the endpoint's file
 system that match a custom glob pattern. The pattern gets
@@ -271,7 +271,7 @@ to match on absolute file paths.
 </details>
 
 <details>
-<summary><tt>processes:</tt> current processes [Linux, macOS, windows]</summary><br />
+<summary><tt>processes:</tt> current processes [Linux, macOS]</summary><br />
 
 The table provides a list of all processes that are running on
 the endpoint at the time of the query.
@@ -285,7 +285,7 @@ the endpoint at the time of the query.
 | `gid` | count | effective group ID |
 | `ruid` | count | real user ID |
 | `rgid` | count | real group ID |
-| `priority` | text | process priority (representation is platform-specific) |
+| `priority` | text | process priority (higher is more) |
 | `startup` | interval | time process started |
 | `vsize` | count | virtual memory size |
 | `rsize` | count | resident memory size |
@@ -294,7 +294,7 @@ the endpoint at the time of the query.
 </details>
 
 <details>
-<summary><tt>sockets:</tt> open network sockets [Linux, macOS, windows]</summary><br />
+<summary><tt>sockets:</tt> open network sockets [Linux, macOS]</summary><br />
 
 The table provides a list of all IP sockets that are open on
 the endpoint at the time of the query.
@@ -313,7 +313,7 @@ the endpoint at the time of the query.
 </details>
 
 <details>
-<summary><tt>system_logs_events:</tt> log messages recorded by the operating systems [Linux, macOS, windows]</summary><br />
+<summary><tt>system_logs_events:</tt> log messages recorded by the operating systems [Linux, macOS]</summary><br />
 
 The table provides access to log messages recorded by the
 operating system.
@@ -333,11 +333,11 @@ New messages will be returned with the next query.
 | `process` | text | process name |
 | `level` | text | severity level |
 | `message` | text | log message |
-| `eventid` | text | platform-specific identifier for the log event |
+| `eventid` | text | log message |
 </details>
 
 <details>
-<summary><tt>users:</tt> user accounts [Linux, macOS, windows]</summary><br />
+<summary><tt>users:</tt> user accounts [Linux, macOS]</summary><br />
 
 The table provides a list of all user accounts that exist on
 the endpoint, retrieved at the time of the query from the
@@ -349,7 +349,7 @@ operating system.
 | `full_name` | text | full name |
 | `is_admin` | bool | 1 if user has adminstrative privileges |
 | `is_system` | bool | 1 if user correponds to OS service |
-| `uid` | text | user ID (can be alpha-numeric on some platforms) |
+| `uid` | text | user ID |
 | `gid` | count | group ID |
 | `home` | text | path to home directory |
 | `shell` | text | path to default shell |
