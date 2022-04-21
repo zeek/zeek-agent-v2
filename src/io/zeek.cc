@@ -463,7 +463,7 @@ void BrokerConnection::processEvent(const broker::data_message& msg) {
                                    .requires_tables = std::move(requires_tables),
                                    .if_missing_tables = std::move(if_missing_tables),
                                    .terminate = false,
-                                   .cookie = *cookie,
+                                   .cookie = cookie,
                                }};
         } catch ( const std::exception& e ) {
             unexpectedEventArguments(zeek_instance_id, event);

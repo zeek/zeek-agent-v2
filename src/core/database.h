@@ -46,7 +46,7 @@ using Column = sqlite::Column;
 struct Result {
     std::vector<result::Column> columns; /**< the schema  */
     std::vector<result::Row> rows;       /**< set of rows forming the query result */
-    std::string cookie;                  /**< copy of cookie provided by caller along with the query */
+    std::optional<std::string> cookie;   /**< copy of cookie provided by caller along with the query */
     bool initial_result = true;          /**< true for the first result of subscription, false for subsequent diffs */
 
     /**
@@ -111,7 +111,8 @@ struct Query {
     std::set<std::string> if_missing_tables; /**< names of tables that must *not* be present for this query */
     bool terminate = false; /**< if true, terminate the Zeek Agent after this query's callback has executed */
     bool cancelled = false; /**< if true, cancelled and scheduled to be removed */
-    std::string cookie;     /**< arbitrary user-chosen string that will be copied into the result */
+    std::optional<std::string>
+        cookie; /**< arbitrary user-chosen string that will be copied into the result if provided */
     std::optional<query::CallbackResult> callback_result; /**< Callback to execute when result is available; will
                                  execute inside the thread driving the database's scheduler */
     std::optional<query::CallbackDone> callback_done;     /**< Callback to execute when query has fully finished; will
