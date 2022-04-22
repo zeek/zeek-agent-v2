@@ -569,7 +569,7 @@ static broker::data to_broker(const Value& v, const value::Type& t) {
 
             case value::Type::Port: {
                 const auto& p = std::get<Port>(v);
-                broker::port::protocol proto;
+                broker::port::protocol proto = broker::port::protocol::unknown;
                 switch ( p.protocol ) {
                     case port::Protocol::ICMP: proto = broker::port::protocol::icmp; break;
                     case port::Protocol::TCP: proto = broker::port::protocol::tcp; break;

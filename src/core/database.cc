@@ -482,7 +482,7 @@ TEST_SUITE("Database") {
 
     class TestTable : public Table {
     public:
-        TestTable(std::string name_postfix = "") : name_postfix(std::move(std::move(name_postfix))) {}
+        TestTable(std::string name_postfix = "") : name_postfix(std::move(name_postfix)) {}
         Schema schema() const override {
             return {.name = "test_table" + name_postfix,
                     .description = "test-description",
@@ -1005,8 +1005,8 @@ TEST_SUITE("Database") {
 
             auto query = Query{.sql_stmt = "SELECT * from test_table",
                                .requires_tables = {"DOES_NOT_EXIST"},
-                               .callback_result = std::move(callback_result),
-                               .callback_done = std::move(callback_done)};
+                               .callback_result = callback_result,
+                               .callback_done = callback_done};
 
             auto query_id = db.query(query);
             REQUIRE(query_id);

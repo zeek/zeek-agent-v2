@@ -106,7 +106,7 @@ std::vector<std::vector<Value>> ZeekAgentWindows::snapshot(const std::vector<tab
     Value id = options().agent_id;
     Value instance = options().instance_id;
     Value hostname = hostname_buffer.data();
-    Value address = addresses();
+    Value address = std::move(addresses());
     Value platform = platform::name();
     Value os_name = distribution();
     Value agent = options().version_number;

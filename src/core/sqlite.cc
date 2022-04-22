@@ -39,19 +39,19 @@ struct Parameter {
 
 // Captures one of our virtual tables.
 struct VTab {
-    struct ::sqlite3_vtab vtab;        // SQLite data structure for virtual table; must be 1st field
-    struct Cookie cookie;              // Cookie for access by  SQLite callbacks
+    struct ::sqlite3_vtab vtab {};     // SQLite data structure for virtual table; must be 1st field
+    struct Cookie cookie {};           // Cookie for access by  SQLite callbacks
     std::vector<Parameter> parameters; // Set of table parameters relevant during processing
 };
 
 // Captures the current position in a result set.
 struct Cursor {
-    struct ::sqlite3_vtab_cursor cursor;  // SQLite data structure for current cursor; must be first field
-    struct Cookie cookie;                 // Cookie for access by SQLite callbacks
-    struct VTab* vtab;                    // Links to virtual table cursor applies to
-    Schema schema;                        // copy of the virtual tables schema (duplicated here for faster access)
-    std::vector<std::vector<Value>> rows; // set of rows cursor iterates over
-    size_t current = 0;                   // current cursor position in `rows`
+    struct ::sqlite3_vtab_cursor cursor {}; // SQLite data structure for current cursor; must be first field
+    struct Cookie cookie {};                // Cookie for access by SQLite callbacks
+    struct VTab* vtab;                      // Links to virtual table cursor applies to
+    Schema schema;                          // copy of the virtual tables schema (duplicated here for faster access)
+    std::vector<std::vector<Value>> rows;   // set of rows cursor iterates over
+    size_t current = 0;                     // current cursor position in `rows`
 };
 
 template<>

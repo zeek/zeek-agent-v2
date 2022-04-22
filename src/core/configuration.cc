@@ -134,9 +134,9 @@ struct Pimpl<Configuration>::Implementation {
     // Sets a set of command line options.
     Result<Nothing> initFromArgv(std::vector<std::string> argv);
 
-    Options _options;                // options currently in effect
-    std::vector<std::string> _argv;  // command line options most recently provided.
-    options::LogLevel old_log_level; // original log level to restore later.
+    Options _options;                                         // options currently in effect
+    std::vector<std::string> _argv;                           // command line options most recently provided.
+    options::LogLevel old_log_level = options::LogLevel::off; // original log level to restore later.
 
     // Returns a set of options with all values at their default.
     static Options default_();
