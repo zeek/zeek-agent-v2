@@ -9,3 +9,7 @@ endif ()
 if ( HAVE_LINUX )
     target_sources(zeek-agent PRIVATE sockets.linux.cc)
 endif ()
+
+if ( HAVE_WINDOWS )
+    target_sources(zeek-agent PRIVATE sockets.windows.cc)
+endif ()

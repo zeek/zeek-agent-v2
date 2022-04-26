@@ -6,5 +6,5 @@
 #path	zeek-agent-users
 #open XXXX-XX-XX-XX-XX-XX
 #fields	t	hid	change	name	full_name	is_admin	is_system	uid	gid	home	shell	email
-#types	time	string	string	string	string	bool	bool	count	count	string	string	string
-XXXXXXXXXX.XXXXXX	<uuid>	-	text_a_a	text_a_b	F	F	104	105	text_a_g	text_a_h	text_a_i
+#types	time	string	string	string	string	bool	bool	string	count	string	string	string
+XXXXXXXXXX.XXXXXX	<uuid>	-	text_a_a	text_a_b	F	F	text_a_e	105	text_a_g	text_a_h	text_a_i

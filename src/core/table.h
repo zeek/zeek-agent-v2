@@ -95,7 +95,8 @@ struct Port {
     bool operator<(const Port& other) const {
         return port < other.port || (port == other.port && protocol < other.protocol);
     }
-    bool operator==(const Port& other) const { return port == other.port && port == other.port; }
+    bool operator==(const Port& other) const { return port == other.port && protocol == other.protocol; }
+    bool operator!=(const Port& other) const { return port != other.port || protocol != other.protocol; }
 };
 
 /** Returns a human-readable represenation of the value. */
@@ -186,7 +187,7 @@ struct Column {
 } // namespace schema
 
 /** Enum to define platforms that a table supports. */
-enum class Platform { Darwin, Linux };
+enum class Platform { Darwin, Linux, Windows };
 
 /** Defines a table's schema, along with some further meta data. */
 struct Schema {
@@ -390,7 +391,7 @@ public:
                 return std::get<T>(a.expression);
         }
 
-        throw InternalError(format("table argument '{}' unexpectedly missing"));
+        throw InternalError(format("table argument '{}' unexpectedly missing", name));
     }
 
 protected:
@@ -507,5 +508,20 @@ private:
     std::vector<Event> _events; // set of currently buffered events, sorted by timestamp
     int _mock_seed = 0;         // when generating mock data, seed value for next round
 };
+
+inline auto ValueVectorCompare = [](const std::vector<Value>& a, const std::vector<Value>& b) -> bool {
+    auto a_size = a.size();
+    if ( a_size != b.size() )
+        return a_size < b.size();
+
+    for ( auto i = 0; i < a_size; i++ ) {
+        if ( a[i] != b[i] )
+            return a[i] < b[i];
+    }
+
+    return false;
+};
+
+extern std::pair<Value, value::Type> stringToValue(const std::string& str, value::Type type);
 
 } // namespace zeek::agent

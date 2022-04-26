@@ -12,7 +12,14 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/stdout_sinks-inl.h>
+
+#ifndef HAVE_WINDOWS
 #include <spdlog/sinks/syslog_sink.h>
+#endif
+
+#ifdef HAVE_WINDOWS
+#define STDOUT_FILENO 0
+#endif
 
 using namespace zeek::agent;
 
@@ -35,16 +42,17 @@ Result<Nothing> zeek::agent::setGlobalLogger(options::LogType type, options::Log
             break;
 
         case options::LogType::System:
-#ifdef HAVE_LINUX
+#if defined(HAVE_LINUX)
             sink = std::make_shared<spdlog::sinks::syslog_sink_mt>("zeek-agent", 0, LOG_USER, false);
-#else
-#ifdef HAVE_DARWIN
+#elif defined(HAVE_DARWIN)
             // TODO: Should log directly to oslog here. Use
             // https://github.com/L1MeN9Yu/Senna? Roll our own sink?
             sink = std::make_shared<spdlog::sinks::syslog_sink_mt>("zeek-agent", 0, LOG_USER, false);
+#elif defined(HAVE_WINDOWS)
+            // TODO: Where should Windows system logging go? The event log?
+            logger()->warn("system logging currently not supported on Windows");
 #else
 #error "Unsupported platform in setGlobalLogger()"
-#endif
 #endif
             break;
 
@@ -53,6 +61,7 @@ Result<Nothing> zeek::agent::setGlobalLogger(options::LogType type, options::Log
                 return result::Error("file logging requires a path");
 
             sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->native());
+            break;
     }
 
     global_logger = std::make_shared<spdlog::logger>("Zeek Agent", std::move(sink));

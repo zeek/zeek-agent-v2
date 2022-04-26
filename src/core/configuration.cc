@@ -10,15 +10,20 @@
 #include "util/helpers.h"
 #include "util/platform.h"
 
-#include <cstring>
-#include <memory>
 #include <sstream>
 #include <system_error>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
+#include <fmt/format.h>
+
+#ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
+#else
+#include <bsd-getopt-long.h>
+#endif
+
 #include <uuid.h>
 
 #include <toml++/toml.h>
@@ -60,7 +65,7 @@ static struct option long_driver_options[] = {
 
 static void usage(const filesystem::path& name) {
     // clang-format off
-    std::cerr << "\nUsage: " << name.filename().native() << format(
+    std::cerr << "\nUsage: " << name.filename().string() << format(
         " [options]\n"
         "\n"
         "  -D | --autodoc                   Output JSON documentating table schemas and exit.\n"
@@ -75,7 +80,7 @@ static void usage(const filesystem::path& name) {
         "  -v | --version                   Print version information\n"
         "  -z | --zeek <host>[:port]        Connect to Zeek at given address\n"
         "\n",
-        platform::configurationFile().native());
+        platform::configurationFile().string());
     // clang-format on
 }
 
@@ -85,12 +90,12 @@ void Options::debugDump() {
     ZEEK_AGENT_DEBUG("configuration", "[option] agent-id: {}", agent_id);
     ZEEK_AGENT_DEBUG("configuration", "[option] instance-id: {}", instance_id);
     ZEEK_AGENT_DEBUG("configuration", "[option] config-file: {}",
-                     (config_file ? *config_file : filesystem::path()).native());
+                     (config_file ? *config_file : filesystem::path()).string());
     ZEEK_AGENT_DEBUG("configuration", "[option] interactive: {}", (interactive ? "true" : "false"));
     ZEEK_AGENT_DEBUG("configuration", "[option] log.level: {}",
                      (log_level ? options::to_string(*log_level) : "<not set>"));
     ZEEK_AGENT_DEBUG("configuration", "[option] log.type: {}", (log_type ? to_string(*log_type) : "<not set>"));
-    ZEEK_AGENT_DEBUG("configuration", "[option] log.path: {}", (log_path ? log_path->native() : "<not set>"));
+    ZEEK_AGENT_DEBUG("configuration", "[option] log.path: {}", (log_path ? log_path->string() : "<not set>"));
     ZEEK_AGENT_DEBUG("configuration", "[option] use-mock-data: {}", use_mock_data);
     ZEEK_AGENT_DEBUG("configuration", "[option] terminate-on-disconnect: {}", terminate_on_disconnect);
     ZEEK_AGENT_DEBUG("configuration", "[option] zeek.groups: {}", join(zeek_groups, ", "));
@@ -129,9 +134,9 @@ struct Pimpl<Configuration>::Implementation {
     // Sets a set of command line options.
     Result<Nothing> initFromArgv(std::vector<std::string> argv);
 
-    Options _options;                // options currently in effect
-    std::vector<std::string> _argv;  // command line options most recently provided.
-    options::LogLevel old_log_level; // original log level to restore later.
+    Options _options;                                         // options currently in effect
+    std::vector<std::string> _argv;                           // command line options most recently provided.
+    options::LogLevel old_log_level = options::LogLevel::off; // original log level to restore later.
 
     // Returns a set of options with all values at their default.
     static Options default_();
@@ -189,7 +194,7 @@ void Configuration::Implementation::apply(Options options) {
             logger()->set_level(options::LogLevel::off);
 
         auto argv = preprocessArgv(true);
-        setenv("TZ", "GMT", 1);
+        platform::setenv("TZ", "GMT", 1);
         doctest::Context context(static_cast<int>(argv.size()), argv.data());
         exit(context.run());
 #else
@@ -269,7 +274,7 @@ Result<Nothing> Configuration::Implementation::initFromArgv(std::vector<std::str
     if ( config->config_file ) {
         auto rc = read(*config->config_file);
         if ( ! rc )
-            return result::Error(format("error reading {}: {}", config->config_file->native(), rc.error()));
+            return result::Error(format("error reading {}: {}", config->config_file->string(), rc.error()));
     }
     else
         apply(std::move(*config));
@@ -280,7 +285,7 @@ Result<Nothing> Configuration::Implementation::initFromArgv(std::vector<std::str
 Result<Nothing> Configuration::Implementation::read(const filesystem::path& path) {
     auto in = std::ifstream(path);
     if ( ! in.is_open() )
-        return result::Error(format("cannot open configuration file ", path.native()));
+        return result::Error(format("cannot open configuration file {}: {}", path.string(), strerror(errno)));
 
     return read(in, path);
 }
@@ -418,12 +423,12 @@ Result<Nothing> Configuration::initFromArgv(int argc, const char* const* argv) {
 }
 
 Result<Nothing> Configuration::read(const filesystem::path& path) {
-    ZEEK_AGENT_DEBUG("configuration", "reading file {}", path.native());
+    ZEEK_AGENT_DEBUG("configuration", "reading file {}", path.string());
     return pimpl()->read(path);
 }
 
 Result<Nothing> Configuration::read(std::istream& in, const filesystem::path& path) {
-    ZEEK_AGENT_DEBUG("configuration", "reading stream associated with file {}", path.native());
+    ZEEK_AGENT_DEBUG("configuration", "reading stream associated with file {}", path.string());
     return pimpl()->read(in, path);
 }
 

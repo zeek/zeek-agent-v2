@@ -95,7 +95,7 @@ struct Options {
     void debugDump();
 
     /** Agent's numerical version number. This is set automatically and cannot changed externally. */
-    int64_t version_number;
+    int64_t version_number = 0;
 
     /** Mode of operation for the current process. */
     options::Mode mode = options::Mode::Standard;

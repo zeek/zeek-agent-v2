@@ -19,7 +19,7 @@ public:
                 An internal table providing information about the Zeek
                 Agent process and the endpoint it's running on.
                 )",
-            .platforms = {Platform::Darwin, Platform::Linux},
+            .platforms = {Platform::Darwin, Platform::Linux, Platform::Windows},
             .columns = {{.name = "id",
                          .type = value::Type::Text,
                          .summary = "unique agent ID (stable across restarts)"},
@@ -30,7 +30,7 @@ public:
                         {.name = "addresses",
                          .type = value::Type::Set,
                          .summary = "IP addresses of endpoint's primary network connection"},
-                        {.name = "platform", .type = value::Type::Text, .summary = "`Darwin` or `Linux`"},
+                        {.name = "platform", .type = value::Type::Text, .summary = "`Darwin` or `Linux` or `Windows`"},
                         {.name = "os_name", .type = value::Type::Text, .summary = "name of operating system"},
                         {.name = "kernel_name", .type = value::Type::Text, .summary = "name of OS kernel"},
                         {.name = "kernel_version", .type = value::Type::Text, .summary = "version of OS kernel"},

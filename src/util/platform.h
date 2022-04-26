@@ -28,4 +28,21 @@ extern bool isTTY();
  */
 extern std::vector<filesystem::path> glob(const filesystem::path& pattern, size_t max = 100);
 
+/**
+ * Platform specific-implementation of setenv(). Follows the same semantics as
+ * POSIX's setenv() on all platforms.
+ */
+extern int setenv(const char* name, const char* value, int overwrite);
+
+/**
+ * Gets a variable from the environment, returning an unset optional if the
+ * variable isn't set.
+ */
+extern std::optional<std::string> getenv(const std::string& name);
+
+/**
+ * Checks for whether the process is running with administrator rights.
+ */
+extern bool runningAsAdmin();
+
 } // namespace zeek::agent::platform

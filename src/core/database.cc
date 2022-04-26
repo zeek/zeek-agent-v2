@@ -190,14 +190,15 @@ void Database::Implementation::addTable(Table* t) {
 }
 
 static auto diffRows(std::vector<std::vector<Value>> old, std::vector<std::vector<Value>> new_) {
-    std::sort(old.begin(), old.end());
-    std::sort(new_.begin(), new_.end());
+    std::sort(old.begin(), old.end(), ValueVectorCompare);
+    std::sort(new_.begin(), new_.end(), ValueVectorCompare);
 
     std::vector<std::vector<Value>> deletes;
-    std::set_difference(old.begin(), old.end(), new_.begin(), new_.end(), std::back_inserter(deletes));
+    std::set_difference(old.begin(), old.end(), new_.begin(), new_.end(), std::back_inserter(deletes),
+                        ValueVectorCompare);
 
     std::vector<std::vector<Value>> adds;
-    std::set_difference(new_.begin(), new_.end(), old.begin(), old.end(), std::back_inserter(adds));
+    std::set_difference(new_.begin(), new_.end(), old.begin(), old.end(), std::back_inserter(adds), ValueVectorCompare);
 
     std::vector<query::result::Row> diff;
 
@@ -212,11 +213,11 @@ static auto diffRows(std::vector<std::vector<Value>> old, std::vector<std::vecto
 }
 
 static auto newRows(std::vector<std::vector<Value>> old, std::vector<std::vector<Value>> new_) {
-    std::sort(old.begin(), old.end());
-    std::sort(new_.begin(), new_.end());
+    std::sort(old.begin(), old.end(), ValueVectorCompare);
+    std::sort(new_.begin(), new_.end(), ValueVectorCompare);
 
     std::vector<std::vector<Value>> adds;
-    std::set_difference(new_.begin(), new_.end(), old.begin(), old.end(), std::back_inserter(adds));
+    std::set_difference(new_.begin(), new_.end(), old.begin(), old.end(), std::back_inserter(adds), ValueVectorCompare);
 
     std::vector<query::result::Row> diff;
 
@@ -458,6 +459,7 @@ std::string Database::documentRegisteredTables() {
             switch ( p ) {
                 case Platform::Darwin: return "darwin";
                 case Platform::Linux: return "linux";
+                case Platform::Windows: return "windows";
             };
             cannot_be_reached();
         });
@@ -480,7 +482,7 @@ TEST_SUITE("Database") {
 
     class TestTable : public Table {
     public:
-        TestTable(std::string name_postfix = "") : name_postfix(std::move(std::move(name_postfix))) {}
+        TestTable(std::string name_postfix = "") : name_postfix(std::move(name_postfix)) {}
         Schema schema() const override {
             return {.name = "test_table" + name_postfix,
                     .description = "test-description",
@@ -1003,8 +1005,8 @@ TEST_SUITE("Database") {
 
             auto query = Query{.sql_stmt = "SELECT * from test_table",
                                .requires_tables = {"DOES_NOT_EXIST"},
-                               .callback_result = std::move(callback_result),
-                               .callback_done = std::move(callback_done)};
+                               .callback_result = callback_result,
+                               .callback_done = callback_done};
 
             auto query_id = db.query(query);
             REQUIRE(query_id);

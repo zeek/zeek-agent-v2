@@ -74,13 +74,19 @@ endif ()
 
 ### Platform-specific code.
 
-set(HAVE_POSIX $<bool:${UNIX}>)
+if (UNIX)
+  set(HAVE_POSIX true)
+else()
+  set(HAVE_POSIX false)
+endif()
 
 if ( CMAKE_SYSTEM_NAME STREQUAL "Darwin" )
     require_version("maccOS" True ${CMAKE_SYSTEM_VERSION} "${macos_minimum_version}" true)
     set(HAVE_DARWIN true)
 elseif ( CMAKE_SYSTEM_NAME STREQUAL "Linux" )
     set(HAVE_LINUX true)
+elseif ( CMAKE_SYSTEM_NAME STREQUAL "Windows" )
+    set(HAVE_WINDOWS true)
 else ()
     message(FATAL_ERROR "unknown platform, supporting only Linux and macOS currently")
 endif()

@@ -42,8 +42,7 @@ it stable. We are interested in any feedback you may have.
 
 #### Prerequisites
 
-- The agent currently supports Linux and macOS systems; Windows
-  support is planned.
+- The agent currently supports Linux, macOS, and Windows systems.
 
 - There are no hard dependencies on the endpoints beyond standard
   system libraries. (Individual tables may not be available if they
@@ -242,7 +241,7 @@ accounts.`
 </details>
 
 <details>
-<summary><tt>files_list:</tt> file system paths matching a pattern [Linux, macOS]</summary><br />
+<summary><tt>files_list:</tt> file system paths matching a pattern [Linux, Windows, macOS]</summary><br />
 
 The table provides a list of all files on the endpoint's file
 system that match a custom glob pattern. The pattern gets
@@ -271,7 +270,7 @@ to match on absolute file paths.
 </details>
 
 <details>
-<summary><tt>processes:</tt> current processes [Linux, macOS]</summary><br />
+<summary><tt>processes:</tt> current processes [Linux, Windows, macOS]</summary><br />
 
 The table provides a list of all processes that are running on
 the endpoint at the time of the query.
@@ -285,7 +284,7 @@ the endpoint at the time of the query.
 | `gid` | count | effective group ID |
 | `ruid` | count | real user ID |
 | `rgid` | count | real group ID |
-| `priority` | int | process priority (higher is more) |
+| `priority` | text | process priority (representation is platform-specific) |
 | `startup` | interval | time process started |
 | `vsize` | count | virtual memory size |
 | `rsize` | count | resident memory size |
@@ -294,7 +293,7 @@ the endpoint at the time of the query.
 </details>
 
 <details>
-<summary><tt>sockets:</tt> open network sockets [Linux, macOS]</summary><br />
+<summary><tt>sockets:</tt> open network sockets [Linux, Windows, macOS]</summary><br />
 
 The table provides a list of all IP sockets that are open on
 the endpoint at the time of the query.
@@ -313,7 +312,7 @@ the endpoint at the time of the query.
 </details>
 
 <details>
-<summary><tt>system_logs_events:</tt> log messages recorded by the operating systems [Linux, macOS]</summary><br />
+<summary><tt>system_logs_events:</tt> log messages recorded by the operating systems [Linux, Windows, macOS]</summary><br />
 
 The table provides access to log messages recorded by the
 operating system.
@@ -321,6 +320,8 @@ operating system.
 On Linux, the table requires `systemd` and hooks into its journal.
 
 On macOS, the tables hooks into the unified logging system (`OSLog`).
+
+On Windows, the tables hook into the event logging system.
 
 This is an evented table that captures log messages as they appear.
 New messages will be returned with the next query.
@@ -331,10 +332,11 @@ New messages will be returned with the next query.
 | `process` | text | process name |
 | `level` | text | severity level |
 | `message` | text | log message |
+| `eventid` | text | platform-specific identifier for the log event |
 </details>
 
 <details>
-<summary><tt>users:</tt> user accounts [Linux, macOS]</summary><br />
+<summary><tt>users:</tt> user accounts [Linux, Windows, macOS]</summary><br />
 
 The table provides a list of all user accounts that exist on
 the endpoint, retrieved at the time of the query from the
@@ -346,7 +348,7 @@ operating system.
 | `full_name` | text | full name |
 | `is_admin` | bool | 1 if user has adminstrative privileges |
 | `is_system` | bool | 1 if user correponds to OS service |
-| `uid` | count | user ID |
+| `uid` | text | user ID (can be alpha-numeric on some platforms) |
 | `gid` | count | group ID |
 | `home` | text | path to home directory |
 | `shell` | text | path to default shell |
@@ -354,7 +356,7 @@ operating system.
 </details>
 
 <details>
-<summary><tt>zeek_agent:</tt> Zeek Agent information [Linux, macOS]</summary><br />
+<summary><tt>zeek_agent:</tt> Zeek Agent information [Linux, Windows, macOS]</summary><br />
 
 An internal table providing information about the Zeek
 Agent process and the endpoint it's running on.
@@ -365,7 +367,7 @@ Agent process and the endpoint it's running on.
 | `instance` | text | unique ID for agent process (reset on restart) |
 | `hostname` | text | name of endpoint |
 | `addresses` | set | IP addresses of endpoint's primary network connection |
-| `platform` | text | `Darwin` or `Linux` |
+| `platform` | text | `Darwin` or `Linux` or `Windows` |
 | `os_name` | text | name of operating system |
 | `kernel_name` | text | name of OS kernel |
 | `kernel_version` | text | version of OS kernel |

@@ -56,7 +56,7 @@ std::vector<std::vector<Value>> FilesListPosix::snapshot(const std::vector<table
     auto [pattern, paths] = expandPaths(args);
 
     for ( const auto& p : paths ) {
-        Value path = p;
+        Value path = p.string();
         Value type;
         Value uid;
         Value gid;
@@ -65,7 +65,7 @@ std::vector<std::vector<Value>> FilesListPosix::snapshot(const std::vector<table
         Value size;
 
         struct ::stat stat;
-        if ( ::stat(p.native().c_str(), &stat) == 0 ) {
+        if ( ::stat(p.string().c_str(), &stat) == 0 ) {
             uid = static_cast<int64_t>(stat.st_uid);
             gid = static_cast<int64_t>(stat.st_gid);
             mode = format("{:o}", (stat.st_mode & ~S_IFMT));
@@ -121,29 +121,6 @@ std::vector<std::vector<Value>> FilesLinesPosix::snapshot(const std::vector<tabl
     }
 
     return rows;
-}
-
-static std::pair<Value, value::Type> stringToValue(const std::string& str, value::Type type) {
-    if ( str.empty() && (type != value::Type::Blob && type != value::Type::Text) )
-        return {std::monostate(), type};
-
-    try {
-        switch ( type ) {
-            case value::Type::Blob:
-            case value::Type::Text: return {str, type};
-            case value::Type::Count:
-            case value::Type::Integer: return {std::stol(str), type};
-            case value::Type::Double: return {std::stod(str), type};
-            default:
-                throw table::PermanentContentError(
-                    format("unsupport colum type for `files_columns`: {}", to_string(type)));
-        }
-    } catch ( ... ) {
-        // ignore any error and return an unset value instead
-        return {std::monostate(), value::Type::Null};
-    }
-
-    cannot_be_reached();
 }
 
 std::vector<std::vector<Value>> FilesColumnsPosix::snapshot(const std::vector<table::Argument>& args) {

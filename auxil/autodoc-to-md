@@ -28,10 +28,10 @@ def renderTable(name, meta):
     for p in meta["platforms"]:
         if p == "linux":
             platforms.append("Linux")
-
         elif p == "darwin":
             platforms.append("macOS")
-
+        elif p == "windows":
+            platforms.append("Windows")
         else:
             platforms.append(p)
 

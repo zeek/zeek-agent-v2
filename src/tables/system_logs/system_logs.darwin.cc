@@ -59,7 +59,7 @@ void SystemLogsDarwin::recordEntry(os_activity_stream_entry_t entry, int error) 
 
     auto t = to_time(entry->log_message.tv_gmt.tv_sec);
     auto msg = os_log_copy_formatted_message(&entry->log_message);
-    newEvent({t, process, "default", msg});
+    newEvent({t, process, "default", msg, {}});
     free(msg);
 }
 

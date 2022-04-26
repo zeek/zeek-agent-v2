@@ -44,9 +44,9 @@ struct Pimpl<Scheduler>::Implementation {
     // Executes scheduled activity up to current wall clock.
     bool loop();
 
-    timer::ID _next_id = 1; // counter for creating timer IDs
-    Time _now = 0_time;     // current time
-    bool _terminating;      // true once termination has been requested; ok to access wo/ lock
+    timer::ID _next_id = 1;    // counter for creating timer IDs
+    Time _now = 0_time;        // current time
+    bool _terminating = false; // true once termination has been requested; ok to access wo/ lock
 
     // Mutex/condition variable to provide interruptable sleep.
     std::mutex _loop_mutex;
@@ -83,7 +83,7 @@ bool Scheduler::Implementation::advance(Time now) {
     std::unique_lock lock(_timers_mutex);
 
     while ( _timers.size() && _timers.top()->due <= _now ) {
-        auto t = std::move(*_timers.top()); // copy it out so that we can remove it before running the callback
+        auto t = *_timers.top(); // copy it out so that we can remove it before running the callback
         ZEEK_AGENT_DEBUG("scheduler", "expiring {} timer {} scheduled for t={} at now={}",
                          (t.canceled ? "canceled" : "active"), t.id, to_string(t.due), to_string(_now));
 

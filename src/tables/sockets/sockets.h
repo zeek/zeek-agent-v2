@@ -1,5 +1,7 @@
 // Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
+#pragma once
+
 #include "core/table.h"
 
 namespace zeek::agent::table {
@@ -15,7 +17,7 @@ public:
                 The table provides a list of all IP sockets that are open on
                 the endpoint at the time of the query.
                 )",
-            .platforms = { Platform::Darwin, Platform::Linux },
+            .platforms = { Platform::Darwin, Platform::Linux, Platform::Windows },
             .columns = {
                 {.name = "pid", .type = value::Type::Count, .summary = "ID of process holding socket"},
                 {.name = "process", .type = value::Type::Text, .summary = "name of process holding socket"},

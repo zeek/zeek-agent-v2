@@ -11,3 +11,7 @@ if ( HAVE_LINUX )
     target_sources(zeek-agent PRIVATE users.linux.cc)
     target_link_libraries(zeek-agent PRIVATE pfs)
 endif ()
+
+if ( HAVE_WINDOWS )
+    target_sources(zeek-agent PRIVATE users.windows.cc)
+endif ()

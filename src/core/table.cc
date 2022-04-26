@@ -415,10 +415,33 @@ void EventTable::expire(Time t) {
     _events.erase(_events.begin(), end);
 }
 
+std::pair<Value, value::Type> zeek::agent::stringToValue(const std::string& str, value::Type type) {
+    if ( str.empty() && (type != value::Type::Blob && type != value::Type::Text) )
+        return {std::monostate(), type};
+
+    try {
+        switch ( type ) {
+            case value::Type::Blob:
+            case value::Type::Text: return {str, type};
+            case value::Type::Count:
+            case value::Type::Integer: return {static_cast<int64_t>(std::stol(str)), type};
+            case value::Type::Double: return {std::stod(str), type};
+            default:
+                throw table::PermanentContentError(
+                    format("unsupport colum type for `files_columns`: {}", to_string(type)));
+        }
+    } catch ( ... ) {
+        // ignore any error and return an unset value instead
+        return {std::monostate(), value::Type::Null};
+    }
+
+    cannot_be_reached();
+}
+
 TEST_SUITE("Table") {
     class TestBaseTable : public Table {
     public:
-        TestBaseTable(std::string name) : name(std::move(std::move(name))) {}
+        TestBaseTable(std::string name) : name(std::move(name)) {}
         Schema schema() const override {
             return {.name = name, .columns = {schema::Column{.name = "x", .type = value::Type::Integer}}};
         }

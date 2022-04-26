@@ -32,7 +32,7 @@ public:
                 The list of files is generated at query time. The `pattern`
                 glob needs to match on absolute file paths.
                 )",
-            .platforms = { Platform::Darwin, Platform::Linux },
+            .platforms = { Platform::Darwin, Platform::Linux, Platform::Windows },
             .columns = {
                 {.name = "_pattern", .type = value::Type::Text, .summary = "glob matching all files of interest", .is_parameter = true },
                 {.name = "path", .type = value::Type::Text, .summary = "full path" },

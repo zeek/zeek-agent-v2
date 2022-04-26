@@ -83,7 +83,7 @@ void ProcessesDarwin::addProcess(std::vector<std::vector<Value>>* rows, const st
     Value gid = pi->pbi_gid;
     Value ruid = pi->pbi_ruid;
     Value rgid = pi->pbi_rgid;
-    Value priority = -pi->pbi_nice;
+    Value priority = std::to_string(-pi->pbi_nice);
     Value startup = to_interval_from_secs(pi->pbi_start_tvsec);
 
     Value vsize;

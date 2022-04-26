@@ -5,12 +5,15 @@
 #cmakedefine HAVE_POSIX
 #cmakedefine HAVE_DARWIN
 #cmakedefine HAVE_LINUX
+#cmakedefine HAVE_WINDOWS
 #cmakedefine HAVE_GCC
 #cmakedefine HAVE_CLANG
+#cmakedefine HAVE_MSVC
+#cmakedefine HAVE_GETOPT_LONG
 
 namespace zeek::agent {
 inline const auto Version = "${ZEEK_AGENT_VERSION}";
 inline const auto VersionLong = "${ZEEK_AGENT_VERSION_LONG}";
 inline const auto InstallLibDir = "${CMAKE_INSTALL_LIBDIR}";
 inline const auto InstallPrefix = "${CMAKE_INSTALL_PREFIX}";
-}
+} // namespace zeek::agent

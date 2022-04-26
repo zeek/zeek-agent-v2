@@ -11,12 +11,20 @@
 #include "io/zeek.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
+#include "util/platform.h"
 
 #include <csignal>
 #include <iostream>
 #include <optional>
 
 using namespace zeek::agent;
+
+#ifdef HAVE_WINDOWS
+#include "util/platform.windows.h"
+#endif
+
+SignalManager* zeek::agent::signal_mgr = nullptr;
+signal::Handler* sigint;
 
 static void log_termination() { logger()->info("process terminated", VersionLong); }
 
@@ -37,22 +45,22 @@ int main(int argc, char** argv) {
         logger()->info("Zeek Agent {} starting up", VersionLong);
         atexit(log_termination);
 
-        if ( geteuid() != 0 && ! cfg.options().use_mock_data )
+        if ( platform::runningAsAdmin() && ! cfg.options().use_mock_data )
             logger()->warn("not running as root, information may be incomplete");
 
         Scheduler scheduler;
-        SignalManager signal_mgr({SIGINT});
-        signal::Handler sigint(&signal_mgr, SIGINT, [&]() { scheduler.terminate(); });
+        signal_mgr = new SignalManager({SIGINT});
+        sigint = new signal::Handler(signal_mgr, SIGINT, [&]() { scheduler.terminate(); });
 
         Database db(&cfg, &scheduler);
         for ( const auto& t : Database::registeredTables() )
             db.addTable(t.second.get());
 
         std::unique_ptr<Console> console;
-        if ( cfg.options().interactive || cfg.options().execute.size() ) {
-            console = std::make_unique<Console>(&db, &scheduler, &signal_mgr);
+        if ( cfg.options().interactive || ! cfg.options().execute.empty() ) {
+            console = std::make_unique<Console>(&db, &scheduler, signal_mgr);
 
-            if ( cfg.options().execute.size() )
+            if ( ! cfg.options().execute.empty() )
                 console->scheduleStatementWithTermination(cfg.options().execute);
 
             console->start();
@@ -75,14 +83,27 @@ int main(int argc, char** argv) {
             db.expire();
         }
 
+#ifdef HAVE_WINDOWS
+        platform::windows::WMIManager::Get().Shutdown();
+#endif
+
+        delete sigint;
+        delete signal_mgr;
+
         return 0;
 
     } catch ( const FatalError& e ) {
         logger()->error("fatal error: {}", e.what());
+        delete sigint;
+        delete signal_mgr;
+
         return 1;
 
     } catch ( const InternalError& e ) {
         logger()->error("internal error: {}", e.what());
+        delete sigint;
+        delete signal_mgr;
+
         return 1;
     }
 }

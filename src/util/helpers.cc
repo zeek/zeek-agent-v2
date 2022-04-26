@@ -13,18 +13,9 @@
 #include <unistd.h>
 
 #include <sys/time.h>
-#else
-#error "Non-Unix platforms not supported yet"
 #endif
 
 using namespace zeek::agent;
-
-std::optional<std::string> zeek::agent::getenv(const std::string& name) {
-    if ( auto x = ::getenv(name.c_str()) )
-        return {x};
-    else
-        return {};
-}
 
 void zeek::agent::cannot_be_reached() { throw InternalError("code is executing that should not be reachable"); }
 
@@ -38,32 +29,6 @@ std::string zeek::agent::toupper(const std::string& s) {
     std::string t = s;
     std::transform(t.begin(), t.end(), t.begin(), ::toupper);
     return t;
-}
-
-std::vector<std::string> zeek::agent::split(std::string s, const std::string& delim) {
-    if ( delim.empty() )
-        return {std::string(s)};
-
-    if ( s.size() < delim.size() )
-        return {std::string(s)};
-
-    std::vector<std::string> l;
-
-    const bool ends_in_delim = (s.substr(s.size() - delim.size()) == delim);
-
-    do {
-        size_t p = s.find(delim);
-        l.push_back(s.substr(0, p));
-        if ( p == std::string::npos )
-            break;
-
-        s = s.substr(p + delim.size());
-    } while ( ! s.empty() );
-
-    if ( ends_in_delim )
-        l.emplace_back("");
-
-    return l;
 }
 
 std::vector<std::string> zeek::agent::split(std::string s) {
@@ -185,17 +150,6 @@ TEST_SUITE("Helpers") {
         CHECK_EQ(i, 1);
     }
 
-    TEST_CASE("getenv") {
-        CHECK_EQ(::zeek::agent::getenv(""), std::nullopt);
-
-        const auto home = ::zeek::agent::getenv("HOME");
-        REQUIRE(home);
-        CHECK_FALSE(home->empty());
-
-        CHECK_EQ(::zeek::agent::getenv("TEST_ENV_DOES_NOT_EXIST"), std::nullopt);
-    }
-
-
     TEST_CASE("time") { CHECK_EQ(to_string(42_time), "1970-01-01-00-00-42"); }
 
     TEST_CASE("interval") {
@@ -285,6 +239,7 @@ TEST_SUITE("Helpers") {
 
     TEST_CASE("split") {
         using str_vec = std::vector<std::string>;
+        using wstr_vec = std::vector<std::wstring>;
 
         SUBCASE("w/ delim") {
             CHECK_EQ(split("a:b:c", ""), str_vec({"a:b:c"}));
@@ -313,6 +268,24 @@ TEST_SUITE("Helpers") {
             CHECK_EQ(split(""), str_vec{});
             CHECK_EQ(split("\t\v\n\r"), str_vec{});
             CHECK_EQ(split(" \n "), str_vec{});
+        }
+
+        SUBCASE("wchar_t w/ delim") {
+            CHECK_EQ(split(L"a:b:c", L""), wstr_vec({L"a:b:c"}));
+            CHECK_EQ(split(L"", L""), wstr_vec({L""}));
+            CHECK_EQ(split(L"a:b:c", L":"), wstr_vec({L"a", L"b", L"c"}));
+            CHECK_EQ(split(L"a:b::c", L":"), wstr_vec({L"a", L"b", L"", L"c"}));
+            CHECK_EQ(split(L"a:b:::c", L":"), wstr_vec({L"a", L"b", L"", L"", L"c"}));
+            CHECK_EQ(split(L":a:b:c", L":"), wstr_vec({L"", L"a", L"b", L"c"}));
+            CHECK_EQ(split(L"::a:b:c", L":"), wstr_vec({L"", L"", L"a", L"b", L"c"}));
+            CHECK_EQ(split(L"a:b:c:", L":"), wstr_vec({L"a", L"b", L"c", L""}));
+            CHECK_EQ(split(L"a:b:c::", L":"), wstr_vec({L"a", L"b", L"c", L"", L""}));
+            CHECK_EQ(split(L"", L":"), wstr_vec({L""}));
+
+            CHECK_EQ(split(L"12345", L"1"), wstr_vec({L"", L"2345"}));
+            CHECK_EQ(split(L"12345", L"23"), wstr_vec{L"1", L"45"});
+            CHECK_EQ(split(L"12345", L"a"), wstr_vec{L"12345"});
+            CHECK_EQ(split(L"12345", L""), wstr_vec{L"12345"});
         }
     }
 
@@ -346,5 +319,15 @@ TEST_SUITE("Helpers") {
         CHECK(! parseVersion(""));
         CHECK(! parseVersion("x.x.x"));
         CHECK(! parseVersion("x.x"));
+    }
+
+    TEST_CASE("startsWith") {
+        CHECK(startsWith("abcd", "ab"));
+        CHECK(! startsWith("abcd", "cd"));
+    }
+
+    TEST_CASE("endsWith") {
+        CHECK(endsWith("abcd", "cd"));
+        CHECK(! endsWith("abcd", "ab"));
     }
 }

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "autogen/config.h"
 #include "util/fmt.h"
 #include "util/result.h"
 
@@ -9,6 +10,7 @@
 #include <chrono>
 #include <functional>
 #include <iomanip>
+#include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -101,14 +103,12 @@ inline std::string to_string(Interval t) {
     return std::string(b.str());
 }
 
-/**
- * Wrapper around `getenv(3)`, returning an unset optional if the environment
- * isn't set.
- */
-extern std::optional<std::string> getenv(const std::string& name);
-
 /** Aborts with an internal error saying we should not be where we are. */
+#ifdef HAVE_MSVC
+__declspec(noreturn) extern void cannot_be_reached();
+#else
 extern void cannot_be_reached() __attribute__((noreturn));
+#endif
 
 /**
  * Joins elements of a container into a string, using a specified delimiter
@@ -120,7 +120,7 @@ std::string join(const T& l, const std::string& delim = "") {
     bool first = true;
 
     for ( const auto& i : l ) {
-        if ( not first )
+        if ( ! first )
             result += delim;
         result += std::string(i);
         first = false;
@@ -153,7 +153,7 @@ constexpr auto transform_result_value(const C&) {
 /** Applies a function to each element of container. */
 template<typename C, typename F>
 auto transform(const C& x, F f) {
-    using Y = typename std::result_of_t<F(typename C::value_type&)>;
+    using Y = std::invoke_result_t<F, typename C::value_type>;
 
     auto y = detail::transform_result_value<C, Y>(x);
     std::transform(std::begin(x), std::end(x), std::inserter(y, std::end(y)), f);
@@ -228,7 +228,47 @@ inline std::string trim(const std::string& s) noexcept { return trim(s, detail::
  *
  * \note This function is not UTF8-aware.
  */
-std::vector<std::string> split(std::string s, const std::string& delim);
+template<typename T>
+std::vector<T> split(T s, const T& delim) {
+    // If there's no delimiter, return a copy of the existing string.
+    if ( delim.empty() )
+        return {T(s)};
+
+    // If the delimiter won't fit in the string, just return a copy as well.
+    if ( s.size() < delim.size() )
+        return {T(s)};
+
+    std::vector<T> l;
+
+    const bool ends_in_delim = (s.substr(s.size() - delim.size()) == delim);
+
+    do {
+        size_t p = s.find(delim);
+        l.push_back(s.substr(0, p));
+        if ( p == std::string::npos )
+            break;
+
+        s = s.substr(p + delim.size());
+    } while ( ! s.empty() );
+
+    if ( ends_in_delim )
+        l.emplace_back(T{});
+
+    return l;
+}
+
+template<typename T, typename U = typename T::value_type*>
+std::vector<T> split(T s, const U delim) {
+    return split(s, T(delim));
+}
+
+inline std::vector<std::string> split(const char* s, const char* delim) {
+    return split(std::move(std::string(s)), std::string(delim));
+}
+
+inline std::vector<std::wstring> split(const wchar_t* s, const wchar_t* delim) {
+    return split(std::move(std::wstring(s)), std::wstring(delim));
+}
 
 /**
  * Splits a string at all occurrences of successive white space.
@@ -282,6 +322,35 @@ std::string replace(std::string s, std::string o, std::string n);
  * \note This function is not UTF8-aware.
  */
 inline bool startsWith(const std::string& s, const std::string& prefix) { return s.find(prefix) == 0; }
+
+/**
+ * Returns true if a string ends with another.
+ *
+ * \note This function is not UTF8-aware.
+ */
+inline bool endsWith(const std::string& s, const std::string& suffix) {
+    return s.rfind(suffix) == s.size() - suffix.size();
+}
+
+/**
+ * Makes a unique_ptr containing an array. Useful for RAII on dynamically-allocated arrays. There's no
+ * need to include a custom deleter here, as unique_ptr handles that on its own.
+ *
+ * @param len the length of the array to build. If this is zero, the array is created set to
+ * nullptr. It does not create a zero-length array in this instance.
+ * @param init whether or not to initialize the memory stored in the array to zeros after creation.
+ */
+template<typename C>
+auto makeUniqueArray(size_t len = 0, bool init = true) {
+    if ( len == 0 )
+        return std::unique_ptr<C[]>{nullptr};
+
+    auto arr = std::unique_ptr<C[]>{new C[len]};
+    if ( init )
+        memset(arr.get(), 0, sizeof(C) * len);
+    return arr;
+}
+
 } // namespace zeek::agent
 
 /** Renders an integer in base62 ASCII. */

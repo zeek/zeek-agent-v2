@@ -1,5 +1,7 @@
 // Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
+#pragma once
+
 #include "core/table.h"
 
 namespace zeek::agent::table {
@@ -15,7 +17,7 @@ public:
                 The table provides a list of all processes that are running on
                 the endpoint at the time of the query.
                 )",
-            .platforms = { Platform::Darwin, Platform::Linux },
+            .platforms = { Platform::Darwin, Platform::Linux, Platform::Windows },
             .columns = {
                 {.name = "name", .type = value::Type::Text, .summary = "name of process"},
                 {.name = "pid", .type = value::Type::Count, .summary = "process ID"},
@@ -24,7 +26,7 @@ public:
                 {.name = "gid", .type = value::Type::Count, .summary = "effective group ID"},
                 {.name = "ruid", .type = value::Type::Count, .summary = "real user ID"},
                 {.name = "rgid", .type = value::Type::Count, .summary = "real group ID"},
-                {.name = "priority", .type = value::Type::Integer, .summary = "process priority (higher is more)"},
+                {.name = "priority", .type = value::Type::Text, .summary = "process priority (representation is platform-specific)"},
                 {.name = "startup", .type = value::Type::Interval, .summary = "time process started"},
                 {.name = "vsize", .type = value::Type::Count, .summary = "virtual memory size"},
                 {.name = "rsize", .type = value::Type::Count, .summary = "resident memory size"},
