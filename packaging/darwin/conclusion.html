@@ -1,0 +1,41 @@
+<html>
+<body style="font-family: sans-serif">
+
+<p>
+The Zeek Agent has been installed.
+</p>
+
+<p>
+You need to configure a Zeek instance for the agent to connect to. To do so, either execute:
+<pre>
+    sudo defaults write org.zeek.zeek-agent \
+            zeek.destination &lt;Zeek host&gt;
+</pre>
+</p>
+
+<p>
+Or create a configuration file and add Zeek's address there:
+<pre>
+    cd /Library/Application Support/ZeekAgent
+    cp zeek-agent.cfg.template zeek-agent.cfg
+    vi zeek-agent.cfg
+</pre>
+</p>
+
+<p>
+After any changes, restart the Zeek Agent with:
+<pre>
+    sudo launchctl stop org.zeek.zeek-agent
+    sudo launchctl start org.zeek.zeek-agent
+</pre>
+</p>
+
+<p>
+Check your Zeek's <tt>zeek-agent.log</tt> for a successful connection from the
+agent. If you have any questions or feedback, reach out on the
+<tt>#zeek-agent</tt> channel on <a href="https://zeek.org/community">Zeek's
+Slack</a>.
+</p>
+
+</body>
+</html>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>Zeek Agent</title>
+    <welcome file="welcome.html"/>
+    <license file="license.html"/>
+    <conclusion file="conclusion.html"/>
+    <domains enable_localSystem="true"/>
+    <options customize="never" require-scripts="true" rootVolumeOnly="true" hostArchitectures="x86_64,arm64"/>
+    <volume-check>
+        <allowed-os-versions>
+            <os-version min="11.0"/>
+        </allowed-os-versions>
+    </volume-check>
+    <choices-outline>
+        <line choice="default">
+            <line choice="ZeekAgent"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="ZeekAgent" visible="false" customLocation="/">
+        <pkg-ref id="ZeekAgent"/>
+    </choice>
+    <pkg-ref id="ZeekAgent" version="0" onConclusion="none">ZeekAgent.pkg</pkg-ref>
+</installer-gui-script>

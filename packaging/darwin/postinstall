@@ -1,0 +1,7 @@
+#! /bin/sh
+
+date >/tmp/post
+
+sudo /bin/launchctl load /Library/LaunchDaemons/org.zeek.zeek-agent.plist
+
+exit 0

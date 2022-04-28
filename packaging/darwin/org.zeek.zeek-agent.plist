@@ -6,13 +6,14 @@
 	<string>org.zeek.zeek-agent</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/local/bin/zeek-agent</string>
+		<string>/Library/Application Support/ZeekAgent/ZeekAgent.app/Contents/MacOS/ZeekAgent</string>
+		<string>-L info</string>
 	</array>
 	<key>RunAtLoad</key>
-	<true/>
+		<true/>
 	<key>KeepAlive</key>
-	<true/>
+		<true/>
 	<key>ProcessType</key>
-	<string>Background</string>
+		<string>Background</string>
 </dict>
 </plist>

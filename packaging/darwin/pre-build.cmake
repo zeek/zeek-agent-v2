@@ -13,10 +13,7 @@ file(REMOVE_RECURSE "${CPACK_TEMPORARY_INSTALL_DIRECTORY}/ZeekAgent.app/Contents
 file(COPY "${CMAKE_CURRENT_LIST_DIR}/embedded.provisionprofile"
           DESTINATION "${CPACK_TEMPORARY_INSTALL_DIRECTORY}/ZeekAgent.app/Contents/")
 
-#if ("$ENV{MACOS_CERTIFICATE_APPLICATION_ID}" STREQUAL "" OR "$ENV{MACOS_APP_ID}" STREQUAL "")
-#    message(STATUS "Not running code signing: MACOS_CERTIFICATE_APPLICATION_ID/MACOS_APP_ID not set")
-#    return()
-#endif()
+string(REPLACE " " ";" args "${CPACK_BUNDLE_APPLE_CODESIGN_PARAMETER}")
 
-#execute_process(COMMAND ${CMAKE_CURRENT_LIST_DIR}/codesign "${CPACK_TEMPORARY_INSTALL_DIRECTORY}/${CPACK_BUNDLE_NAME}.app/Contents/Resources/bin/zeek-agent"
-#               COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND "/usr/bin/codesign" "--sign" "$ENV{MACOS_CERTIFICATE_APPLICATION_ID}" ${args} "${CPACK_TEMPORARY_INSTALL_DIRECTORY}/ZeekAgent.app/Contents/MacOS/ZeekAgent"
+                COMMAND_ERROR_IS_FATAL ANY)

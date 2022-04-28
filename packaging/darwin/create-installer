@@ -1,0 +1,70 @@
+#! /usr/bin/env bash
+#
+# Creates a installer pkg $2 from a given bundle directory $1.
+
+echo PKG-XXXXXX $@
+
+set -e
+
+if [ $# != 5 ]; then
+    echo "usage: $(basename $0) <app> <pkg> <packaging-dir> <build-dir> <agent-version>"
+    exit 1
+fi
+
+bundle="$1"
+pkg="$2"
+src="$3"
+build="$4/packaging"
+version="$5"
+
+echo "== Creating installer ..."
+
+### Create the file system layout we want.
+
+root="_installer/ZeekAgent"
+rm -rf "${root}"
+mkdir -p "${root}"
+
+app="${root}/Library/Application Support/ZeekAgent/ZeekAgent.app"
+mkdir -p "${root}/Library/Application Support/ZeekAgent"
+cp -r "${bundle}" "${app}"
+
+# Double check signature.
+/usr/bin/codesign --display --verbose "${app}" || exit 1
+
+mkdir -p "${root}/Library/Application Support/ZeekAgent/"
+cp "${src}/zeek-agent.cfg.template" "${root}/Library/Application Support/ZeekAgent"
+cp "${src}/darwin/uninstall-zeek-agent" "${root}/Library/Application Support/ZeekAgent"
+
+mkdir -p "${root}/Library/LaunchDaemons"
+cp "${src}/darwin/org.zeek.zeek-agent.plist" "${root}/Library/LaunchDaemons"
+
+touch "${root}/Library/Application Support/ZeekAgent/manifest"
+(cd "${root}" && find . -type f | sed 's/^\.//g') >>"${root}/Library/Application Support/ZeekAgent/manifest"
+
+resources="_installer/Resources"
+mkdir -p "${resources}"
+cp "${build}/welcome.html" "${resources}"
+cp "${src}/license.html" "${resources}"
+cp "${src}/darwin/conclusion.html" "${resources}"
+
+scripts="_installer/Scripts"
+mkdir -p "${scripts}"
+cp "${src}/darwin/preinstall" "${scripts}"
+cp "${src}/darwin/postinstall" "${scripts}"
+
+### Build the installer.
+
+pkgbuild \
+  --root "${root}" \
+  --identifier "org.zeek.zeek-agent" \
+  --install-location "/" \
+  --scripts "${scripts}" \
+  ZeekAgent.pkg
+
+productbuild \
+    --distribution "${src}/darwin/distribution.plist" \
+    --version "${version}" \
+    --package-path "${root}" \
+    --resources "${resources}" \
+    "${pkg}"

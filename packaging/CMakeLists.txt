@@ -6,6 +6,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Zeek Agent is an endpoint monitoring tool
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://zeek.org")
 set(CPACK_PACKAGE_RELOCATABLE yes)
 set(CPACK_PACKAGE_VENDOR "Zeek Project")
+set(CPACK_PACKAGE_VERSION "${ZEEK_AGENT_VERSION}")
 set(CPACK_PACKAGE_VERSION_MAJOR "${ZEEK_AGENT_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${ZEEK_AGENT_VERSION_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${ZEEK_AGENT_VERSION_PATCH}")
@@ -23,9 +24,13 @@ list(APPEND CPACK_SOURCE_IGNORE_FILES "^${CMAKE_SOURCE_DIR}.*/\.swp$")
 list(APPEND CPACK_SOURCE_IGNORE_FILES "^${CMAKE_SOURCE_DIR}.*/\.pyc$")
 list(APPEND CPACK_SOURCE_IGNORE_FILES "^${CMAKE_BINARY_DIR}/")
 
+configure_file("welcome.html.in" "welcome.html")
+
 if ( HAVE_DARWIN )
+    # Note to future self: CMake's "productbuild" generator doesn't really
+    # work. It's hard to parameterize, and doesn't install things the way we
+    # want. So using the Apple Tools manually on an app bundle put together by CPack.
     execute_process(COMMAND sw_vers -buildVersion OUTPUT_VARIABLE DARWIN_BUILD_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
-    set(MACOS_APP_ID "$ENV{MACOS_APP_ID}") # must be set for codesigning/notarization already
 
     configure_file("darwin/Info.plist.in" "Info.plist")
 
@@ -46,15 +51,8 @@ if ( HAVE_DARWIN )
     set(CPACK_BUNDLE_APPLE_CODESIGN_PARAMETER "--force --options=runtime --strict --timestamp")
     set(CPACK_BUNDLE_APPLE_CERT_APP "$ENV{MACOS_CERTIFICATE_APPLICATION_ID}")
     set(CPACK_BUNDLE_APPLE_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/darwin/entitlements.plist")
-    #set(CPACK_BUNDLE_STARTUP_COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/darwin/startup.sh")
-    #set(CPACK_BUNDLE_APPLE_CODESIGN_FILES "/Contents/MacOS/ZeekAgent;/Contents/MacOS/zeek-agent")
-    #set(CPACK_BUNDLE_APPLE_CODESIGN_FILES "/Contents/MacOS/ZeekAgent")
+    set(CPACK_BUNDLE_APPLE_CODESIGN_FILES "")
 
-    # set(CPACK_COMMAND_CODESIGN "${CMAKE_CURRENT_SOURCE_DIR}/darwin/test-codesign")
-
-    #target_link_options(zeek-agent PRIVATE LINKER:-sectcreate,__TEXT,__info_plist,${CMAKE_CURRENT_BINARY_DIR}/Info.plist)
-    # configure_file("darwin/org.zeek.zeek-agent.plist.in" "org.zeek.zeek-agent.plist")
-    # install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.zeek.zeek-agent.plist" DESTINATION "Library/LaunchDaemons/")
 elseif ( HAVE_LINUX )
     set(CPACK_GENERATOR "TGZ")
     set(CPACK_SYSTEM_NAME "linux-${CMAKE_HOST_SYSTEM_PROCESSOR}")

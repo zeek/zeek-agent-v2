@@ -53,8 +53,12 @@ int main(int argc, char** argv) {
             logger()->warn("not running as root, information may be incomplete");
 
 #ifdef HAVE_DARWIN
-        platform::darwin::EndpointSecurity es;
-        es.init();
+        {
+            // TODO: We leave that here until we actually have a table using
+            // EndpointSecurity, so that logging will show if ES is available.
+            platform::darwin::EndpointSecurity es;
+            es.init();
+        }
 #endif
 
         Scheduler scheduler;

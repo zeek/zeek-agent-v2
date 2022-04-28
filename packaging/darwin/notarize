@@ -2,12 +2,16 @@
 #
 # Submits a bundle (e.g., a DMG or ZIP) for Apple notarization.
 
+function usage {
+    echo "Usage: $(basename $0) installer|application <bundle>" >&2
+}
+
 echo N-XXXXXX $@
 
 set -e
 
-if [ $# != 1 ]; then
-    echo "Usage: $(basename $0) <bundle>" >&2
+if [ $# != 2 ]; then
+    usage
     exit 1
 fi
 
@@ -16,31 +20,36 @@ if [ -z "${MACOS_CERTIFICATE_APPLICATION_ID}" ]; then
     exit 1
 fi
 
-if [ -z "${MACOS_APP_ID}" ]; then
-    echo "Error: MACOS_APP_ID not set" >&2
-    exit 1
-fi
-
 if [ -z "${MACOS_NOTARIZATION_USER}" ]; then
     echo "Error: MACOS_NOTARIZATION_USER not set" >&2
     exit 1
 fi
 
-
-bundle=$1
+sign_type=$1
+bundle=$2
 
 if [ -n "${MACOS_NOTARIZATION_PASSWORD}" ]; then
     password="-p @env:MACOS_NOTARIZATION_PASSWORD"
 fi
 
-codesign -f -s "${MACOS_CERTIFICATE_APPLICATION_ID}" --timestamp ${bundle}
+if [ "${sign_type}" == "installer" ]; then
+    echo "== Signing installer ..."
+    productsign --sign "${MACOS_CERTIFICATE_INSTALLER_ID}" "${bundle}" "${bundle}.tmp"
+    mv "${bundle}.tmp" "${bundle}"
+elif  [ "$1" == "application" ]; then
+    echo "== Signing bundle ..."
+    codesign -f -s "${MACOS_CERTIFICATE_APPLICATION_ID}" --timestamp ${bundle}
+else
+    usage
+    exit 1
+fi
 
 echo "== Uploading for notarization ..."
 
 tmp=/tmp/$(basename $0).$$.pid
 trap "rm -f ${tmp}" EXIT
 
-xcrun altool --notarize-app --primary-bundle-id "${MACOS_APP_ID}" -u "${MACOS_NOTARIZATION_USER}" ${password} -t osx -f "${bundle}" | tee ${tmp}
+xcrun altool --notarize-app --primary-bundle-id "org.zeek.zeek-agent" -u "${MACOS_NOTARIZATION_USER}" ${password} -t osx -f "${bundle}" | tee ${tmp}
 
 uuid=$(cat ${tmp} | grep "RequestUUID" | awk '{print $3}')
 if [ -z "${uuid}" ]; then
@@ -53,7 +62,7 @@ echo "== Waiting for confirmation on UUID ${uuid} ..."
 for i in $(seq 1 60); do
     sleep 10
     xcrun altool --notarization-info "${uuid}" -u "${MACOS_NOTARIZATION_USER}" ${password} | tee ${tmp}
-    if grep -q "Status Message:" ${tmp}; then
+    if egrep -q "Status Message: Package Approved|LogFileURL" ${tmp}; then
         break
     fi
 done

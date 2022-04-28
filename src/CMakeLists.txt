@@ -111,7 +111,7 @@ if ( HAVE_WINDOWS )
     target_link_libraries(zeek-agent PRIVATE shlwapi)
 endif()
 
-install(TARGETS zeek-agent)
+install(TARGETS zeek-agent COMPONENT ZeekAgent.app)
 
 configure_file(config.h.in "${CMAKE_BINARY_DIR}/include/autogen/config.h")
 

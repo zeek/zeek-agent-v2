@@ -7,7 +7,7 @@
     <key>CFBundleDisplayName</key>
     <string>Zeek&#x2007;Agent</string>
     <key>CFBundleIdentifier</key>
-    <string>${MACOS_APP_ID}</string>
+    <string>org.zeek.zeek-agent</string>
     <key>CFBundleVersion</key>
     <string>${ZEEK_AGENT_VERSION}</string>
     <key>CFBundleExecutable</key>
