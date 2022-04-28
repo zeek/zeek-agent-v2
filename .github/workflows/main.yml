@@ -212,7 +212,7 @@ jobs:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
 
-  debug_windows_2022:
+  release_windows_2022:
     runs-on: windows-2022
     env:
       VCPKG_ROOT: ${{ github.workspace }}/3rdparty/vcpkg
@@ -229,6 +229,16 @@ jobs:
         run: mkdir -p $VCPKG_DEFAULT_BINARY_CACHE
         shell: bash
 
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ${{ github.job }}
+
+      - name: Set up Visual Studio shell
+        uses: egor-tensin/vs-shell@v2
+        with:
+          arch: x64
+
       - name: Cache vcpkg output
         uses: actions/cache@v3
         with:
@@ -242,13 +252,14 @@ jobs:
             ${{ hashFiles( 'vcpkg.json' ) }}-${{ hashFiles( '.git/modules/vcpkg/HEAD' )}}-${{ env.VCPKG_TARGET_TRIPLET }}
 
       - name: Configure
-        run: |
-          cmake --version
-          cmake -S . -B build -A x64 -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_TARGET_TRIPLET}}
+        run: >
+          cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_MAKE_PROGRAM=ninja.exe -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON -DUSE_CCACHE=yes -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_TARGET_TRIPLET}}
         shell: cmd
 
       - name: Build
-        run: cmake --build build --target install --config Debug --parallel 2
+        run: |
+          cmake --build build --target install --config Release --parallel 2
+          dumpbin /headers "C:/Program Files (x86)/ZeekAgent/bin/zeek-agent.exe"
         shell: cmd
 
       ### We can't run btest here for a number of reasons. See
@@ -257,8 +268,22 @@ jobs:
 
       - name: Test
         run: |
-          "C:\Program Files\ZeekAgent\bin\zeek-agent.exe" -T
+          "C:\Program Files (x86)\ZeekAgent\bin\zeek-agent.exe" -T
         shell: cmd
+
+      # - name: Setup tmate session
+      #   uses: mxschmitt/action-tmate@v3
+
+      - name: Build installer
+        run: |
+          cmake --build build --target package --config Release
+          (cd build/dist && echo "ZA_DIST=$(echo *.msi)" >>$GITHUB_ENV)
+        shell: bash
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.ZA_DIST}}
+          path: build/dist/${{env.ZA_DIST}}
 
   release_source:
     runs-on: ubuntu-latest

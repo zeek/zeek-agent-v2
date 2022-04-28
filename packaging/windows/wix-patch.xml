@@ -1,0 +1,18 @@
+<CPackWiXPatch>
+  <CPackWiXFragment Id="#PRODUCT">
+    <DirectoryRef Id="TARGETDIR">
+      <Directory Id="CommonAppDataFolder">
+	<Directory Id="CADF_ZeekAgent" Name="ZeekAgent"/>
+      </Directory>
+    </DirectoryRef>
+  </CPackWiXFragment>
+
+  <CPackWiXFragment Id="#PRODUCTFEATURE">
+    <ComponentRef Id="CADF_CM_ZeekAgent"/>
+  </CPackWiXFragment>
+
+  <CPackWiXFragment Id="CM_CP_bin.zeek_agent.exe">
+    <ServiceInstall Id="ServiceInstaller" ErrorControl="ignore" Name="ZeekAgent" Start="auto" Type="ownProcess"/>
+    <ServiceControl Id="StartService" Stop="both" Remove="uninstall" Name="ZeekAgent" Wait="yes" />
+  </CPackWiXFragment>
+</CPackWiXPatch>

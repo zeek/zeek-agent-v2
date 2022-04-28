@@ -48,6 +48,8 @@ if ( HAVE_WINDOWS )
 
     # This is needed so that the console window pops up when you run the exe.
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+
+    set(APP_ICON_RESOURCE_WINDOWS "${CMAKE_SOURCE_DIR}/packaging/windows/appicon.rc")
 endif ()
 
 if ( NOT "${USE_DOCTEST}" )
@@ -73,7 +75,7 @@ endif()
 ### Configure build
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}/include)
 
-add_executable(zeek-agent main.cc)
+add_executable(zeek-agent main.cc ${APP_ICON_RESOURCE_WINDOWS})
 
 add_subdirectory(core)
 add_subdirectory(io)

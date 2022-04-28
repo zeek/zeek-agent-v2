@@ -9,8 +9,10 @@ compile_commands.json
 *.swp
 old
 .DS_Store
+.ccache
 
 # Windows port
 /.vs
 /out
 /CMakeSettings.json
+/packaging/windows/extra_install.cmake

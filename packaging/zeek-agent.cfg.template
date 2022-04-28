@@ -1,1 +1,41 @@
-# TODO
+# Configuration file for ZeekAgent. Most of these options should work with their
+# normal defaults. The main option that should be modified is the zeek.destinations
+# option. See the documentation below for the valid values for each option. Some of
+# these options (such as the log level) can be overridden with command-line flags.
+# See zeek-agent --help for more information about those flags.
+
+[log]
+# The granulatity of the log information.
+# Valid values: "trace", "debug", "info", "warning", "error", "critical", "off"
+# "trace" will return the most log data, while "critical" returns the least.
+# Setting this option to "off" will disable all logging.
+level = "off"
+
+# Valid values:
+# "file": send all logs to the file defined in the log.path option
+# "system": send logs the appropriate system logging facility (e.g. syslog)
+# "stdout": send all logs to stdout
+type = "stdout"
+
+# A path to a file to store log data if the log.type option is set to "file".
+path = ""
+
+[zeek]
+# A bracketed list of hostname/ip:port values that define what hosts running Zeek
+# that the agent should send data to. This option must be set for zeek-agent to
+# function properly.
+destination = []
+
+# The timeout in seconds for connecting to the hosts in the zeek.destinations
+# option.
+timeout = 5
+
+#groups =
+#hello_interval =
+#reconnect_interval =
+#ssl_cafile =
+#ssl_capath =
+#ssl_certificate =
+#ssl_disable =
+#ssl_keyfile =
+#ssl_passphrase =
