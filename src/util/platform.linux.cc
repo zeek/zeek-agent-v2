@@ -36,3 +36,12 @@ filesystem::path platform::dataDirectory() {
 
     return dir;
 }
+
+void platform::initializeOptions(Options* options) {
+    // Nothing to do.
+}
+
+std::optional<std::string> platform::retrieveConfigurationOption(const std::string& path) {
+    // Nothing to do.
+    return {};
+}

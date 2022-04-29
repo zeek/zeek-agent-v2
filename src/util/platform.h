@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "core/configuration.h"
 #include "filesystem.h"
 
 #include <optional>
@@ -44,5 +45,21 @@ extern std::optional<std::string> getenv(const std::string& name);
  * Checks for whether the process is running with administrator rights.
  */
 extern bool runningAsAdmin();
+
+/**
+ * Prepopulates an option object with defaults derived from platform-specific
+ * mechanisms.
+ */
+extern void initializeOptions(Options* options);
+
+/**
+ * Retrieves the value of an option through platform-specific means. For array
+ * values, the expectation is that the elements are returned as comma-separated
+ * string.
+ *
+ * @param path option's key path as in the TOML file
+ * @returns the option's value, if set
+ */
+extern std::optional<std::string> retrieveConfigurationOption(const std::string& path);
 
 } // namespace zeek::agent::platform

@@ -131,6 +131,10 @@ struct Pimpl<Configuration>::Implementation {
     // Processes a configuration file's content from an already open stream.
     Result<Nothing> read(std::istream& in, const filesystem::path& path);
 
+    // Backend for the other two read() method. If `tbl` is left unset, query platform-specific options instead of TOML
+    // configuration.
+    static Result<Nothing> read(const std::optional<toml::table>& tbl, Options* options);
+
     // Sets a set of command line options.
     Result<Nothing> initFromArgv(std::vector<std::string> argv);
 
@@ -144,6 +148,8 @@ struct Pimpl<Configuration>::Implementation {
 
 Options Configuration::Implementation::default_() {
     Options options;
+    platform::initializeOptions(&options);
+    read({}, &options);
 
     auto version = parseVersion(Version);
     if ( ! version )
@@ -290,12 +296,39 @@ Result<Nothing> Configuration::Implementation::read(const filesystem::path& path
     return read(in, path);
 }
 
+// Helper to parse platform-provided string values into the target type.
+template<typename T>
+T parsePlatformValue(std::string_view path, const std::string& v) {
+    if constexpr ( std::is_same<T, std::string>::value )
+        return v;
+
+    if constexpr ( std::is_same<T, double>::value )
+        return std::stod(v);
+
+    if constexpr ( std::is_same<T, bool>::value ) {
+        auto x = trim(tolower(v));
+        return x == "1" || x == "true" || x == "yes" || x == "on";
+    }
+
+    throw result::Error(format("cannot parse plaform value for configuration option '{}' ({})", path, to_string(v)));
+}
+
 // Get a value, typed correctly, if available.
 template<typename T>
-bool tomlValue(const toml::table& t, std::string_view path, T* dst) {
+bool tomlValue(const std::optional<toml::table>& t, const std::string& path, T* dst) {
     using vtype = typename std::remove_reference_t<T>;
 
-    auto n = t.at_path(path);
+    if ( ! t ) {
+        // See if we have platform-specific mechanism providing this value.
+        auto v = platform::retrieveConfigurationOption(path);
+        if ( ! v )
+            return false;
+
+        *dst = parsePlatformValue<T>(path, *v);
+        return true;
+    }
+
+    auto n = t->at_path(path);
     if ( ! n )
         return false;
 
@@ -303,16 +336,27 @@ bool tomlValue(const toml::table& t, std::string_view path, T* dst) {
         *dst = *x;
         return true;
     }
-    else
-        throw result::Error(frmt("cannot parse value for configuration option '{}'", path));
-};
+
+    throw result::Error(frmt("cannot parse value for configuration option '{}'", path));
+}
 
 // Get an array, typed correctly, if available. This allows single values, too.
 template<typename T>
-bool tomlArray(const toml::table& t, std::string_view path, std::vector<T>* dst) {
+bool tomlArray(const std::optional<toml::table>& t, const std::string& path, std::vector<T>* dst) {
     using vtype = typename std::remove_reference_t<T>;
 
-    auto n = t.at_path(path);
+    if ( ! t ) {
+        auto v = platform::retrieveConfigurationOption(path);
+        if ( ! v )
+            return false;
+
+        for ( const auto& x : split(*v) )
+            dst->push_back(parsePlatformValue<T>(path, trim(x)));
+
+        return true;
+    }
+
+    auto n = t->at_path(path);
     if ( ! n )
         return false;
 
@@ -329,11 +373,12 @@ bool tomlArray(const toml::table& t, std::string_view path, std::vector<T>* dst)
 
     else {
         vtype v;
-        if ( ! tomlValue(t, path, &v) )
-            return false;
-
-        dst->push_back(v);
-        return true;
+        if ( tomlValue(t, path, &v) ) {
+            dst->push_back(v);
+            return true;
+        }
+        else
+            throw result::Error(format("cannot parse value for configuration option '{}'", path));
     }
 }
 
@@ -343,12 +388,29 @@ Result<Nothing> Configuration::Implementation::read(std::istream& in, const file
 
     try {
         auto tbl = toml::parse(in, path.native());
-        tomlValue(tbl, "agent-id", &options.agent_id);
+        if ( auto rc = read(tbl, &options); ! rc )
+            return rc;
+
+        auto rc = addArgv(options);
+        if ( ! rc )
+            return rc.error();
+
+        apply(std::move(*rc));
+        return Nothing();
+
+    } catch ( const toml::parse_error& err ) {
+        return result::Error(err.what());
+    }
+}
+
+Result<Nothing> Configuration::Implementation::read(const std::optional<toml::table>& tbl, Options* options) {
+    try {
+        tomlValue(tbl, "agent-id", &options->agent_id);
 
         std::string log_level;
         if ( tomlValue(tbl, "log.level", &log_level) ) {
             if ( auto rc = options::log_level::from_str(log_level) )
-                options.log_level = *rc;
+                options->log_level = *rc;
             else
                 return rc.error();
         }
@@ -356,46 +418,39 @@ Result<Nothing> Configuration::Implementation::read(std::istream& in, const file
         std::string log_type;
         if ( tomlValue(tbl, "log.type", &log_type) ) {
             if ( auto x = options::log_type::from_str(log_type) )
-                options.log_type = *x;
+                options->log_type = *x;
             else
                 return x.error();
         }
 
         std::string log_path;
         if ( tomlValue(tbl, "log.path", &log_path) )
-            options.log_path = log_path;
+            options->log_path = log_path;
 
-        tomlArray(tbl, "zeek.destination", &options.zeek_destinations);
-        tomlArray(tbl, "zeek.groups", &options.zeek_groups);
+        tomlArray(tbl, "zeek.destination", &options->zeek_destinations);
+        tomlArray(tbl, "zeek.groups", &options->zeek_groups);
 
         double interval;
         if ( tomlValue(tbl, "zeek.hello_interval", &interval) )
-            options.zeek_hello_interval = to_interval(interval);
+            options->zeek_hello_interval = to_interval(interval);
 
         if ( tomlValue(tbl, "zeek.reconnect_interval", &interval) )
-            options.zeek_reconnect_interval = to_interval(interval);
+            options->zeek_reconnect_interval = to_interval(interval);
 
-        tomlValue(tbl, "zeek.ssl_cafile", &options.zeek_ssl_cafile);
-        tomlValue(tbl, "zeek.ssl_capath", &options.zeek_ssl_capath);
-        tomlValue(tbl, "zeek.ssl_certificate", &options.zeek_ssl_certificate);
-        tomlValue(tbl, "zeek.ssl_disable", &options.zeek_ssl_disable);
-        tomlValue(tbl, "zeek.ssl_keyfile", &options.zeek_ssl_keyfile);
-        tomlValue(tbl, "zeek.ssl_passphrase", &options.zeek_ssl_passphrase);
+        tomlValue(tbl, "zeek.ssl_cafile", &options->zeek_ssl_cafile);
+        tomlValue(tbl, "zeek.ssl_capath", &options->zeek_ssl_capath);
+        tomlValue(tbl, "zeek.ssl_certificate", &options->zeek_ssl_certificate);
+        tomlValue(tbl, "zeek.ssl_disable", &options->zeek_ssl_disable);
+        tomlValue(tbl, "zeek.ssl_keyfile", &options->zeek_ssl_keyfile);
+        tomlValue(tbl, "zeek.ssl_passphrase", &options->zeek_ssl_passphrase);
 
         if ( tomlValue(tbl, "zeek.timeout", &interval) )
-            options.zeek_timeout = to_interval(interval);
+            options->zeek_timeout = to_interval(interval);
 
-    } catch ( const toml::parse_error& err ) {
-        return result::Error(err.what());
     } catch ( const result::Error& err ) {
         return err;
     }
 
-    auto rc = addArgv(options);
-    if ( ! rc )
-        return rc.error();
-
-    apply(std::move(*rc));
     return Nothing();
 }
 

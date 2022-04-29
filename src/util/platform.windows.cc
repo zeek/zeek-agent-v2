@@ -126,9 +126,13 @@ bool platform::runningAsAdmin() {
     return is_member;
 }
 
-WMIManager& WMIManager::Get() {
-    static WMIManager wmi;
-    return wmi;
+void platform::initializeOptions(Options* options) {
+    // Nothing to do.
+}
+
+std::optional<std::string> platform::retrieveConfigurationOption(const std::string& path) {
+    // Nothing to do.
+    return {};
 }
 
 WMIManager::WMIManager() {

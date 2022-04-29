@@ -12,6 +12,7 @@
 #include "testing.h"
 
 #include <string>
+#include <vector>
 
 #include <pathfind.hpp>
 
@@ -47,6 +48,15 @@ filesystem::path platform::dataDirectory() {
         throw FatalError(frmt("cannot create path '{}'", dir.native()));
 
     return dir;
+}
+
+void platform::initializeOptions(Options* options) {
+    // Nothing to do.
+}
+
+std::optional<std::string> platform::retrieveConfigurationOption(const std::string& path) {
+    // Nothing to do.
+    return {};
 }
 
 // The EndpointSecurity code borrows from

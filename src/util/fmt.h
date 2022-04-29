@@ -29,4 +29,7 @@ std::string to_string(const T& t) {
     return t.str();
 }
 
+/** Fallback for strings. */
+inline std::string to_string(const std::string& s) { return s; }
+
 } // namespace zeek::agent
