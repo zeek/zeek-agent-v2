@@ -11,6 +11,7 @@
 #include "helpers.h"
 #include "testing.h"
 
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -54,8 +55,32 @@ void platform::initializeOptions(Options* options) {
     // Nothing to do.
 }
 
+#include <CoreFoundation/CFPreferences.h>
+#include <CoreFoundation/CFString.h>
+
 std::optional<std::string> platform::retrieveConfigurationOption(const std::string& path) {
-    // Nothing to do.
+    CFStringRef key = nullptr;
+    CFStringRef value = nullptr;
+
+    ScopeGuard _([&]() {
+        if ( key )
+            CFRelease(key);
+
+        if ( value )
+            CFRelease(key);
+    });
+
+    key = CFStringCreateWithCString(kCFAllocatorDefault, path.c_str(), CFStringGetSystemEncoding());
+    value = (CFStringRef)CFPreferencesCopyAppValue(key, kCFPreferencesCurrentApplication);
+
+    std::cerr << path << " " << value << std::endl;
+
+    if ( value ) {
+        char buffer[1024];
+        if ( CFStringGetCString(value, buffer, sizeof(buffer), CFStringGetSystemEncoding()) )
+            return buffer;
+    }
+
     return {};
 }
 
