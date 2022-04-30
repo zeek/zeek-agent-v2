@@ -14,7 +14,7 @@ using namespace zeek::agent;
 
 bool platform::isTTY() { return ::isatty(1); }
 
-bool platform::runningAsAdmin() { return geteuid() != 0; }
+bool platform::runningAsAdmin() { return geteuid() == 0; }
 
 std::vector<filesystem::path> platform::glob(const filesystem::path& pattern, size_t max) {
     std::vector<filesystem::path> result;
