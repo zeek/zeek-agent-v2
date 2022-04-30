@@ -5,7 +5,11 @@
 #include "pimpl.h"
 #include "result.h"
 
+#include <util/filesystem.h>
+
 namespace zeek::agent::platform::darwin {
+
+extern std::optional<filesystem::path> getApplicationSupport();
 
 /**
  * Wrapper around macOS's Endpoint Security API. This encapsulates API state

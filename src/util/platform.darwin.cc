@@ -11,12 +11,14 @@
 #include "helpers.h"
 #include "testing.h"
 
-#include <iostream>
 #include <string>
-#include <vector>
 
 #include <pathfind.hpp>
+#include <pwd.h>
 
+#include <CoreFoundation/CFPreferences.h>
+#include <CoreFoundation/CFString.h>
+#include <CoreServices/CoreServices.h>
 #include <EndpointSecurity/EndpointSecurity.h>
 
 using namespace zeek::agent;
@@ -25,21 +27,8 @@ using namespace zeek::agent::platform::darwin;
 std::string platform::name() { return "Darwin"; }
 
 std::optional<filesystem::path> platform::configurationFile() {
-    // TODO: These paths aren't necessarily right yet.
-    if ( auto home = platform::getenv("HOME") )
-        return filesystem::path(*home) / ".config" / "zeek-agent";
-    else {
-        filesystem::path exec = PathFind::FindExecutable();
-        return exec / "../etc" / "zeek-agent.conf";
-    }
-}
-
-std::optional<filesystem::path> platform::dataDirectory() {
-    // TODO: These paths aren't necessarily right yet.
-    filesystem::path dir;
-
-    if ( auto home = platform::getenv("HOME") )
-        dir = filesystem::path(*home) / ".cache" / "zeek-agent";
+    if ( auto dir = getApplicationSupport() )
+        return *dir / "zeek-agent.cfg";
     else
         dir = "/var/run/org.zeek.agent";
 
@@ -51,12 +40,11 @@ std::optional<filesystem::path> platform::dataDirectory() {
     return dir;
 }
 
+std::optional<filesystem::path> platform::dataDirectory() { return getApplicationSupport(); }
+
 void platform::initializeOptions(Options* options) {
     // Nothing to do.
 }
-
-#include <CoreFoundation/CFPreferences.h>
-#include <CoreFoundation/CFString.h>
 
 std::optional<std::string> platform::retrieveConfigurationOption(const std::string& path) {
     CFStringRef key = nullptr;
@@ -67,13 +55,11 @@ std::optional<std::string> platform::retrieveConfigurationOption(const std::stri
             CFRelease(key);
 
         if ( value )
-            CFRelease(key);
+            CFRelease(value);
     });
 
     key = CFStringCreateWithCString(kCFAllocatorDefault, path.c_str(), CFStringGetSystemEncoding());
     value = (CFStringRef)CFPreferencesCopyAppValue(key, kCFPreferencesCurrentApplication);
-
-    std::cerr << path << " " << value << std::endl;
 
     if ( value ) {
         char buffer[1024];

@@ -13,6 +13,8 @@ cat "${base}/manifest" | while read path; do
     rm "${path}"
 done
 
+rm -f "/Library/Application Support/ZeekAgent/uuid"
+
 rmdir "/Library/Application Support/ZeekAgent/ZeekAgent.app/Contents/MacOS"
 rmdir "/Library/Application Support/ZeekAgent/ZeekAgent.app/Contents/Resources"
 rmdir "/Library/Application Support/ZeekAgent/ZeekAgent.app/Contents/_CodeSignature"
