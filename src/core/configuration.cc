@@ -10,6 +10,7 @@
 #include "util/helpers.h"
 #include "util/platform.h"
 
+#include <exception>
 #include <sstream>
 #include <system_error>
 #include <type_traits>
@@ -64,6 +65,8 @@ static struct option long_driver_options[] = {
 };
 
 static void usage(const filesystem::path& name) {
+    auto cfg = platform::configurationFile() ? platform::configurationFile()->string() : std::string("n/a");
+
     // clang-format off
     std::cerr << "\nUsage: " << name.filename().string() << frmt(
         " [options]\n"
@@ -79,8 +82,7 @@ static void usage(const filesystem::path& name) {
         "  -i | --interactive               Spawn interactive console\n"
         "  -v | --version                   Print version information\n"
         "  -z | --zeek <host>[:port]        Connect to Zeek at given address\n"
-        "\n",
-        platform::configurationFile().string());
+        "\n", cfg);
     // clang-format on
 }
 
@@ -158,31 +160,44 @@ Options Configuration::Implementation::default_() {
     options.version_number = *version;
 
     // Attempt to read our agent's ID from previously created cache file.
-    auto uuid_path = (platform::dataDirectory() / "uuid").native();
-    if ( filesystem::is_regular_file(uuid_path) ) {
-        if ( auto in = std::ifstream(uuid_path) ) {
-            std::string line;
-            std::getline(in, line);
+    filesystem::path uuid_path;
 
-            if ( auto uuid = uuids::uuid::from_string(line) )
-                options.agent_id = uuids::to_string(*uuid);
+    if ( auto dir = platform::dataDirectory() ) {
+        uuid_path = (*dir / "uuid").native();
+        if ( filesystem::is_regular_file(uuid_path) ) {
+            if ( auto in = std::ifstream(uuid_path) ) {
+                std::string line;
+                std::getline(in, line);
+
+                if ( auto uuid = uuids::uuid::from_string(line) )
+                    options.agent_id = uuids::to_string(*uuid);
+            }
         }
     }
+    else
+        logger()->warn("cannot determine state directory");
 
     if ( options.agent_id.empty() ) {
         // Generate a fresh UUID as our agent's ID.
         options.agent_id = frmt("H{}", randomUUID());
 
         // Cache it.
-        std::ofstream out(uuid_path, std::ios::out | std::ios::trunc);
-        out << options.agent_id << "\n";
+        if ( ! uuid_path.empty() ) {
+            try {
+                filesystem::create_directories(uuid_path.parent_path());
+                std::ofstream out(uuid_path, std::ios::out | std::ios::trunc);
+                out << options.agent_id << "\n";
+            } catch ( const std::exception& e ) {
+                logger()->warn("cannot save UUID in {}", uuid_path.string());
+            }
+        }
     }
 
     options.instance_id = frmt("I{}", randomUUID());
 
     auto path = platform::configurationFile();
-    if ( filesystem::is_regular_file(path) )
-        options.config_file = path;
+    if ( path && filesystem::is_regular_file(*path) )
+        options.config_file = *path;
 
     return options;
 }

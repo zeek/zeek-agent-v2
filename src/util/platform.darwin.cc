@@ -24,7 +24,7 @@ using namespace zeek::agent::platform::darwin;
 
 std::string platform::name() { return "Darwin"; }
 
-filesystem::path platform::configurationFile() {
+std::optional<filesystem::path> platform::configurationFile() {
     // TODO: These paths aren't necessarily right yet.
     if ( auto home = platform::getenv("HOME") )
         return filesystem::path(*home) / ".config" / "zeek-agent";
@@ -34,7 +34,7 @@ filesystem::path platform::configurationFile() {
     }
 }
 
-filesystem::path platform::dataDirectory() {
+std::optional<filesystem::path> platform::dataDirectory() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path dir;
 

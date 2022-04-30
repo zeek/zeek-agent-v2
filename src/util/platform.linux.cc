@@ -14,13 +14,13 @@ using namespace zeek::agent;
 
 std::string platform::name() { return "Linux"; }
 
-filesystem::path platform::configurationFile() {
+std::optional<filesystem::path> platform::configurationFile() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path exec = PathFind::FindExecutable();
     return exec / "../etc" / "zeek-agent.conf";
 }
 
-filesystem::path platform::dataDirectory() {
+std::optional<filesystem::path> platform::dataDirectory() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path dir;
 

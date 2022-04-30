@@ -15,10 +15,10 @@ namespace zeek::agent::platform {
 extern std::string name();
 
 /** Returns the path to the default configuration file. */
-extern filesystem::path configurationFile();
+extern std::optional<filesystem::path> configurationFile();
 
 /** Returns the directory path where to store dynamic, persistent state. */
-extern filesystem::path dataDirectory();
+extern std::optional<filesystem::path> dataDirectory();
 
 /** Returns true if stdin is a terminal. */
 extern bool isTTY();
