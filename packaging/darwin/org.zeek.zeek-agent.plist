@@ -7,7 +7,8 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/Library/Application Support/ZeekAgent/ZeekAgent.app/Contents/MacOS/ZeekAgent</string>
-		<string>-L info</string>
+		<string>-L</string>
+		<string>info</string>
 	</array>
 	<key>RunAtLoad</key>
 		<true/>
