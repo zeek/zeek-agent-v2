@@ -43,7 +43,7 @@
 
 using namespace zeek::agent;
 
-options::LogLevel options::default_log_level = options::LogLevel::warn;
+options::LogLevel options::default_log_level = options::LogLevel::info;
 options::LogType options::default_log_type = options::LogType::Stdout;
 filesystem::path options::default_log_path = {};
 
@@ -211,8 +211,10 @@ void Configuration::Implementation::apply(Options options) {
 
     if ( options.mode == options::Mode::Test ) {
 #ifndef DOCTEST_CONFIG_DISABLE
-        if ( ! options.log_level )
+        if ( ! options.log_level ) {
+            options::default_log_level = options::LogLevel::off;
             logger()->set_level(options::LogLevel::off);
+        }
 
         auto argv = preprocessArgv(true);
         platform::setenv("TZ", "GMT", 1);
