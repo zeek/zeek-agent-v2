@@ -36,6 +36,8 @@ jobs:
 
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ${{ github.job }}
 
       - name: Build
         run: |
@@ -82,6 +84,8 @@ jobs:
 
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ${{ github.job }}
 
       - name: Build
         run: |
@@ -127,6 +131,8 @@ jobs:
 
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ${{ github.job }}
 
       - name: Build universal arch OpenSSL
         env:
@@ -272,6 +278,8 @@ jobs:
 
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ${{ github.job }}
 
       - name: Configure
         run: |
