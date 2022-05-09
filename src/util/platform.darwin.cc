@@ -9,8 +9,10 @@
 #include "core/logger.h"
 #include "fmt.h"
 #include "helpers.h"
+#include "spdlog/common.h"
 #include "testing.h"
 
+#include <iostream>
 #include <string>
 
 #include <pathfind.hpp>
@@ -69,6 +71,35 @@ std::optional<std::string> platform::retrieveConfigurationOption(const std::stri
 
     return {};
 }
+
+OSLogSink::OSLogSink() { _oslog = os_log_create("org.zeek.zeek-agent", "logger"); }
+
+OSLogSink::~OSLogSink() {
+    if ( _oslog )
+        CFRelease(_oslog);
+}
+
+void OSLogSink::sink_it_(const spdlog::details::log_msg& msg) {
+    std::string formatted = std::string(msg.payload.data(), msg.payload.size());
+    os_log_type_t level;
+
+    switch ( msg.level ) {
+        case spdlog::level::critical: level = OS_LOG_TYPE_ERROR; break;
+        case spdlog::level::debug: level = OS_LOG_TYPE_DEBUG; break;
+        case spdlog::level::err: level = OS_LOG_TYPE_ERROR; break;
+        case spdlog::level::info: level = OS_LOG_TYPE_INFO; break;
+        case spdlog::level::n_levels: cannot_be_reached();
+        case spdlog::level::off: return;
+        case spdlog::level::trace: level = OS_LOG_TYPE_DEBUG; break;
+        case spdlog::level::warn: level = OS_LOG_TYPE_INFO; break;
+    }
+
+    auto log_msg = std::string(msg.payload.data(), msg.payload.size());
+    auto log_level = std::string(to_string_view(msg.level).data(), to_string_view(msg.level).size());
+    os_log_with_type(_oslog, level, "[%{public}s] %{public}s", log_level.c_str(), log_msg.c_str());
+}
+
+void OSLogSink::flush_() {}
 
 // The EndpointSecurity code borrows from
 // https://gist.github.com/Omar-Ikram/8e6721d8e83a3da69b31d4c2612a68ba.
