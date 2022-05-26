@@ -133,10 +133,6 @@ struct Pimpl<Configuration>::Implementation {
     // Processes a configuration file's content from an already open stream.
     Result<Nothing> read(std::istream& in, const filesystem::path& path);
 
-    // Backend for the other two read() method. If `tbl` is left unset, query platform-specific options instead of TOML
-    // configuration.
-    static Result<Nothing> read(const std::optional<toml::table>& tbl, Options* options);
-
     // Sets a set of command line options.
     Result<Nothing> initFromArgv(std::vector<std::string> argv);
 
@@ -146,6 +142,10 @@ struct Pimpl<Configuration>::Implementation {
 
     // Returns a set of options with all values at their default.
     static Options default_();
+
+    // Backend for the other two read() methods. If `tbl` is left unset, query
+    // platform-specific options instead of TOML configuration.
+    static Result<Nothing> read(const std::optional<toml::table>& tbl, Options* options);
 };
 
 Options Configuration::Implementation::default_() {

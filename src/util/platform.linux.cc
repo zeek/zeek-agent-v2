@@ -14,6 +14,8 @@ using namespace zeek::agent;
 
 std::string platform::name() { return "Linux"; }
 
+void platform::init(const Configuration& cfg) {}
+
 std::optional<filesystem::path> platform::configurationFile() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path exec = PathFind::FindExecutable();

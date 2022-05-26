@@ -1,17 +1,24 @@
-
-set(installers "")
-
+# Validate/display signatures and entitlements to the degree we can.
 foreach (pkg "${CPACK_PACKAGE_FILES}")
-    STRING(REPLACE ".dmg" "" bundle "${pkg}")
-    execute_process(COMMAND ${CMAKE_CURRENT_LIST_DIR}/create-installer "${bundle}/${CPACK_BUNDLE_NAME}.app" "${bundle}.pkg" "${CMAKE_CURRENT_LIST_DIR}/.." "${CPACK_PACKAGE_DIRECTORY}/" "${CPACK_PACKAGE_VERSION}" COMMAND_ERROR_IS_FATAL ANY)
-    list(APPEND installers "${bundle}.pkg")
+    string(REPLACE ".dmg" "" bundle "${pkg}")
+    foreach (path
+             ZeekAgent.app
+             ZeekAgent.app/Contents/Library/SystemExtensions/org.zeek.zeek-agent.agent.systemextension
+             ZeekAgent.app/Contents/Library/SystemExtensions/org.zeek.zeek-agent.network-extension.systemextension
+            )
+        get_filename_component(name "${path}" NAME)
+        message(STATUS "Validating ${name}")
+        execute_process(COMMAND /usr/bin/codesign -vv --strict "${bundle}/${path}")
+        execute_process(COMMAND /usr/bin/codesign -dv --strict "${bundle}/${path}")
+        execute_process(COMMAND /usr/bin/codesign -d --entitlements - "${bundle}/${path}")
+    endforeach()
 endforeach()
 
-if ("$ENV{MACOS_CERTIFICATE_APPLICATION_ID}" STREQUAL "" OR "$ENV{MACOS_NOTARIZATION_USER}" STREQUAL "")
-    message(STATUS "Not running notarization: MACOS_CERTIFICATE_APPLICATION_ID/MACOS_NOTARIZATION_USER not set")
-    return()
+if ( NOT "$ENV{MACOS_NOTARIZATION_USER}" STREQUAL "")
+    message(STATUS "Notarizing application")
+    foreach (pkg "${CPACK_PACKAGE_FILES}")
+        execute_process(COMMAND ${CMAKE_CURRENT_LIST_DIR}/notarize application "${pkg}" COMMAND_ERROR_IS_FATAL ANY)
+    endforeach()
+else ()
+    message(STATUS "Not notarizing application, MACOS_NOTARIZATION_USER not set")
 endif()
-
-foreach (pkg "${installers}")
-    execute_process(COMMAND ${CMAKE_CURRENT_LIST_DIR}/notarize installer "${pkg}" COMMAND_ERROR_IS_FATAL ANY)
-endforeach()

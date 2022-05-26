@@ -49,17 +49,10 @@ int main(int argc, char** argv) {
         logger()->info("Zeek Agent {} starting up", VersionLong);
         atexit(log_termination);
 
-        if ( platform::runningAsAdmin() && ! cfg.options().use_mock_data )
+        if ( ! platform::runningAsAdmin() && ! cfg.options().use_mock_data )
             logger()->warn("not running as root, information may be incomplete");
 
-#ifdef HAVE_DARWIN
-        {
-            // TODO: We leave that here until we actually have a table using
-            // EndpointSecurity, so that logging will show if ES is available.
-            platform::darwin::EndpointSecurity es;
-            es.init();
-        }
-#endif
+        platform::init(cfg);
 
         Scheduler scheduler;
         signal_mgr = new SignalManager({SIGINT});

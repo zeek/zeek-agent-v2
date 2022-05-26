@@ -63,7 +63,7 @@ jobs:
   # TODO: Install Zeek and run Zeek tests.
   release_alpine_3_15_static:
     runs-on: ubuntu-latest
-    environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
+    environment: ${{ (github.ref == 'refs/heads/topic/robin/notarization' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
 
     container:
       image: alpine:3.15
@@ -101,21 +101,22 @@ jobs:
       - name: Package
         run: |
           ninja -C build package
-          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
+          (cd build/dist && echo "ZA_DIST=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{env.ZA_TGZ}}
-          path: build/dist/${{env.ZA_TGZ}}
+          name: ${{env.ZA_DIST}}
+          path: build/dist/${{env.ZA_DIST}}
 
   # TODO: Install Zeek and run Zeek tests.
   release_macos_11:
     runs-on: macos-11
-    environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
+    environment: ${{ (github.ref == 'refs/heads/topic/robin/notarization' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
 
     steps:
       - name: Prepare
         run: |
+          brew upgrade
           brew install ninja ccache
           pip3 install btest zkg
 
@@ -134,8 +135,8 @@ jobs:
             curl -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
             tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_x86_64
             tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_arm64
-            (cd openssl_x86_64 && CC="ccache cc" ./Configure darwin64-x86_64-cc no-shared no-tests && make -j)
-            (cd openssl_arm64 && CC="ccache cc" ./Configure darwin64-arm64-cc no-shared no-tests && make -j)
+            (cd openssl_x86_64 && CC="ccache cc" ./Configure darwin64-x86_64-cc no-shared no-tests -mmacosx-version-min=11.0 && make -j)
+            (cd openssl_arm64 && CC="ccache cc" ./Configure darwin64-arm64-cc no-shared no-tests -mmacosx-version-min=11.0 && make -j)
             mkdir -p /tmp/openssl/lib /tmp/openssl/include
             lipo -create openssl_arm64/libcrypto.a openssl_x86_64/libcrypto.a -output /tmp/openssl/lib/libcrypto.a
             lipo -create openssl_arm64/libssl.a openssl_x86_64/libssl.a -output /tmp/openssl/lib/libssl.a
@@ -160,42 +161,41 @@ jobs:
       ### Only on topic branches
 
       - name: Package (without codesign)
-        if: github.ref_name != 'main' && !startsWith(github.ref, 'refs/tags/v')
+        if: github.ref_name != 'main' && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref, '-dev'))
         run: |
           ninja -C build package
-          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
+          (cd build/dist && echo "ZA_DIST=$(echo *.dmg)" >>$GITHUB_ENV)
 
       ### Only on the main branch
 
       - name: Set up keychain for code signing
-        if: github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))
+        if: github.ref == 'refs/heads/topic/robin/notarization' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))
         env:
-          MACOS_CERTIFICATE_PEM: ${{ secrets.MACOS_CERTIFICATE_PEM }}
-          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_CERTIFICATE_APPLICATION_PEM: ${{ secrets.MACOS_CERTIFICATE_APPLICATION_PEM }}
+          MACOS_CERTIFICATE_APPLICATION_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_APPLICATION_PASSWORD }}
           MACOS_KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
         run: |
-          echo -n "${MACOS_CERTIFICATE_PEM}" >${RUNNER_TEMP}/cert.pem
+          echo -n "${MACOS_CERTIFICATE_APPLICATION_PEM}" >${RUNNER_TEMP}/cert.pem
           security create-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
           security set-keychain-settings -lut 100 ${RUNNER_TEMP}/keychain-db
           security default-keychain -s ${RUNNER_TEMP}/keychain-db
           security unlock-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
-          security import ${RUNNER_TEMP}/cert.pem -P "${MACOS_CERTIFICATE_PASSWORD}" -x -T /usr/bin/codesign -k ${RUNNER_TEMP}/keychain-db
+          security import ${RUNNER_TEMP}/cert.pem -P "${MACOS_CERTIFICATE_APPLICATION_PASSWORD}" -x -T /usr/bin/codesign -k ${RUNNER_TEMP}/keychain-db
           security set-key-partition-list -S apple-tool:,apple: -s -k "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
 
       - name: Package (with codesign)
-        if: github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))
+        if: github.ref == 'refs/heads/topic/robin/notarization' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))
         env:
           MACOS_CERTIFICATE_APPLICATION_ID: ${{ secrets.MACOS_CERTIFICATE_APPLICATION_ID }}
           MACOS_NOTARIZATION_USER: ${{ secrets.MACOS_NOTARIZATION_USER }}
           MACOS_NOTARIZATION_PASSWORD: ${{ secrets.MACOS_NOTARIZATION_PASSWORD }}
 
         run: |
-          test -n "${CPACK_BUNDLE_APPLE_CERT_APP}" || (echo "Codesign certificate not set" >&2; false)
           ninja -C build package
-          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
+          (cd build/dist && echo "ZA_DIST=$(echo *.dmg)" >>$GITHUB_ENV)
 
       - name: Clean up keychain
-        if: always() && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev')))
+        if: always() && (github.ref == 'refs/heads/topic/robin/notarization' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev')))
         run: |
           security delete-keychain ${RUNNER_TEMP}/keychain-db
 
@@ -203,8 +203,8 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{env.ZA_TGZ}}
-          path: build/dist/${{env.ZA_TGZ}}
+          name: ${{env.ZA_DIST}}
+          path: build/dist/${{env.ZA_DIST}}
 
   debug_windows_2022:
     runs-on: windows-2022
@@ -256,7 +256,7 @@ jobs:
 
   release_source:
     runs-on: ubuntu-latest
-    environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
+    environment: ${{ (github.ref == 'refs/heads/topic/robin/notarization' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
 
     steps:
       - name: Prepare
@@ -280,18 +280,18 @@ jobs:
       - name: Package source code
         run: |
           ninja -C build package_source
-          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
+          (cd build/dist && echo "ZA_DIST=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
       - name: Test build of source code
         run: |
           mkdir -p ${{ runner.temp }}/test-build
-          cat build/dist/${{env.ZA_TGZ}} | (cd ${{ runner.temp }}/test-build && tar xzvf -)
+          cat build/dist/${{env.ZA_DIST}} | (cd ${{ runner.temp }}/test-build && tar xzvf -)
           (cd $(echo ${{ runner.temp }}/test-build/zeek-agent*) && ./configure --generator=Ninja --enable-ccache && ninja -C build && ninja -C build test)
 
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{env.ZA_TGZ}}
-          path: build/dist/${{env.ZA_TGZ}}
+          name: ${{env.ZA_DIST}}
+          path: build/dist/${{env.ZA_DIST}}
 
   publish_release:
     permissions:

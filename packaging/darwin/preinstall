@@ -1,9 +1,0 @@
-#!/bin/bash
-
-date >/tmp/pre
-
-if /bin/launchctl list "org.zeek.zeek-agent" >/dev/null 2>&1; then
-	sudo /bin/launchctl unload /Library/LaunchDaemons/org.zeek.zeek-agent.plist
-fi
-
-exit 0

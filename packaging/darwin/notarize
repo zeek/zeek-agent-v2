@@ -1,14 +1,16 @@
 #! /usr/bin/env bash
 #
 # Submits a bundle (e.g., a DMG or ZIP) for Apple notarization.
-
-function usage {
-    echo "Usage: $(basename $0) installer|application <bundle>" >&2
-}
-
-echo N-XXXXXX $@
+#
+# This script can sign with either application or installers certificates. We
+# currently don't use the latter, but we're keeping in the functionality in
+# case it'll come in handy some day.
 
 set -e
+
+function usage {
+    echo "Usage: $(basename $0) application|installer <bundle>" >&2
+}
 
 if [ $# != 2 ]; then
     usage
@@ -25,6 +27,7 @@ if [ -z "${MACOS_NOTARIZATION_USER}" ]; then
     exit 1
 fi
 
+base=$(pwd)/../packaging/darwin
 sign_type=$1
 bundle=$2
 
@@ -38,7 +41,7 @@ if [ "${sign_type}" == "installer" ]; then
     mv "${bundle}.tmp" "${bundle}"
 elif  [ "$1" == "application" ]; then
     echo "== Signing bundle ..."
-    codesign -f -s "${MACOS_CERTIFICATE_APPLICATION_ID}" --timestamp ${bundle}
+    codesign -f -s "${MACOS_CERTIFICATE_APPLICATION_ID}" --timestamp --entitlements ${base}/entitlements.plist.app ${bundle}
 else
     usage
     exit 1

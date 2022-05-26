@@ -5,7 +5,7 @@
     <key>CFBundleName</key>
     <string>ZeekAgent</string>
     <key>CFBundleDisplayName</key>
-    <string>Zeek&#x2007;Agent</string>
+    <string>Zeek Agent</string>
     <key>CFBundleIdentifier</key>
     <string>org.zeek.zeek-agent</string>
     <key>CFBundleVersion</key>
@@ -17,10 +17,6 @@
     <key>CFBundleIconFile</key>
     <string>ZeekAgent</string>
     <key>LSMinimumSystemVersion</key>
-    <string>11.0</string>
-    <key>BuildMachineOSBuild</key>
-    <string>${DARWIN_BUILD_VERSION}</string>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>English</string>
+    <string>${CMAKE_OSX_DEPLOYMENT_TARGET}</string>
 </dict>
 </plist>

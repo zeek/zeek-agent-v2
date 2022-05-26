@@ -29,30 +29,31 @@ private:
     os_log_t _oslog = nullptr;
 };
 
+class EndpointSecurity;
+
+/** Returns global ES singleton */
+EndpointSecurity* endpointSecurity();
+
 /**
  * Wrapper around macOS's Endpoint Security API. This encapsulates API state
  * across multiple clients, maintaining just single internal copy.
  */
 class EndpointSecurity : public Pimpl<EndpointSecurity> {
 public:
-    EndpointSecurity();
     ~EndpointSecurity();
 
     /**
-     * Initializes the OS-side EndpointSecurity system. Must be called before
-     * any other functionality. This is safe against multiple invocations,
-     * it'll be a noop if already initialized.
+     * Returns success after `init()` has been eable to initialize
+     * EndpointSecurity successfully, or an error otherwise.
      *
-     * @returns appropiate error message if ES isn't available; then no
-     * functionlity must be used
+     * @returns success or an appropiate error message if ES isn't available;
+     * then no functionlity must be used
      */
-    Result<Nothing> init();
+    Result<Nothing> isAvailable();
 
-    /**
-     * Shuts down the OS-side EndpointSecurity system. This is safe against
-     * multiple invocations, it'll be a noop if not yet (and not anymore) initializes.
-     */
-    void done();
+private:
+    friend EndpointSecurity* endpointSecurity();
+    EndpointSecurity();
 };
 
 

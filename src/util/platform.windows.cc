@@ -22,6 +22,8 @@ using namespace ztd::out_ptr;
 
 std::string platform::name() { return "Windows"; }
 
+void platform::init(const Configuration& cfg) {}
+
 std::optional<filesystem::path> platform::configurationFile() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path exec = PathFind::FindExecutable();
@@ -133,6 +135,11 @@ void platform::initializeOptions(Options* options) {
 std::optional<std::string> platform::retrieveConfigurationOption(const std::string& path) {
     // Nothing to do.
     return {};
+}
+
+WMIManager& WMIManager::Get() {
+    static WMIManager wmi;
+    return wmi;
 }
 
 WMIManager::WMIManager() {

@@ -1,0 +1,31 @@
+<plist version="1.0">
+<dict>
+    <key>CFBundlePackageType</key>
+    <string>SYSX</string>
+    <key>CFBundleName</key>
+    <string>ZeekAgentSystemExtension</string>
+    <key>CFBundleDisplayName</key>
+    <string>Zeek&#x0020;Agent&#x0020;&#x2013;&#x0020;System Extension</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.zeek.zeek-agent.agent</string>
+    <key>CFBundleVersion</key>
+    <string>${ZEEK_AGENT_VERSION}</string>
+    <key>CFBundleExecutable</key>
+    <string>zeek-agent</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${ZEEK_AGENT_VERSION}></string>
+    <key>CFBundleIconFile</key>
+    <string>ZeekAgent</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>${CMAKE_OSX_DEPLOYMENT_TARGET}</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>English</string>
+
+    <key>NSSystemExtensionUsageDescription</key>
+    <string>Endpoint agent forwarding host activity to Zeek</string>
+
+    <key>NSEndpointSecurityMachServiceName</key>
+    <string>org.zeek.zeek-agent.agent</string>
+
+</dict>
+</plist>
