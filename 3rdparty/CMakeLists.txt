@@ -35,7 +35,6 @@ add_subdirectory(tomlplusplus EXCLUDE_FROM_ALL)
 add_subdirectory(out_ptr EXCLUDE_FROM_ALL)
 
 set(SPDLOG_FMT_EXTERNAL ON)
-option(UUID_BUILD_TESTS "Build the unit tests" OFF)
 add_subdirectory(spdlog EXCLUDE_FROM_ALL)
 
 # IXWebSocket will pick up on us having configured OpenSSL already.
