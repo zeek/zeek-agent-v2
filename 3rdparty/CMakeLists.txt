@@ -20,10 +20,12 @@ add_subdirectory(filesystem EXCLUDE_FROM_ALL)
 add_subdirectory(fmt EXCLUDE_FROM_ALL)
 add_subdirectory(replxx EXCLUDE_FROM_ALL)
 add_subdirectory(json EXCLUDE_FROM_ALL)
-add_subdirectory(spdlog EXCLUDE_FROM_ALL)
 add_subdirectory(stduuid EXCLUDE_FROM_ALL)
 add_subdirectory(tomlplusplus EXCLUDE_FROM_ALL)
 add_subdirectory(out_ptr EXCLUDE_FROM_ALL)
+
+set(SPDLOG_FMT_EXTERNAL ON)
+add_subdirectory(spdlog EXCLUDE_FROM_ALL)
 
 # pathfind's cmake config is too old and not really usable. Set it up ourselves.
 add_library(pathfind STATIC pathfind/src/pathfind.cpp)
