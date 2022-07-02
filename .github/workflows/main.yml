@@ -3,205 +3,205 @@ name: CI pipeline
 on: push
 
 jobs:
-  debug_ubuntu_latest:
-    runs-on: ubuntu-latest
+  # debug_ubuntu_latest:
+  #   runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        zeek: [{version: 4.0.4-0, tag: -lts}, {version: 5.0.0-0, tag: -rc}]
+  #   strategy:
+  #     matrix:
+  #       zeek: [{version: 4.0.4-0, tag: -lts}, {version: 5.0.0-0, tag: -rc}]
 
-    env:
-      ZEEK_VERSION: ${{ matrix.zeek.version }}
-      ZEEK_TAG: ${{ matrix.zeek.tag }}
+  #   env:
+  #     ZEEK_VERSION: ${{ matrix.zeek.version }}
+  #     ZEEK_TAG: ${{ matrix.zeek.tag }}
 
-    steps:
-      - name: Prepare
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get update
-          sudo apt-get install -y ninja-build ccache curl ca-certificates clang-tidy-12
-          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-12 100
-          sudo pip3 install btest zkg pre-commit
+  #   steps:
+  #     - name: Prepare
+  #       run: |
+  #         export DEBIAN_FRONTEND=noninteractive
+  #         sudo apt-get update
+  #         sudo apt-get install -y ninja-build ccache curl ca-certificates clang-tidy-12
+  #         sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-12 100
+  #         sudo pip3 install btest zkg pre-commit
 
-      - name: Install Zeek
-        run: |
-          (cd /tmp && curl -L -O https://download.zeek.org/binary-packages/xUbuntu_20.04/amd64/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb)
-          sudo apt install -y /tmp/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb
-          echo "/opt/zeek/bin:$PATH" >> $GITHUB_PATH
+  #     - name: Install Zeek
+  #       run: |
+  #         (cd /tmp && curl -L -O https://download.zeek.org/binary-packages/xUbuntu_20.04/amd64/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb)
+  #         sudo apt install -y /tmp/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb
+  #         echo "/opt/zeek/bin:$PATH" >> $GITHUB_PATH
 
-      - name: Checkout repository
-        uses: actions/checkout@v2
-        with:
-          submodules: recursive
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v2
+  #       with:
+  #         submodules: recursive
 
-      - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+  #     - name: Set up ccache
+  #       uses: hendrikmuhs/ccache-action@v1
 
-      - name: Build
-        run: |
-          ./configure --prefix=/tmp/zeek-agent --enable-debug --enable-sanitizer --enable-ccache --enable-werror --generator=Ninja
-          ninja -C build
+  #     - name: Build
+  #       run: |
+  #         ./configure --prefix=/tmp/zeek-agent --enable-debug --enable-sanitizer --enable-ccache --enable-werror --generator=Ninja
+  #         ninja -C build
 
-      - name: Test
-        run: |
-          make test
+  #     - name: Test
+  #       run: |
+  #         make test
 
-      - name: Check code
-        run: |
-          pre-commit run -a --show-diff-on-failure
-          # TODO: tidy fails in Broker currently
-          # ninja -C build tidy
+  #     - name: Check code
+  #       run: |
+  #         pre-commit run -a --show-diff-on-failure
+  #         # TODO: tidy fails in Broker currently
+  #         # ninja -C build tidy
 
-      - uses: actions/upload-artifact@v2
-        if: failure()
-        with:
-          name: Test output
-          path: |
-            tests/.tmp
-            zeek-agent/tests/.tmp
+  #     - uses: actions/upload-artifact@v2
+  #       if: failure()
+  #       with:
+  #         name: Test output
+  #         path: |
+  #           tests/.tmp
+  #           zeek-agent/tests/.tmp
 
-  # TODO: Install Zeek and run Zeek tests.
-  release_alpine_3_15_static:
-    runs-on: ubuntu-latest
-    environment: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
+  # # TODO: Install Zeek and run Zeek tests.
+  # release_alpine_3_15_static:
+  #   runs-on: ubuntu-latest
+  #   environment: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
-    container:
-      image: alpine:3.15
+  #   container:
+  #     image: alpine:3.15
 
-    steps:
-      - name: Prepare
-        run: |
-          apk update
-          apk add linux-headers ccache cmake g++ gcc git make ninja tar zlib-static zlib-dev openssl-libs-static openssl-dev python3 py3-pip
-          pip3 install btest zkg
+  #   steps:
+  #     - name: Prepare
+  #       run: |
+  #         apk update
+  #         apk add linux-headers ccache cmake g++ gcc git make ninja tar zlib-static zlib-dev openssl-libs-static openssl-dev python3 py3-pip
+  #         pip3 install btest zkg
 
-      - name: Checkout repository
-        uses: actions/checkout@v2
-        with:
-          submodules: recursive
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v2
+  #       with:
+  #         submodules: recursive
 
-      - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+  #     - name: Set up ccache
+  #       uses: hendrikmuhs/ccache-action@v1
 
-      - name: Build
-        run: |
-          ./configure --prefix=/tmp/zeek-agent --enable-ccache --enable-werror --enable-static --generator=Ninja --with-openssl=
-          ninja -C build
+  #     - name: Build
+  #       run: |
+  #         ./configure --prefix=/tmp/zeek-agent --enable-ccache --enable-werror --enable-static --generator=Ninja --with-openssl=
+  #         ninja -C build
 
-      - name: Test
-        run: |
-          ldd build/bin/zeek-agent 2>&1 | grep -q "Not a valid dynamic program"
-          make -C tests test-no-zeek
+  #     - name: Test
+  #       run: |
+  #         ldd build/bin/zeek-agent 2>&1 | grep -q "Not a valid dynamic program"
+  #         make -C tests test-no-zeek
 
-      - name: Install
-        run: |
-          ninja -C build install
-          find /tmp/zeek-agent -exec ls -ald '{}' ';'
+  #     - name: Install
+  #       run: |
+  #         ninja -C build install
+  #         find /tmp/zeek-agent -exec ls -ald '{}' ';'
 
-      - name: Package
-        run: |
-          ninja -C build package
-          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
+  #     - name: Package
+  #       run: |
+  #         ninja -C build package
+  #         (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
-      - uses: actions/upload-artifact@v2
-        with:
-          name: ${{env.ZA_TGZ}}
-          path: build/dist/${{env.ZA_TGZ}}
+  #     - uses: actions/upload-artifact@v2
+  #       with:
+  #         name: ${{env.ZA_TGZ}}
+  #         path: build/dist/${{env.ZA_TGZ}}
 
-  # TODO: Install Zeek and run Zeek tests.
-  release_macos_11:
-    runs-on: macos-11
-    environment: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
+  # # TODO: Install Zeek and run Zeek tests.
+  # release_macos_11:
+  #   runs-on: macos-11
+  #   environment: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
-    steps:
-      - name: Prepare
-        run: |
-          brew install ninja ccache
-          pip3 install btest zkg
+  #   steps:
+  #     - name: Prepare
+  #       run: |
+  #         brew install ninja ccache
+  #         pip3 install btest zkg
 
-      - name: Checkout repository
-        uses: actions/checkout@v2
-        with:
-          submodules: recursive
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v2
+  #       with:
+  #         submodules: recursive
 
-      - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+  #     - name: Set up ccache
+  #       uses: hendrikmuhs/ccache-action@v1
 
-      - name: Build universal arch OpenSSL
-        env:
-            OPENSSL_VERSION: 1.1.1m
-        run: |
-            curl -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
-            tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_x86_64
-            tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_arm64
-            (cd openssl_x86_64 && CC="ccache cc" ./Configure darwin64-x86_64-cc no-shared no-tests && make -j)
-            (cd openssl_arm64 && CC="ccache cc" ./Configure darwin64-arm64-cc no-shared no-tests && make -j)
-            mkdir -p /tmp/openssl/lib /tmp/openssl/include
-            lipo -create openssl_arm64/libcrypto.a openssl_x86_64/libcrypto.a -output /tmp/openssl/lib/libcrypto.a
-            lipo -create openssl_arm64/libssl.a openssl_x86_64/libssl.a -output /tmp/openssl/lib/libssl.a
-            cp -r openssl_x86_64/include/openssl /tmp/openssl/include/
-            rm -rf openssl-${OPENSSL_VERSION}*
+  #     - name: Build universal arch OpenSSL
+  #       env:
+  #           OPENSSL_VERSION: 1.1.1m
+  #       run: |
+  #           curl -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
+  #           tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_x86_64
+  #           tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_arm64
+  #           (cd openssl_x86_64 && CC="ccache cc" ./Configure darwin64-x86_64-cc no-shared no-tests && make -j)
+  #           (cd openssl_arm64 && CC="ccache cc" ./Configure darwin64-arm64-cc no-shared no-tests && make -j)
+  #           mkdir -p /tmp/openssl/lib /tmp/openssl/include
+  #           lipo -create openssl_arm64/libcrypto.a openssl_x86_64/libcrypto.a -output /tmp/openssl/lib/libcrypto.a
+  #           lipo -create openssl_arm64/libssl.a openssl_x86_64/libssl.a -output /tmp/openssl/lib/libssl.a
+  #           cp -r openssl_x86_64/include/openssl /tmp/openssl/include/
+  #           rm -rf openssl-${OPENSSL_VERSION}*
 
-      - name: Build
-        run: |
-          ./configure --prefix=${{runner.temp}}/zeek-agent --enable-ccache --enable-werror --enable-osx-universal --generator=Ninja --with-openssl=/tmp/openssl
-          ninja -C build
+  #     - name: Build
+  #       run: |
+  #         ./configure --prefix=${{runner.temp}}/zeek-agent --enable-ccache --enable-werror --enable-osx-universal --generator=Ninja --with-openssl=/tmp/openssl
+  #         ninja -C build
 
-      - name: Test
-        run: |
-          file build/bin/zeek-agent | grep -q "universal binary with 2 architectures"
-          make -C tests test-no-zeek
+  #     - name: Test
+  #       run: |
+  #         file build/bin/zeek-agent | grep -q "universal binary with 2 architectures"
+  #         make -C tests test-no-zeek
 
-      - name: Install
-        run: |
-          ninja -C build install
-          find ${{runner.temp}}/zeek-agent -exec ls -ald '{}' ';'
+  #     - name: Install
+  #       run: |
+  #         ninja -C build install
+  #         find ${{runner.temp}}/zeek-agent -exec ls -ald '{}' ';'
 
-      ### Only on topic branches
+  #     ### Only on topic branches
 
-      - name: Package (without codesign)
-        if: github.ref_name != 'main' && !startsWith(github.ref, 'refs/tags/v')
-        run: |
-          ninja -C build package
-          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
+  #     - name: Package (without codesign)
+  #       if: github.ref_name != 'main' && !startsWith(github.ref, 'refs/tags/v')
+  #       run: |
+  #         ninja -C build package
+  #         (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
-      ### Only on the main branch
+  #     ### Only on the main branch
 
-      - name: Set up keychain for code signing
-        if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
-        env:
-          MACOS_CERTIFICATE_PEM: ${{ secrets.MACOS_CERTIFICATE_PEM }}
-          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          MACOS_KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
-        run: |
-          echo -n "${MACOS_CERTIFICATE_PEM}" >${RUNNER_TEMP}/cert.pem
-          security create-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
-          security set-keychain-settings -lut 100 ${RUNNER_TEMP}/keychain-db
-          security default-keychain -s ${RUNNER_TEMP}/keychain-db
-          security unlock-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
-          security import ${RUNNER_TEMP}/cert.pem -P "${MACOS_CERTIFICATE_PASSWORD}" -x -T /usr/bin/codesign -k ${RUNNER_TEMP}/keychain-db
-          security set-key-partition-list -S apple-tool:,apple: -s -k "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
+  #     - name: Set up keychain for code signing
+  #       if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+  #       env:
+  #         MACOS_CERTIFICATE_PEM: ${{ secrets.MACOS_CERTIFICATE_PEM }}
+  #         MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+  #         MACOS_KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+  #       run: |
+  #         echo -n "${MACOS_CERTIFICATE_PEM}" >${RUNNER_TEMP}/cert.pem
+  #         security create-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
+  #         security set-keychain-settings -lut 100 ${RUNNER_TEMP}/keychain-db
+  #         security default-keychain -s ${RUNNER_TEMP}/keychain-db
+  #         security unlock-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
+  #         security import ${RUNNER_TEMP}/cert.pem -P "${MACOS_CERTIFICATE_PASSWORD}" -x -T /usr/bin/codesign -k ${RUNNER_TEMP}/keychain-db
+  #         security set-key-partition-list -S apple-tool:,apple: -s -k "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
 
-      - name: Package (with codesign)
-        if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
-        env:
-          CPACK_BUNDLE_APPLE_CERT_APP: ${{ secrets.MACOS_CERTIFICATE_ID }}
-        run: |
-          test -n "${CPACK_BUNDLE_APPLE_CERT_APP}" || (echo "Codesign certificate not set" >&2; false)
-          ninja -C build package
-          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
+  #     - name: Package (with codesign)
+  #       if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+  #       env:
+  #         CPACK_BUNDLE_APPLE_CERT_APP: ${{ secrets.MACOS_CERTIFICATE_ID }}
+  #       run: |
+  #         test -n "${CPACK_BUNDLE_APPLE_CERT_APP}" || (echo "Codesign certificate not set" >&2; false)
+  #         ninja -C build package
+  #         (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
-      - name: Clean up keychain
-        if: always() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
-        run: |
-          security delete-keychain ${RUNNER_TEMP}/keychain-db
+  #     - name: Clean up keychain
+  #       if: always() && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+  #       run: |
+  #         security delete-keychain ${RUNNER_TEMP}/keychain-db
 
-      ### Back to running on all branches
+  #     ### Back to running on all branches
 
-      - uses: actions/upload-artifact@v2
-        with:
-          name: ${{env.ZA_TGZ}}
-          path: build/dist/${{env.ZA_TGZ}}
+  #     - uses: actions/upload-artifact@v2
+  #       with:
+  #         name: ${{env.ZA_TGZ}}
+  #         path: build/dist/${{env.ZA_TGZ}}
 
   debug_windows_2022:
     runs-on: windows-2022
@@ -215,6 +215,12 @@ jobs:
         run: |
           chocolatey install -y --no-progress openssl
         shell: cmd
+
+      - name: Install zlib via msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: zlib
 
       - name: Build
         run: |
@@ -232,75 +238,75 @@ jobs:
           "C:\Program Files\ZeekAgent\bin\zeek-agent.exe" -T
         shell: cmd
 
-  release_source:
-    runs-on: ubuntu-latest
-    environment: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
+  # release_source:
+  #   runs-on: ubuntu-latest
+  #   environment: ${{ (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
-    steps:
-      - name: Prepare
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get update
-          sudo apt-get install -y ninja-build ccache curl ca-certificates
+  #   steps:
+  #     - name: Prepare
+  #       run: |
+  #         export DEBIAN_FRONTEND=noninteractive
+  #         sudo apt-get update
+  #         sudo apt-get install -y ninja-build ccache curl ca-certificates
 
-      - name: Checkout repository
-        uses: actions/checkout@v2
-        with:
-          submodules: recursive
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v2
+  #       with:
+  #         submodules: recursive
 
-      - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+  #     - name: Set up ccache
+  #       uses: hendrikmuhs/ccache-action@v1
 
-      - name: Configure
-        run: |
-          ./configure --generator=Ninja
+  #     - name: Configure
+  #       run: |
+  #         ./configure --generator=Ninja
 
-      - name: Package source code
-        run: |
-          ninja -C build package_source
-          (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
+  #     - name: Package source code
+  #       run: |
+  #         ninja -C build package_source
+  #         (cd build/dist && echo "ZA_TGZ=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
-      - name: Test build of source code
-        run: |
-          mkdir -p ${{ runner.temp }}/test-build
-          cat build/dist/${{env.ZA_TGZ}} | (cd ${{ runner.temp }}/test-build && tar xzvf -)
-          (cd $(echo ${{ runner.temp }}/test-build/zeek-agent*) && ./configure --generator=Ninja --enable-ccache && ninja -C build && ninja -C build test)
+  #     - name: Test build of source code
+  #       run: |
+  #         mkdir -p ${{ runner.temp }}/test-build
+  #         cat build/dist/${{env.ZA_TGZ}} | (cd ${{ runner.temp }}/test-build && tar xzvf -)
+  #         (cd $(echo ${{ runner.temp }}/test-build/zeek-agent*) && ./configure --generator=Ninja --enable-ccache && ninja -C build && ninja -C build test)
 
-      - uses: actions/upload-artifact@v2
-        with:
-          name: ${{env.ZA_TGZ}}
-          path: build/dist/${{env.ZA_TGZ}}
+  #     - uses: actions/upload-artifact@v2
+  #       with:
+  #         name: ${{env.ZA_TGZ}}
+  #         path: build/dist/${{env.ZA_TGZ}}
 
-  publish_release:
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [debug_ubuntu_latest, release_alpine_3_15_static, release_macos_11, release_source]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-        with:
-          submodules: recursive
+  # publish_release:
+  #   runs-on: ubuntu-latest
+  #   if: startsWith(github.ref, 'refs/tags/v')
+  #   needs: [debug_ubuntu_latest, release_alpine_3_15_static, release_macos_11, release_source]
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v2
+  #       with:
+  #         submodules: recursive
 
-      - name: Prepare release message
-        run: |
-          cat CHANGES | awk '/^[0-9]+\./{ n++; next; } n < 2 { print }' >${{ runner.temp }}/release-msg
-          echo "release_name=$(echo ${{ github.ref_name }} | sed 's/^v//')" >> $GITHUB_ENV
+  #     - name: Prepare release message
+  #       run: |
+  #         cat CHANGES | awk '/^[0-9]+\./{ n++; next; } n < 2 { print }' >${{ runner.temp }}/release-msg
+  #         echo "release_name=$(echo ${{ github.ref_name }} | sed 's/^v//')" >> $GITHUB_ENV
 
-      - uses: actions/download-artifact@v2
-        with:
-          path: artifacts
+  #     - uses: actions/download-artifact@v2
+  #       with:
+  #         path: artifacts
 
-      - name: Display artifacts
-        run: ls -al artifacts/*/*
+  #     - name: Display artifacts
+  #       run: ls -al artifacts/*/*
 
-      - name: Upload artifacts
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          draft: false
-          prerelease: false
-          name: ${{ env.release_name }}
-          body_path: ${{ runner.temp }}/release-msg
-          files: |
-            artifacts/*/*.tar.gz
+  #     - name: Upload artifacts
+  #       uses: softprops/action-gh-release@v1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         draft: false
+  #         prerelease: false
+  #         name: ${{ env.release_name }}
+  #         body_path: ${{ runner.temp }}/release-msg
+  #         files: |
+  #           artifacts/*/*.tar.gz
