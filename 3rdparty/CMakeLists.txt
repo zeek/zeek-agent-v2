@@ -38,8 +38,9 @@ set(SPDLOG_FMT_EXTERNAL ON)
 add_subdirectory(spdlog EXCLUDE_FROM_ALL)
 
 # IXWebSocket will pick up on us having configured OpenSSL already.
-set(USE_TLS "Enable TLS support" ON)
-set(USE_OPEN_SSL "Use OpenSSL" ON)
+option(USE_TLS "Enable TLS support" ON)
+option(USE_OPEN_SSL "Use OpenSSL" ON)
+option(IXWEBSOCKET_INSTALL "Install IXWebSocket" OFF)
 add_subdirectory(IXWebSocket)
 
 # pathfind's cmake config is too old and not really usable. Set it up ourselves.
