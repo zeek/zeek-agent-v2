@@ -1,24 +1,6 @@
-2.1.0-45 | 2022-07-05 10:29:07 +0200
+2.2.0 | 2022-07-05 11:34:10 +0200
 
-  * Add WebSocket transport layer compatible with Zeek 5.0. We now try
-    both Broker and WebSocket when connecting to Zeek. The former will
-    work with Zeek 4.0, the latter with Zeek 5.0.
-
-  * Add IXWebSocket to 3rd-party software.
-
-  * Bump stduuid module.
-
-  * Fix deadlock in scheduler.
-
-  * Fix usage message.
-
-2.1.0-35 | 2022-04-26 11:40:07 +0200
-
-  * Port to Windows.
-
-  * Fix potential deref of unset optional.
-
-2.1.0 | 2022-03-29 12:45:55 +0200
+  * Port to Windows. (Binary build to come with next release.)
 
   * GH-25: Add `files_columns` table that extracts selected columns
     from on-disk files und sends them over to Zeek as a record. See
@@ -38,15 +20,23 @@
     initial snapshot first, followed by diffs; and (2) "diffs", which
     sends an empty initial result and then just diffs.
 
-  * Move numerical version number computation from CMake to runtime.
-
-  * Update SQLite to 3.38.1 to give us built-in JSON support.
+  * Add WebSocket transport layer compatible with Zeek 5.0. We now try
+    both Broker and WebSocket when connecting to Zeek. The former will
+    work with Zeek 4.0, the latter with Zeek 5.0.
 
   * Add Broker version to agent handshake.
 
   * Support default values for table parameters.
 
   * Make exception available to table's data acquisition methods to signal failure.
+
+  * Move numerical version number computation from CMake to runtime.
+
+  * Fix deadlock in scheduler.
+
+  * Fix potential dereference of unset optional.
+
+  * Fix usage message.
 
   * Fix `assert` that could wrongly trigger.
 
@@ -66,6 +56,10 @@
   * Clean up unused state in Zeek communication code.
 
   * Format Zeek scripts with current zeek-format.
+
+  * Update SQLite to 3.38.1 to give us built-in JSON support.
+
+  * Update stduuid module.
 
 2.0.4 | 2022-03-04 16:55:11 +0100
 
