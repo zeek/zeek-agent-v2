@@ -23,6 +23,7 @@ std::string zeek::agent::value::to_string(const value::Type& type) {
         case value::Type::Bool: return "bool";
         case value::Type::Count: return "count";
         case value::Type::Double: return "real";
+        case value::Type::Enum: return "enum";
         case value::Type::Integer: return "int";
         case value::Type::Interval: return "interval";
         case value::Type::Null: return "null";
@@ -47,6 +48,8 @@ Result<value::Type> zeek::agent::type::from_string(const std::string& type) {
         return value::Type::Count;
     if ( type == "real" )
         return value::Type::Double;
+    if ( type == "enum" )
+        return value::Type::Enum;
     if ( type == "int" )
         return value::Type::Integer;
     if ( type == "interval" )
@@ -205,6 +208,7 @@ static Value from_json(const nlohmann::json& value, const value::Type& type) {
 
         case value::Type::Address:
         case value::Type::Blob:
+        case value::Type::Enum:
         case value::Type::Text: return value.get<std::string>();
     };
 
@@ -317,6 +321,7 @@ std::vector<Value> Table::generateMockRow(int i) {
             case value::Type::Blob: v = format("blob_{:c}_{:c}", ('a' + i % 65), ('a' + j % 65)); break;
             case value::Type::Bool: v = static_cast<bool>(i % 2); break;
             case value::Type::Double: v = static_cast<double>((i + 1) * 10 + ((j + 1) / 10.0)); break;
+            case value::Type::Enum: v = format("enum_{:c}_{:c}", ('a' + i % 65), ('a' + j % 65)); break;
             case value::Type::Null: /* leave unset */ break;
             case value::Type::Text: v = format("text_{:c}_{:c}", ('a' + i % 65), ('a' + j % 65)); break;
             case value::Type::Time: v = to_time(1646252056 + 100 * (i + 1) + j); break;
@@ -574,6 +579,7 @@ TEST_SUITE("Table") {
             {true, value::Type::Bool},
             {42L, value::Type::Count},
             {3.14, value::Type::Double},
+            {"FooBar::XYZ", value::Type::Enum},
             {-42L, value::Type::Integer},
             {10s, value::Type::Interval},
             {Port(43L, port::Protocol::TCP), value::Type::Port},
@@ -589,7 +595,8 @@ TEST_SUITE("Table") {
         auto y = from_json_string(x, value::Type::Record);
         CHECK_EQ(y, Value(v));
         CHECK_EQ(to_string(y),
-                 "[1.2.3.4, BLOB, true, 42, 3.14, -42, 10s, 43/tcp, (null), TEXT, 1970-01-01-00-00-10, [1, false], {1, "
+                 "[1.2.3.4, BLOB, true, 42, 3.14, FooBar::XYZ, -42, 10s, 43/tcp, (null), TEXT, 1970-01-01-00-00-10, "
+                 "[1, false], {1, "
                  "2, 4, 5}, [true, false, true]]");
     }
 }

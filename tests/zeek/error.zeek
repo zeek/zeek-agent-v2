@@ -8,19 +8,17 @@
 # @TEST-EXEC: cat zeek/reporter.log | zeek-cut -n location >reporter.log
 # @TEST-EXEC: btest-diff reporter.log
 
-@if ( getenv("ZEEK_PORT") != "" )
-redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
-@endif
+@load test-setup
 
 event got_result()
-{ }
+	{ }
 
 event zeek_init()
-{
+	{
 	ZeekAgent::query([$sql_stmt="SELECT foo FROM bar", $event_=got_result]);
-}
+	}
 
 event ZeekAgentAPI::agent_error_v1(ctx: ZeekAgent::Context, msg: string)
-{
+	{
 	terminate();
-}
+	}

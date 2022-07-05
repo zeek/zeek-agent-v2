@@ -8,9 +8,7 @@
 # @TEST-EXEC: cat zeek/zeek-agent-users.log | zeek-cut -cn host >tmp && mv tmp zeek/zeek-agent-users.log
 # @TEST-EXEC: btest-diff zeek/zeek-agent-users.log
 
-@if ( getenv("ZEEK_PORT") != "" )
-redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
-@endif
+@load test-setup
 
 redef ZeekAgent_Users::subscription = ZeekAgent::SnapshotPlusDifferences;
 
@@ -19,20 +17,20 @@ redef ZeekAgent_Users::subscription = ZeekAgent::SnapshotPlusDifferences;
 global already_logged = F;
 
 hook ZeekAgent_Users::log_policy(rec: any, id: Log::ID, filter: Log::Filter)
-{
+	{
 	if ( already_logged )
 		break;
 	else
 		already_logged = T;
-}
+	}
 
 event do_terminate()
-{
+	{
 	terminate();
-}
+	}
 
 event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context,
     columns: ZeekAgentAPI::AgentHelloV1)
-{
+	{
 	schedule 2 secs { do_terminate() };
-}
+	}

@@ -1,6 +1,16 @@
 
-set(SPDLOG_FMT_EXTERNAL ON)
-option(UUID_BUILD_TESTS "Build the unit tests" OFF)
+if ( USE_STATIC_LINKING )
+    set(OPENSSL_USE_STATIC_LIBS on)
+
+    # CMake 3.24 has an option to find zlib's static library, but that's too
+    # recent for us. So we use a hammer instead.
+    # set(ZLIB_USE_STATIC_LIBS on)
+    SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+endif ()
+
+# Configure OpenSSL first, it'll be used by both Broker and IXWebSocket.
+find_package(OpenSSL REQUIRED)
+include_directories(BEFORE ${OPENSSL_INCLUDE_DIR})
 
 if ( WIN32 )
   # We use C++20 on MSVC, which means we have full std::span support on that
@@ -20,10 +30,17 @@ add_subdirectory(filesystem EXCLUDE_FROM_ALL)
 add_subdirectory(fmt EXCLUDE_FROM_ALL)
 add_subdirectory(replxx EXCLUDE_FROM_ALL)
 add_subdirectory(json EXCLUDE_FROM_ALL)
-add_subdirectory(spdlog EXCLUDE_FROM_ALL)
 add_subdirectory(stduuid EXCLUDE_FROM_ALL)
 add_subdirectory(tomlplusplus EXCLUDE_FROM_ALL)
 add_subdirectory(out_ptr EXCLUDE_FROM_ALL)
+
+set(SPDLOG_FMT_EXTERNAL ON)
+add_subdirectory(spdlog EXCLUDE_FROM_ALL)
+
+# IXWebSocket will pick up on us having configured OpenSSL already.
+set(USE_TLS "Enable TLS support" ON)
+set(USE_OPEN_SSL "Use OpenSSL" ON)
+add_subdirectory(IXWebSocket)
 
 # pathfind's cmake config is too old and not really usable. Set it up ourselves.
 add_library(pathfind STATIC pathfind/src/pathfind.cpp)
@@ -47,10 +64,6 @@ set(BROKER_DISABLE_TESTS ON)
 set(DISABLE_PYTHON_BINDINGS ON)
 set(ENABLE_STATIC_ONLY ON)
 set(BROKER_EXTERNAL_SQLITE_TARGET "sqlite::sqlite")
-
-if ( USE_STATIC_LINKING )
-    set(OPENSSL_USE_STATIC_LIBS on)
-endif ()
 
 add_subdirectory(broker EXCLUDE_FROM_ALL)
 target_link_libraries(broker_static INTERFACE ${CMAKE_DL_LIBS}) # linker gets the order wrong w/o this

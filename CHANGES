@@ -1,3 +1,17 @@
+2.1.0-45 | 2022-07-05 10:29:07 +0200
+
+  * Add WebSocket transport layer compatible with Zeek 5.0. We now try
+    both Broker and WebSocket when connecting to Zeek. The former will
+    work with Zeek 4.0, the latter with Zeek 5.0.
+
+  * Add IXWebSocket to 3rd-party software.
+
+  * Bump stduuid module.
+
+  * Fix deadlock in scheduler.
+
+  * Fix usage message.
+
 2.1.0-35 | 2022-04-26 11:40:07 +0200
 
   * Port to Windows.

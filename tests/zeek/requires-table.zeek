@@ -8,29 +8,25 @@
 # @TEST-EXEC: test '!' -f reporter.log
 # @TEST-EXEC: btest-diff zeek/.stdout
 
-@if ( getenv("ZEEK_PORT") != "" )
-redef ZeekAgent::listen_port = to_port(getenv("ZEEK_PORT"));
-@endif
+@load test-setup
 
 event do_terminate()
-{
+	{
 	terminate();
-}
+	}
 
 event got_result()
-{ # can't get here
-    }
+	{ # can't get here
+	}
 
 event zeek_init()
-{
-	ZeekAgent::query([
-	    $sql_stmt="SELECT foo FROM bar",
-	    $event_=got_result,
+	{
+	ZeekAgent::query([$sql_stmt="SELECT foo FROM bar", $event_=got_result,
 	    $requires_tables=set("bar")]);
 	schedule 5 secs { do_terminate() };
-}
+	}
 
 event ZeekAgentAPI::agent_error_v1(ctx: ZeekAgent::Context, msg: string)
-{
+	{
 	print "SHOULD NOT HAPPEN", msg;
-}
+	}

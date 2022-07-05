@@ -71,7 +71,7 @@ static void usage(const filesystem::path& name) {
         "  -D | --autodoc                   Output JSON documentating table schemas and exit.\n"
         "  -L | --log-level <LEVEL>         Set logging level (" LOG_LEVEL_HELP ") [default: warning]\n"
         "  -M | --use-mock-data             Let tables return only fake mock data for testing\n"
-        "  -N | --terminate-on-disconnect   Let tables return only fake mock data for testing\n"
+        "  -N | --terminate-on-disconnect   Terminate when remote side disconnects (for testing)\n"
         "  -T | --test                      Run unit tests and exit\n"
         "  -c | --config <FILE>             Load configuration from file [default: {}]\n"
         "  -e | --execute <STMT>            SQL statement to execute immediately, then quit"

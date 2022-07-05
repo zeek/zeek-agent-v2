@@ -96,6 +96,16 @@ inline std::string to_string(Time t) {
     return std::string(b.str());
 }
 
+/** Render a time value as a readable string in ISO 8601 format. */
+inline std::string to_string_iso(Time t) {
+    auto teatime = std::chrono::system_clock::to_time_t(t);
+    auto tm = std::localtime(&teatime);
+
+    std::stringstream b;
+    b << std::put_time(tm, "%FT%T%z");
+    return std::string(b.str());
+}
+
 /** Render an interval value as a readable string. */
 inline std::string to_string(Interval t) {
     std::stringstream b;

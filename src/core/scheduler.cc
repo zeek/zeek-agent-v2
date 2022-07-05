@@ -59,11 +59,13 @@ struct Pimpl<Scheduler>::Implementation {
 };
 
 timer::ID Scheduler::Implementation::schedule(timer::ID id, Time t, timer::Callback cb) {
-    std::scoped_lock lock(_timers_mutex);
+    {
+        std::scoped_lock lock(_timers_mutex);
+        auto timer = Timer{.due = t, .id = id, .callback = std::move(cb)};
+        auto x = _timers_by_id.emplace(id, std::move(timer));
+        _timers.push(&x.first->second);
+    }
 
-    auto timer = Timer{.due = t, .id = id, .callback = std::move(cb)};
-    auto x = _timers_by_id.emplace(id, std::move(timer));
-    _timers.push(&x.first->second);
     updated();
     return id;
 }
