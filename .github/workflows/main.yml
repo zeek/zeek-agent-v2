@@ -273,6 +273,8 @@ jobs:
           path: build/dist/${{env.ZA_TGZ}}
 
   publish_release:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [debug_ubuntu_latest, release_alpine_3_15_static, release_macos_11, release_source]
