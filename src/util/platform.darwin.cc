@@ -36,7 +36,7 @@ filesystem::path platform::dataDirectory() {
     std::error_code ec;
     filesystem::create_directories(dir, ec);
     if ( ec )
-        throw FatalError(format("cannot create path '{}'", dir.native()));
+        throw FatalError(frmt("cannot create path '{}'", dir.native()));
 
     return dir;
 }

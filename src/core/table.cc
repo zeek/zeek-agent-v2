@@ -69,21 +69,21 @@ Result<value::Type> zeek::agent::type::from_string(const std::string& type) {
     if ( type == "vector" )
         return value::Type::Vector;
 
-    return result::Error(format("unknown type value '{}'", type));
+    return result::Error(frmt("unknown type value '{}'", type));
 }
 
 std::string zeek::agent::to_string(const Value& value) {
     struct Visitor {
-        std::string operator()(Interval x) { return format("{}", to_string(x)); }
-        std::string operator()(Time x) { return format("{}", to_string(x)); }
-        std::string operator()(bool x) { return format("{}", (x ? "true" : "false")); }
+        std::string operator()(Interval x) { return frmt("{}", to_string(x)); }
+        std::string operator()(Time x) { return frmt("{}", to_string(x)); }
+        std::string operator()(bool x) { return frmt("{}", (x ? "true" : "false")); }
         std::string operator()(const Record& v) { return to_string(v); }
         std::string operator()(const Port& v) { return to_string(v); }
         std::string operator()(const Set& v) { return to_string(v); }
         std::string operator()(const Vector& v) { return to_string(v); }
         std::string operator()(const std::string& x) { return x; }
-        std::string operator()(double x) { return format("{}", x); }
-        std::string operator()(int64_t x) { return format("{}", x); }
+        std::string operator()(double x) { return frmt("{}", x); }
+        std::string operator()(int64_t x) { return frmt("{}", x); }
         std::string operator()(std::monostate) { return "(null)"; }
     };
 
@@ -223,7 +223,7 @@ Value zeek::agent::from_json_string(const std::string_view& data, value::Type ty
         return from_json(json, type);
     } catch ( nlohmann::json::parse_error& e ) {
         // This should never happen, we only parse our own JSON.
-        throw InternalError(format("JSON parse error: {}", e.what()));
+        throw InternalError(frmt("JSON parse error: {}", e.what()));
     }
 }
 
@@ -240,7 +240,7 @@ std::string zeek::agent::to_string(const Port& v) {
         case port::Protocol::Unknown: proto = "unknown"; break;
     };
 
-    return format("{}/{}", v.port, proto);
+    return frmt("{}/{}", v.port, proto);
 }
 
 std::string zeek::agent::to_string(const Record& v) {
@@ -267,14 +267,14 @@ std::optional<schema::Column> Schema::column(const std::string_view& name) {
     return {};
 }
 
-std::string schema::Column::str() const { return format("{}: {}", name, type); }
+std::string schema::Column::str() const { return frmt("{}: {}", name, type); }
 
 std::string zeek::agent::to_string(const std::vector<schema::Column>& values) {
     return join(transform(values, [](const auto& x) { return zeek::agent::to_string(x); }), ", ");
 }
 
 std::string zeek::agent::table::to_string(const Argument& arg) {
-    return format("{}={}", arg.column, ::zeek::agent::to_string(arg.expression));
+    return frmt("{}={}", arg.column, ::zeek::agent::to_string(arg.expression));
 }
 
 std::vector<schema::Column> zeek::agent::Schema::parameters() const {
@@ -318,27 +318,27 @@ std::vector<Value> Table::generateMockRow(int i) {
             case value::Type::Integer:
             case value::Type::Count: v = static_cast<int64_t>(100 * (i + 1) + j); break;
             case value::Type::Interval: v = to_interval(10 * (i + 1) + j); break;
-            case value::Type::Blob: v = format("blob_{:c}_{:c}", ('a' + i % 65), ('a' + j % 65)); break;
+            case value::Type::Blob: v = frmt("blob_{:c}_{:c}", ('a' + i % 65), ('a' + j % 65)); break;
             case value::Type::Bool: v = static_cast<bool>(i % 2); break;
             case value::Type::Double: v = static_cast<double>((i + 1) * 10 + ((j + 1) / 10.0)); break;
-            case value::Type::Enum: v = format("enum_{:c}_{:c}", ('a' + i % 65), ('a' + j % 65)); break;
+            case value::Type::Enum: v = frmt("enum_{:c}_{:c}", ('a' + i % 65), ('a' + j % 65)); break;
             case value::Type::Null: /* leave unset */ break;
-            case value::Type::Text: v = format("text_{:c}_{:c}", ('a' + i % 65), ('a' + j % 65)); break;
+            case value::Type::Text: v = frmt("text_{:c}_{:c}", ('a' + i % 65), ('a' + j % 65)); break;
             case value::Type::Time: v = to_time(1646252056 + 100 * (i + 1) + j); break;
-            case value::Type::Address: v = format("192.168.1.{}", i % 255 + 1 + j); break;
+            case value::Type::Address: v = frmt("192.168.1.{}", i % 255 + 1 + j); break;
             case value::Type::Port: v = Port(10000 * (i + 1) + j, static_cast<port::Protocol>(j % 4)); break;
             case value::Type::Record:
                 v = Record({{static_cast<int64_t>(1000 * (i + 1) + j), value::Type::Count},
                             {static_cast<bool>(i % 2), value::Type::Bool},
-                            {format("text_{:c}_{:c}", ('a' + i % 65), ('A' + j % 65)), value::Type::Text}});
+                            {frmt("text_{:c}_{:c}", ('a' + i % 65), ('A' + j % 65)), value::Type::Text}});
             case value::Type::Set:
-                v = Set(value::Type::Text, {format("elem_{:c}_{:c}", ('a' + i % 65), ('A' + j % 65)),
-                                            format("elem_{:c}_{:c}", ('a' + i % 65), ('A' + j % 65)),
-                                            format("lem_{:c}_{:c}", ('a' + i % 65), ('A' + j % 65))});
+                v = Set(value::Type::Text, {frmt("elem_{:c}_{:c}", ('a' + i % 65), ('A' + j % 65)),
+                                            frmt("elem_{:c}_{:c}", ('a' + i % 65), ('A' + j % 65)),
+                                            frmt("lem_{:c}_{:c}", ('a' + i % 65), ('A' + j % 65))});
             case value::Type::Vector:
-                v = Vector(value::Type::Text, {format("elem_{:c}_{:c}", ('a' + i % 65), ('M' + j % 65)),
-                                               format("elem_{:c}_{:c}", ('a' + i % 65), ('N' + j % 65)),
-                                               format("elem_{:c}_{:c}", ('a' + i % 65), ('R' + j % 65))});
+                v = Vector(value::Type::Text, {frmt("elem_{:c}_{:c}", ('a' + i % 65), ('M' + j % 65)),
+                                               frmt("elem_{:c}_{:c}", ('a' + i % 65), ('N' + j % 65)),
+                                               frmt("elem_{:c}_{:c}", ('a' + i % 65), ('R' + j % 65))});
         }
 
         row.push_back(std::move(v));
@@ -433,7 +433,7 @@ std::pair<Value, value::Type> zeek::agent::stringToValue(const std::string& str,
             case value::Type::Double: return {std::stod(str), type};
             default:
                 throw table::PermanentContentError(
-                    format("unsupport colum type for `files_columns`: {}", to_string(type)));
+                    frmt("unsupport colum type for `files_columns`: {}", to_string(type)));
         }
     } catch ( ... ) {
         // ignore any error and return an unset value instead

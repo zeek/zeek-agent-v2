@@ -63,7 +63,7 @@ struct Result {
 template<typename T>
 ::zeek::agent::Result<T> query::Result::get(uint64_t row, const std::string_view& column) const {
     if ( row >= rows.size() )
-        return ::zeek::agent::result::Error(format("row {} exceeds what's available", row));
+        return ::zeek::agent::result::Error(frmt("row {} exceeds what's available", row));
 
     uint64_t i = 0;
     for ( ; i < columns.size(); i++ ) {
@@ -71,7 +71,7 @@ template<typename T>
             return std::get<T>(rows[row].values[i]);
     }
 
-    return ::zeek::agent::result::Error(format("column '{}' does not exist in result", column));
+    return ::zeek::agent::result::Error(frmt("column '{}' does not exist in result", column));
 }
 
 /**

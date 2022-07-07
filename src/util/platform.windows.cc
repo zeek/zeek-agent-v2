@@ -40,7 +40,7 @@ filesystem::path platform::dataDirectory() {
     std::error_code ec;
     filesystem::create_directories(dir, ec);
     if ( ec )
-        throw FatalError(format("cannot create path '{}'", dir.string()));
+        throw FatalError(frmt("cannot create path '{}'", dir.string()));
 
     return dir;
 }
@@ -271,7 +271,7 @@ void WMIManager::GetUserData(const std::wstring& key, bool system_accounts, std:
             info.sid = narrowWstring(var.bstrVal);
         VariantClear(&var);
 
-        std::wstring path_query = format(L"SELECT LocalPath from Win32_UserProfile WHERE SID = \"{}\"", var.bstrVal);
+        std::wstring path_query = frmt(L"SELECT LocalPath from Win32_UserProfile WHERE SID = \"{}\"", var.bstrVal);
 
         if ( auto user_enum = GetQueryEnumerator(path_query) ) {
             IWbemClassObjectPtr user_obj = nullptr;

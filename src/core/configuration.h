@@ -46,7 +46,7 @@ inline Result<options::LogLevel> from_str(const std::string& l) {
     if ( auto x = spdlog::level::from_str(l); x != spdlog::level::off )
         return x;
     else
-        return result::Error(format("unknown log level '{}'", l));
+        return result::Error(frmt("unknown log level '{}'", l));
 }
 } // namespace log_level
 
@@ -75,7 +75,7 @@ inline Result<LogType> from_str(const std::string_view& t) {
     else if ( t == "system" )
         return options::LogType::System;
     else
-        return result::Error(format("unknow lof type '{}'", t));
+        return result::Error(frmt("unknow lof type '{}'", t));
 }
 } // namespace log_type
 

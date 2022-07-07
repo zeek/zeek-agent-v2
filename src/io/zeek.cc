@@ -52,8 +52,8 @@ static const int64_t MininumZeekPackageVersion = 200020008;
 
 // Helpers for debugging logging that include additional state.
 #define ZEEK_INSTANCE_DEBUG(instance, ...)                                                                             \
-    ZEEK_AGENT_DEBUG("zeek", "{}", format("[{}/{}] ", endpoint(), instance) + format(__VA_ARGS__))
-#define ZEEK_CONN_DEBUG(...) ZEEK_AGENT_DEBUG("zeek", "{}", format("[{}] ", endpoint()) + format(__VA_ARGS__))
+    ZEEK_AGENT_DEBUG("zeek", "{}", frmt("[{}/{}] ", endpoint(), instance) + frmt(__VA_ARGS__))
+#define ZEEK_CONN_DEBUG(...) ZEEK_AGENT_DEBUG("zeek", "{}", frmt("[{}] ", endpoint()) + frmt(__VA_ARGS__))
 #define ZEEK_IO_DEBUG(...) ZEEK_AGENT_DEBUG("zeek", __VA_ARGS__)
 
 using namespace zeek::agent;
@@ -390,7 +390,7 @@ static std::pair<Value, value::Type> from_broker(const broker::data& v) {
      * else if ( auto x = broker::get_if<broker::timestamp>(&v) )
      */
 
-    throw InternalError(format("unsupported Broker data type received ({})", broker::to_string(v)));
+    throw InternalError(frmt("unsupported Broker data type received ({})", broker::to_string(v)));
 }
 
 broker::configuration NativeBrokerTransport::brokerConfig() {
@@ -503,7 +503,7 @@ void NativeBrokerTransport::processError(const broker::error& err) {
             connection()->connectionAttemptFailed(this, msg);
             break;
 
-        default: connection()->processError(format("{} for {}", msg, connection()->endpoint()));
+        default: connection()->processError(frmt("{} for {}", msg, connection()->endpoint()));
     }
 }
 
@@ -516,15 +516,15 @@ void NativeBrokerTransport::processConnectivityChange(const broker::status& stat
         case broker::sc::peer_added:
             connection()->connectionEstablished(this, _destination.value().address, _destination.value().port);
             change = ConnectivityChange::Added;
-            msg = format("connected to Zeek endpoint at {}", connection()->endpoint());
+            msg = frmt("connected to Zeek endpoint at {}", connection()->endpoint());
             break;
         case broker::sc::peer_lost:
             change = ConnectivityChange::Lost;
-            msg = format("lost connection to Zeek endpoint at {}", connection()->endpoint());
+            msg = frmt("lost connection to Zeek endpoint at {}", connection()->endpoint());
             break;
         case broker::sc::peer_removed:
             change = ConnectivityChange::Removed;
-            msg = format("disconnected from Zeek endpoint at {}", connection()->endpoint());
+            msg = frmt("disconnected from Zeek endpoint at {}", connection()->endpoint());
             break;
         default: break;
     }
@@ -633,7 +633,7 @@ static nlohmann::json to_json(const Value& v, const value::Type& t) {
                 }
 
                 type = "port";
-                value = format("{}/{}", p.port, proto);
+                value = frmt("{}/{}", p.port, proto);
                 break;
             }
 
@@ -740,13 +740,13 @@ static std::pair<Value, value::Type> from_json(const nlohmann::json& json) {
      * else if ( auto x = broker::get_if<broker::timestamp>(&v) )
      */
 
-    throw InternalError(format("unsupported data type received over WebSocket ({})", type));
+    throw InternalError(frmt("unsupported data type received over WebSocket ({})", type));
 }
 
 void WebSocketTransport::connect(const std::string& host, unsigned int port, const std::vector<std::string>& topics) {
     const auto& options = connection()->options();
 
-    auto url = format("{}://{}:{}/v1/messages/json", (options.zeek_ssl_disable ? "ws" : "wss"), host, port);
+    auto url = frmt("{}://{}:{}/v1/messages/json", (options.zeek_ssl_disable ? "ws" : "wss"), host, port);
 
     _socket.setUrl(url);
     _socket.setPingInterval(30);
@@ -805,8 +805,8 @@ void WebSocketTransport::connect(const std::string& host, unsigned int port, con
                 case ix::WebSocketMessageType::Open: {
                     connection()->connectionEstablished(this, _host, _port);
                     connection()->processConnectivityChange(ConnectivityChange::Added,
-                                                            format("connected to WebSocket endpoint at {}",
-                                                                   connection()->endpoint()));
+                                                            frmt("connected to WebSocket endpoint at {}",
+                                                                 connection()->endpoint()));
 
                     _socket.send(nlohmann::json(topics).dump());
                     _connected = true;
@@ -816,18 +816,17 @@ void WebSocketTransport::connect(const std::string& host, unsigned int port, con
                 case ix::WebSocketMessageType::Close: {
                     if ( _connected )
                         connection()->processConnectivityChange(ConnectivityChange::Removed,
-                                                                format("disconnected from WebSocket endpoint at {}",
-                                                                       connection()->endpoint()));
+                                                                frmt("disconnected from WebSocket endpoint at {}",
+                                                                     connection()->endpoint()));
                     _connected = false;
                     break;
                 }
 
                 case ix::WebSocketMessageType::Error: {
                     if ( _connected )
-                        connection()
-                            ->processConnectivityChange(ConnectivityChange::Lost,
-                                                        format("lost connection to WebSocket endpoint at {} ({})",
-                                                               connection()->endpoint(), msg_error_reason));
+                        connection()->processConnectivityChange(ConnectivityChange::Lost,
+                                                                frmt("lost connection to WebSocket endpoint at {} ({})",
+                                                                     connection()->endpoint(), msg_error_reason));
                     else {
                         std::string reason = trim(msg_error_reason);
 
@@ -839,7 +838,7 @@ void WebSocketTransport::connect(const std::string& host, unsigned int port, con
                             reason = "";
 
                         logger()->debug("cannot connect to Zeek endpoint via WebSocket at {}{}",
-                                        connection()->endpoint(), (reason.empty() ? "" : format(" ({})", reason)));
+                                        connection()->endpoint(), (reason.empty() ? "" : frmt(" ({})", reason)));
                         connection()->connectionAttemptFailed(this, reason);
                     }
 
@@ -880,7 +879,7 @@ void WebSocketTransport::connect(const std::string& host, unsigned int port, con
                             auto code = json["code"].get<std::string>();
                             auto context = json["context"].get<std::string>();
                             connection()->processError(
-                                format("WebSocket error for {}: {} ({})", connection()->endpoint(), code, context));
+                                frmt("WebSocket error for {}: {} ({})", connection()->endpoint(), code, context));
                         }
 
                         else {
@@ -971,16 +970,16 @@ Result<Nothing> ZeekConnection::connect(const std::string& destination) {
                 throw std::out_of_range(""); // msg is ignored below
         }
     } catch ( ... ) {
-        return result::Error(format("invalid Zeek address ({})", address));
+        return result::Error(frmt("invalid Zeek address ({})", address));
     }
 
     if ( port > 0 )
-        _destination = format("{}:{}", address, port);
+        _destination = frmt("{}:{}", address, port);
     else
         _destination = address;
 
     std::vector<std::string> topics = {
-        format("/zeek-agent/query/host/{}", options().agent_id),
+        frmt("/zeek-agent/query/host/{}", options().agent_id),
     };
 
     auto groups = options().zeek_groups;
@@ -988,9 +987,9 @@ Result<Nothing> ZeekConnection::connect(const std::string& destination) {
     groups.push_back(tolower(platform::name()));
 
     for ( const auto& group : groups ) {
-        topics.emplace_back(format("/zeek-agent/query/group/{}", group)); // group broadcast
+        topics.emplace_back(frmt("/zeek-agent/query/group/{}", group)); // group broadcast
         topics.emplace_back(
-            format("/zeek-agent/query/group/{}/{}", options().agent_id, group)); // group msg to individual host
+            frmt("/zeek-agent/query/group/{}/{}", options().agent_id, group)); // group msg to individual host
     }
 
     ZEEK_CONN_DEBUG("connecting");
@@ -1061,7 +1060,7 @@ void ZeekConnection::installQuery(ZeekQuery zquery) {
     }
     else if ( zquery.zeek_instance )
         // We don't log this as an error locally, but send it back to Zeek.
-        transmitError(*zquery.zeek_instance, format("could not compile query ({})", rc.error()), zquery.zeek_id,
+        transmitError(*zquery.zeek_instance, frmt("could not compile query ({})", rc.error()), zquery.zeek_id,
                       zquery.zeek_cookie);
 }
 
@@ -1163,8 +1162,8 @@ void ZeekConnection::processEvent(const std::string& name, const std::vector<Val
                 if ( auto pkg_version_number = parseVersion(pkg_version) ) {
                     if ( *pkg_version_number < MininumZeekPackageVersion ) {
                         const auto msg =
-                            format("Zeek package version too old, disabling communication (want {}, but have {})",
-                                   MininumZeekPackageVersion, *pkg_version_number);
+                            frmt("Zeek package version too old, disabling communication (want {}, but have {})",
+                                 MininumZeekPackageVersion, *pkg_version_number);
                         logger()->warn("[{}] {}", zeek_instance_id, msg);
 
                         // We'll try to get the error message through still.
@@ -1299,7 +1298,7 @@ void ZeekConnection::connectionEstablished(const TransportProtocol* transport, c
 
     ZEEK_CONN_DEBUG("stopping transports other than {}", transport->name());
     _transport_established = true;
-    _destination = format("{}:{}", address, port);
+    _destination = frmt("{}:{}", address, port);
 
     // Once one of our transports has successfully connected, we'll stop all the other ones.
     for ( auto&& t : _transports ) {
@@ -1311,14 +1310,14 @@ void ZeekConnection::connectionEstablished(const TransportProtocol* transport, c
 void ZeekConnection::connectionAttemptFailed(const TransportProtocol* transport, const std::string& reason) {
     if ( _transport_established )
         logger()->info("cannot reconnect to Zeek endpoint at {} via {}{}", endpoint(), transport->name(),
-                       (reason.empty() ? std::string() : format(" ({})", reason)));
+                       (reason.empty() ? std::string() : frmt(" ({})", reason)));
     else {
         // If we haven't established a single transport yet, we only report
         // once all transports have failed to connect.
         _transports_failed.insert(transport);
 
         if ( _transports_failed.size() == _transports.size() ) {
-            logger()->info(format("cannot connect to Zeek endpoint at {}", endpoint()));
+            logger()->info(frmt("cannot connect to Zeek endpoint at {}", endpoint()));
             _transports_failed.clear();
         }
     }
@@ -1428,12 +1427,12 @@ void ZeekConnection::transmitEvent(const std::string& event_name, Record args,
     for ( const auto& transport : _transports ) {
         if ( zeek_instance ) {
             ZEEK_INSTANCE_DEBUG(*zeek_instance, "sending event: {}{}", event_name, to_string(args));
-            transport->transmitEvent(format("/zeek-agent/response/{}/{}", *zeek_instance, options().agent_id),
-                                     event_name, args);
+            transport->transmitEvent(frmt("/zeek-agent/response/{}/{}", *zeek_instance, options().agent_id), event_name,
+                                     args);
         }
         else {
             ZEEK_INSTANCE_DEBUG("all", "sending event: {}{}", event_name, to_string(args));
-            transport->transmitEvent(format("/zeek-agent/response/all/{}", options().agent_id), event_name, args);
+            transport->transmitEvent(frmt("/zeek-agent/response/all/{}", options().agent_id), event_name, args);
         }
     }
 }
@@ -1538,7 +1537,7 @@ TEST_SUITE("Zeek") {
         auto port = receiver.listen("127.0.0.1", 0);
 
         // Initiate connection.
-        zeek.start({format("localhost:{}", port)});
+        zeek.start({frmt("localhost:{}", port)});
 
         auto wait_for_connect_and_hello = [&]() {
             // Wait for agent connecting.
@@ -1557,7 +1556,7 @@ TEST_SUITE("Zeek") {
                 }
 
                 auto msg = subscriber.get();
-                CHECK_EQ(get_topic(msg), broker::topic(format("/zeek-agent/response/all/{}", cfg.options().agent_id)));
+                CHECK_EQ(get_topic(msg), broker::topic(frmt("/zeek-agent/response/all/{}", cfg.options().agent_id)));
 
                 hello = broker::zeek::Event(broker::move_data(msg));
             } while ( hello.name() == "ZeekAgentAPI::agent_shutdown_v1" ); // ignore shutdown event

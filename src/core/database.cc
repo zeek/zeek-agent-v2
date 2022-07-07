@@ -180,11 +180,11 @@ void Database::Implementation::addTable(Table* t) {
     auto schema = t->schema();
 
     if ( _tables.find(schema.name) != _tables.end() )
-        throw InternalError(format("table {} registered more than once", schema.name));
+        throw InternalError(frmt("table {} registered more than once", schema.name));
 
     auto rc = _sqlite->addTable(t);
     if ( ! rc )
-        throw FatalError(format("error registering table {} with SQLite backend: {}", schema.name, rc.error()));
+        throw FatalError(frmt("error registering table {} with SQLite backend: {}", schema.name, rc.error()));
 
     _tables[schema.name] = t;
 }

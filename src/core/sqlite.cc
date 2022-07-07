@@ -141,7 +141,7 @@ static Result<Value> sqliteConvertValue(const std::string& name, ::sqlite3_value
             return Value(std::string(data, size));
         }
 
-        default: return result::Error(format("invalid value type in statement response ({})", t));
+        default: return result::Error(frmt("invalid value type in statement response ({})", t));
     }
 }
 
@@ -155,7 +155,7 @@ static Result<value::Type> sqliteConvertType(const std::string& name, int type) 
         case SQLITE_INTEGER: return value::Type::Integer;
         case SQLITE_NULL: return value::Type::Null;
         case SQLITE_TEXT: return value::Type::Text;
-        default: return result::Error(format("invalid value type in statement response ({})", type));
+        default: return result::Error(frmt("invalid value type in statement response ({})", type));
     }
 }
 
@@ -182,34 +182,34 @@ static int onTableConnect(::sqlite3* db, void* paux, int argc, const char* const
                           char** pzerr) {
     const auto* cookie = reinterpret_cast<const Cookie*>(paux);
     auto table_name = cookie->table->name();
-    auto stmt = format("CREATE TABLE {} ({})", table_name,
-                       join(transform(cookie->table->schema().columns,
-                                      [&table_name](const auto& c) -> std::string {
-                                          std::string name = c.name + " ";
-                                          std::string hidden = (c.is_parameter ? " HIDDEN" : "");
+    auto stmt = frmt("CREATE TABLE {} ({})", table_name,
+                     join(transform(cookie->table->schema().columns,
+                                    [&table_name](const auto& c) -> std::string {
+                                        std::string name = c.name + " ";
+                                        std::string hidden = (c.is_parameter ? " HIDDEN" : "");
 
-                                          switch ( c.type ) {
-                                              case value::Type::Bool:
-                                              case value::Type::Count:
-                                              case value::Type::Interval:
-                                              case value::Type::Time:
-                                              case value::Type::Integer: return name + "INTEGER" + hidden;
-                                              case value::Type::Double: return name + "REAL" + hidden;
-                                              case value::Type::Address:
-                                              case value::Type::Enum: return name + "TEXT" + hidden;
-                                              case value::Type::Text: return name + "TEXT" + hidden;
-                                              case value::Type::Port:
-                                              case value::Type::Record:
-                                              case value::Type::Set:
-                                              case value::Type::Vector:
-                                              case value::Type::Blob: return name + "BLOB" + hidden;
-                                              case value::Type::Null:
-                                                  logger()->error("table {} uses NULL in schema", table_name);
-                                                  return name + "NULL";
-                                          }
-                                          cannot_be_reached(); // thanks GCC
-                                      }),
-                            ", "));
+                                        switch ( c.type ) {
+                                            case value::Type::Bool:
+                                            case value::Type::Count:
+                                            case value::Type::Interval:
+                                            case value::Type::Time:
+                                            case value::Type::Integer: return name + "INTEGER" + hidden;
+                                            case value::Type::Double: return name + "REAL" + hidden;
+                                            case value::Type::Address:
+                                            case value::Type::Enum: return name + "TEXT" + hidden;
+                                            case value::Type::Text: return name + "TEXT" + hidden;
+                                            case value::Type::Port:
+                                            case value::Type::Record:
+                                            case value::Type::Set:
+                                            case value::Type::Vector:
+                                            case value::Type::Blob: return name + "BLOB" + hidden;
+                                            case value::Type::Null:
+                                                logger()->error("table {} uses NULL in schema", table_name);
+                                                return name + "NULL";
+                                        }
+                                        cannot_be_reached(); // thanks GCC
+                                    }),
+                          ", "));
 
     ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] connect: \"{}\"", cookie->table->name(), stmt);
 
@@ -308,7 +308,7 @@ static int onxBestIndexCallback(::sqlite3_vtab* pvtab, ::sqlite3_index_info* inf
     }
 
     if ( ! missing_parameters.empty() )
-        return sqliteError(vtab, format("mandatory table parameter '{}' is missing", join(missing_parameters, ", ")));
+        return sqliteError(vtab, frmt("mandatory table parameter '{}' is missing", join(missing_parameters, ", ")));
 
     vtab->parameters = std::move(parameters);
     return SQLITE_OK;
@@ -377,7 +377,7 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
     try {
         cursor->rows = cookie->table->rows((t ? *t : 0_time), args);
     } catch ( const table::PermanentContentError& e ) {
-        return sqliteError(cursor->vtab, format("table error: {}", e.what()));
+        return sqliteError(cursor->vtab, frmt("table error: {}", e.what()));
     }
 
     cursor->current = 0;
@@ -387,7 +387,7 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
         auto query_columns = cursor->schema.columns;
 
         if ( row.size() != query_columns.size() )
-            return sqliteError(cursor->vtab, format("wrong row size returned by table {}", cookie->table->name()));
+            return sqliteError(cursor->vtab, frmt("wrong row size returned by table {}", cookie->table->name()));
 
         for ( size_t i = 0; i < row.size(); i++ ) {
             auto is_correct = [](auto type, const auto& value) {
@@ -418,8 +418,8 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
             if ( ! is_correct )
                 return sqliteError(
                     cursor->vtab,
-                    format("unexpected value type at index {} in row returned by table {} ({} vs variant idx {})", i,
-                           cookie->table->name(), to_string(query_columns[i].type), row[i].index()));
+                    frmt("unexpected value type at index {} in row returned by table {} ({} vs variant idx {})", i,
+                         cookie->table->name(), to_string(query_columns[i].type), row[i].index()));
         }
     }
 
@@ -579,13 +579,13 @@ Result<Nothing> SQLite::Implementation::addTable(Table* table) {
     auto rc =
         ::sqlite3_create_module_v2(_sqlite_db, table->name().c_str(), &OurSqliteModule, &_cookies.back(), nullptr);
     if ( rc != SQLITE_OK )
-        return result::Error(format("failed to create SQLite module for virtual table {}", table->name()));
+        return result::Error(frmt("failed to create SQLite module for virtual table {}", table->name()));
 
     // Technically, we wouldn't even need to create the virtual table
     // explicitly because all our tables are "eponymous" (see
     // https://www.sqlite.org/vtab.html#eponymous_virtual_tables). However, we
     // do create them so that one can introspect them through "sqlite_schema".
-    auto result = runStatement(format("CREATE VIRTUAL TABLE {} USING {}", table->name(), table->name()), {});
+    auto result = runStatement(frmt("CREATE VIRTUAL TABLE {} USING {}", table->name(), table->name()), {});
     if ( ! result )
         return result.error();
 
@@ -597,7 +597,7 @@ Result<std::unique_ptr<sqlite::PreparedStatement>> SQLite::Implementation::prepa
     _stmt_tables.clear();
     auto rc = ::sqlite3_prepare_v2(_sqlite_db, stmt.data(), static_cast<int>(stmt.size()), &prepared_stmt, nullptr);
     if ( rc != SQLITE_OK )
-        return result::Error(format("failed to compile SQL statement: {} ({})", stmt, ::sqlite3_errmsg(_sqlite_db)));
+        return result::Error(frmt("failed to compile SQL statement: {} ({})", stmt, ::sqlite3_errmsg(_sqlite_db)));
 
     ZEEK_AGENT_DEBUG("sqlite", "statement result will have {} columns", ::sqlite3_column_count(prepared_stmt));
 
@@ -696,10 +696,10 @@ Result<sqlite::Result> SQLite::Implementation::runStatement(const sqlite::Prepar
             std::sort(result.rows.begin(), result.rows.end(), ValueVectorCompare);
             return result;
 
-        case SQLITE_ERROR: return result::Error(format("SQL statement failed, {}", ::sqlite3_errmsg(_sqlite_db)));
+        case SQLITE_ERROR: return result::Error(frmt("SQL statement failed, {}", ::sqlite3_errmsg(_sqlite_db)));
         case SQLITE_MISUSE: return result::Error("SQL statement returned misuse");
         default:
-            return result::Error(format("SQL statement returned unexpected result, {}", ::sqlite3_errmsg(_sqlite_db)));
+            return result::Error(frmt("SQL statement returned unexpected result, {}", ::sqlite3_errmsg(_sqlite_db)));
     }
 }
 

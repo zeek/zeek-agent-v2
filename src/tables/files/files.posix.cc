@@ -68,7 +68,7 @@ std::vector<std::vector<Value>> FilesListPosix::snapshot(const std::vector<table
         if ( ::stat(p.string().c_str(), &stat) == 0 ) {
             uid = static_cast<int64_t>(stat.st_uid);
             gid = static_cast<int64_t>(stat.st_gid);
-            mode = format("{:o}", (stat.st_mode & ~S_IFMT));
+            mode = frmt("{:o}", (stat.st_mode & ~S_IFMT));
             mtime = to_time(stat.st_mtime);
             size = stat.st_size;
 
@@ -138,7 +138,7 @@ std::vector<std::vector<Value>> FilesColumnsPosix::snapshot(const std::vector<ta
     auto spec = Table::getArgument<std::string>(args, "_columns");
     auto columns = parseColumnsSpec(spec);
     if ( ! columns )
-        throw table::PermanentContentError(format("invalid column specification for 'files_columns': {}", spec));
+        throw table::PermanentContentError(frmt("invalid column specification for 'files_columns': {}", spec));
 
     auto ignore = Table::getArgument<std::string>(args, "_ignore");
     std::optional<regex_t> ignore_regex;
@@ -146,7 +146,7 @@ std::vector<std::vector<Value>> FilesColumnsPosix::snapshot(const std::vector<ta
     if ( ! ignore.empty() ) {
         ignore_regex = regex_t();
         if ( auto rc = regcomp(&*ignore_regex, ignore.c_str(), REG_EXTENDED | REG_NOSUB) )
-            throw table::PermanentContentError(format("invalid ignore regex for 'files_columns': {}", ignore));
+            throw table::PermanentContentError(frmt("invalid ignore regex for 'files_columns': {}", ignore));
     }
 
     ScopeGuard _([&ignore_regex] {

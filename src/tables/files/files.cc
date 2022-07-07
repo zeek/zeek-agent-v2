@@ -18,14 +18,14 @@ Result<table::FilesColumnsCommon::Columns> table::FilesColumnsCommon::parseColum
     for ( const auto& c : split(trim(spec), ",") ) {
         auto m = split(trim(c), ":");
         if ( m.size() != 2 )
-            return result::Error(format("invalid column specification: {}", c));
+            return result::Error(frmt("invalid column specification: {}", c));
 
         if ( m[0].size() < 2 || ! startsWith(m[0], "$") )
-            return result::Error(format("invalid column number: {}", m[0]));
+            return result::Error(frmt("invalid column number: {}", m[0]));
 
         for ( auto i = 1; i < m[0].size(); i++ ) {
             if ( ! isdigit(m[0][i]) )
-                return result::Error(format("invalid column number: {}", m[0]));
+                return result::Error(frmt("invalid column number: {}", m[0]));
         }
 
         int column = std::stoi(m[0].substr(1));
@@ -57,7 +57,7 @@ TEST_SUITE("Tables") {
 
 TEST_CASE_FIXTURE(test::TableFixture, "files_list" * doctest::test_suite("Tables")) {
     // Create a temp directory with some well-defined content.
-    auto dir = std::filesystem::temp_directory_path() / format("zeek-agent-files_list{}", ::getpid());
+    auto dir = std::filesystem::temp_directory_path() / frmt("zeek-agent-files_list{}", ::getpid());
     ScopeGuard _([dir] { std::filesystem::remove_all(dir); });
     std::filesystem::create_directory(dir);
 
@@ -70,20 +70,20 @@ TEST_CASE_FIXTURE(test::TableFixture, "files_list" * doctest::test_suite("Tables
     }
 
     useTable("files_list");
-    auto result = query(format("SELECT type from files_list(\"{}\")", (dir / "file2").string()));
+    auto result = query(frmt("SELECT type from files_list(\"{}\")", (dir / "file2").string()));
     REQUIRE_EQ(result.rows.size(), 1);
     CHECK_EQ(*result.get<std::string>(0, "type"), "file");
 
-    result = query(format("SELECT path from files_list(\"{}\")", (dir / "*").string()));
+    result = query(frmt("SELECT path from files_list(\"{}\")", (dir / "*").string()));
     REQUIRE_EQ(result.rows.size(), 3);
 
-    result = query(format("SELECT path from files_list(\"{}\")", (dir / "sub" / "*").string()));
+    result = query(frmt("SELECT path from files_list(\"{}\")", (dir / "sub" / "*").string()));
     REQUIRE_EQ(result.rows.size(), 2);
 }
 
 TEST_CASE_FIXTURE(test::TableFixture, "files_lines" * doctest::test_suite("Tables")) {
     // Create a temp directory with some well-defined content.
-    auto dir = std::filesystem::temp_directory_path() / format("zeek-agent-files_lines-{}", ::getpid());
+    auto dir = std::filesystem::temp_directory_path() / frmt("zeek-agent-files_lines-{}", ::getpid());
     ScopeGuard _([dir] { std::filesystem::remove_all(dir); });
     std::filesystem::create_directory(dir);
 
@@ -101,7 +101,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "files_lines" * doctest::test_suite("Table
     }
 
     useTable("files_lines");
-    auto result = query(format("SELECT content from files_lines(\"{}\")", (dir / "*").string()));
+    auto result = query(frmt("SELECT content from files_lines(\"{}\")", (dir / "*").string()));
     REQUIRE_EQ(result.rows.size(), 3);
     CHECK_EQ(*result.get<std::string>(0, "content"), "AAA1");
     CHECK_EQ(*result.get<std::string>(1, "content"), "AAA2");
@@ -110,7 +110,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "files_lines" * doctest::test_suite("Table
 
 TEST_CASE_FIXTURE(test::TableFixture, "files_columns" * doctest::test_suite("Tables")) {
     // Create a temp directory with some well-defined content.
-    auto dir = std::filesystem::temp_directory_path() / format("zeek-agent-files_lines-{}", ::getpid());
+    auto dir = std::filesystem::temp_directory_path() / frmt("zeek-agent-files_lines-{}", ::getpid());
     ScopeGuard _([dir] { std::filesystem::remove_all(dir); });
     std::filesystem::create_directory(dir);
 
@@ -126,8 +126,8 @@ TEST_CASE_FIXTURE(test::TableFixture, "files_columns" * doctest::test_suite("Tab
 
     useTable("files_columns");
     auto result =
-        query(format(R"(SELECT columns from files_columns("{}", "$1:int,$2:text,$3:blob,$4:count,$5:real,$0:blob"))",
-                     (dir / "file1").string()));
+        query(frmt(R"(SELECT columns from files_columns("{}", "$1:int,$2:text,$3:blob,$4:count,$5:real,$0:blob"))",
+                   (dir / "file1").string()));
     REQUIRE_EQ(result.rows.size(), 2);
 
     // Default parameters, all types.
@@ -148,13 +148,12 @@ TEST_CASE_FIXTURE(test::TableFixture, "files_columns" * doctest::test_suite("Tab
     CHECK_EQ(c1[5], Record::value_type("678", value::Type::Blob));
 
     // No comment pattern.
-    result = query(format(R"(SELECT columns from files_columns("{}", "$1:int", "", ""))", (dir / "file1").string()));
+    result = query(frmt(R"(SELECT columns from files_columns("{}", "$1:int", "", ""))", (dir / "file1").string()));
     REQUIRE_EQ(result.rows.size(), 3);
 
     // Custom separator.
-    result =
-        query(format(R"(SELECT columns from files_columns("{}", "$1:int,$2:int,$3:int,$4:int,$5:text,$6:int", ":"))",
-                     (dir / "file2").string()));
+    result = query(frmt(R"(SELECT columns from files_columns("{}", "$1:int,$2:int,$3:int,$4:int,$5:text,$6:int", ":"))",
+                        (dir / "file2").string()));
     REQUIRE_EQ(result.rows.size(), 1);
 
     c0 = *result.get<Record>(0, "columns");
