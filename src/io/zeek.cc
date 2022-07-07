@@ -27,7 +27,9 @@
 #include <variant>
 #include <vector>
 
+#ifndef HAVE_WINDOWS
 #include <unistd.h>
+#endif
 
 #include <ixwebsocket/IXNetSystem.h>
 #include <ixwebsocket/IXSocketTLSOptions.h>
@@ -1587,6 +1589,7 @@ TEST_SUITE("Zeek") {
             // uninitialized. Not under our control so ignore. Note that this
             // needs to work with clang-tidy too even when compiler is GCC.
 
+#ifndef HAVE_WINDOWS
 #if ! defined(__has_warning) // Clang always has this
 #define __suppress_warning
 #elif __has_warning("-Wmaybe-uninitialized")
@@ -1596,10 +1599,13 @@ TEST_SUITE("Zeek") {
 #ifdef __suppress_warning
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
+#endif
             receiver.unpeer(p.peer.network->address, p.peer.network->port);
+#ifndef HAVE_WINDOWS
 #ifdef __suppress_warning
 #pragma GCC diagnostic pop
 #undef __suppress_warning
+#endif
 #endif
         }
 

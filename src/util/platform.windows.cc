@@ -131,11 +131,6 @@ WMIManager& WMIManager::Get() {
     return wmi;
 }
 
-WMIManager& WMIManager::Get() {
-    static WMIManager wmi;
-    return wmi;
-}
-
 WMIManager::WMIManager() {
     HRESULT res = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     if ( FAILED(res) )
