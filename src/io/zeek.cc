@@ -831,13 +831,15 @@ void WebSocketTransport::connect(const std::string& host, unsigned int port, con
                     else {
                         std::string reason = trim(msg_error_reason);
 
-                        if ( reason.find("Connect error:") != std::string::npos )
-                            // We get "error: Connect error: Bad file descriptor"
-                            // if noone is listening at the destination port.
+                        if ( reason.find("Connect error:") != std::string::npos ||
+                             reason.find("Cancelled") != std::string::npos )
+                            // We get "error: Connect error: Bad file
+                            // descriptor" or "error: Cancelled" if noone is
+                            // listening at the destination port.
                             reason = "";
 
                         logger()->debug("cannot connect to Zeek endpoint via WebSocket at {}{}",
-                                        connection()->endpoint(), reason);
+                                        connection()->endpoint(), (reason.empty() ? "" : format(" ({})", reason)));
                         connection()->connectionAttemptFailed(this, reason);
                     }
 
@@ -1309,7 +1311,7 @@ void ZeekConnection::connectionEstablished(const TransportProtocol* transport, c
 void ZeekConnection::connectionAttemptFailed(const TransportProtocol* transport, const std::string& reason) {
     if ( _transport_established )
         logger()->info("cannot reconnect to Zeek endpoint at {} via {}{}", endpoint(), transport->name(),
-                       (reason.empty() ? std::string() : format(": {}", reason)));
+                       (reason.empty() ? std::string() : format(" ({})", reason)));
     else {
         // If we haven't established a single transport yet, we only report
         // once all transports have failed to connect.

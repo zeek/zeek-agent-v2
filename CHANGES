@@ -1,3 +1,13 @@
+2.3.0-dev.5 | 2022-07-07 16:51:52 +0200
+
+  * Prettify WebSocket error messages.
+
+  * Do not install IXWebSocket headers.
+
+  * Update CI configuration to not treat `v.*-dev` tags as releases.
+
+  * Revert unintended submodule bumps.
+
 2.2.0 | 2022-07-05 12:04:10 +0200
 
   * Port to Windows. (Binary build to come with next release.)
