@@ -1,3 +1,14 @@
+2.3.0-dev.10 | 2022-07-08 13:37:18 +0200
+
+  * Rework Windows build to use `vcpkg` for dependencies.
+
+  * Fix a couple of minor issues for Windows.
+
+  * Rename our internal format method to avoid ambiguity with
+    `std::format`.
+
+  * Remove duplicated `out_ptr` license info.
+
 2.3.0-dev.5 | 2022-07-07 16:51:52 +0200
 
   * Prettify WebSocket error messages.

@@ -43,3 +43,6 @@
 [submodule "3rdparty/IXWebSocket"]
 	path = 3rdparty/IXWebSocket
 	url = https://github.com/machinezone/IXWebSocket
+[submodule "3rdparty/vcpkg"]
+	path = 3rdparty/vcpkg
+	url = https://github.com/microsoft/vcpkg

@@ -65,7 +65,7 @@ static struct option long_driver_options[] = {
 
 static void usage(const filesystem::path& name) {
     // clang-format off
-    std::cerr << "\nUsage: " << name.filename().string() << format(
+    std::cerr << "\nUsage: " << name.filename().string() << frmt(
         " [options]\n"
         "\n"
         "  -D | --autodoc                   Output JSON documentating table schemas and exit.\n"
@@ -165,14 +165,14 @@ Options Configuration::Implementation::default_() {
 
     if ( options.agent_id.empty() ) {
         // Generate a fresh UUID as our agent's ID.
-        options.agent_id = format("H{}", randomUUID());
+        options.agent_id = frmt("H{}", randomUUID());
 
         // Cache it.
         std::ofstream out(uuid_path, std::ios::out | std::ios::trunc);
         out << options.agent_id << "\n";
     }
 
-    options.instance_id = format("I{}", randomUUID());
+    options.instance_id = frmt("I{}", randomUUID());
 
     auto path = platform::configurationFile();
     if ( filesystem::is_regular_file(path) )
@@ -269,12 +269,12 @@ Result<Nothing> Configuration::Implementation::initFromArgv(std::vector<std::str
 
     auto config = addArgv(default_());
     if ( ! config )
-        return result::Error(format("error: {}", config.error()));
+        return result::Error(frmt("error: {}", config.error()));
 
     if ( config->config_file ) {
         auto rc = read(*config->config_file);
         if ( ! rc )
-            return result::Error(format("error reading {}: {}", config->config_file->string(), rc.error()));
+            return result::Error(frmt("error reading {}: {}", config->config_file->string(), rc.error()));
     }
     else
         apply(std::move(*config));
@@ -285,7 +285,7 @@ Result<Nothing> Configuration::Implementation::initFromArgv(std::vector<std::str
 Result<Nothing> Configuration::Implementation::read(const filesystem::path& path) {
     auto in = std::ifstream(path);
     if ( ! in.is_open() )
-        return result::Error(format("cannot open configuration file {}: {}", path.string(), strerror(errno)));
+        return result::Error(frmt("cannot open configuration file {}: {}", path.string(), strerror(errno)));
 
     return read(in, path);
 }
@@ -304,7 +304,7 @@ bool tomlValue(const toml::table& t, std::string_view path, T* dst) {
         return true;
     }
     else
-        throw result::Error(format("cannot parse value for configuration option '{}'", path));
+        throw result::Error(frmt("cannot parse value for configuration option '{}'", path));
 };
 
 // Get an array, typed correctly, if available. This allows single values, too.
@@ -321,7 +321,7 @@ bool tomlArray(const toml::table& t, std::string_view path, std::vector<T>* dst)
             if ( auto v = i.template value<vtype>() )
                 dst->push_back(*v);
             else
-                throw result::Error(format("cannot parse value for configuration option '{}'", path));
+                throw result::Error(frmt("cannot parse value for configuration option '{}'", path));
         }
 
         return true;

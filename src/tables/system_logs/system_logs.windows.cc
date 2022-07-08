@@ -212,7 +212,7 @@ static std::string event_type_string(DWORD type) {
         case EVENTLOG_AUDIT_SUCCESS: return "audit_success";
         case EVENTLOG_INFORMATION_TYPE: return "info";
         case EVENTLOG_WARNING_TYPE: return "warning";
-        default: return format("unknown ({})", type);
+        default: return frmt("unknown ({})", type);
     }
 }
 
@@ -251,7 +251,7 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
         if ( FAILED(res) ) {
             std::error_condition cond =
                 std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-            logger()->warn(format("Failed open registry for key {}: {}", narrowWstring(key_name), cond.message()));
+            logger()->warn(frmt("Failed open registry for key {}: {}", narrowWstring(key_name), cond.message()));
             return entry;
         }
         else {
@@ -267,8 +267,8 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
                 if ( res != ERROR_FILE_NOT_FOUND ) {
                     std::error_condition cond =
                         std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                    logger()->warn(format("Failed to find EventMessageFile registry entry for {}: {}",
-                                          narrowWstring(key_name), cond.message()));
+                    logger()->warn(frmt("Failed to find EventMessageFile registry entry for {}: {}",
+                                        narrowWstring(key_name), cond.message()));
                 }
             }
         }
@@ -287,7 +287,7 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
     res = ExpandEnvironmentStringsW(message_file_str.c_str(), formatted.get(), KEY_SIZE);
     if ( res == 0 ) {
         std::error_condition cond = std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-        logger()->warn(format("Failed to expand strings for {}: {}", narrowWstring(message_file_str), cond.message()));
+        logger()->warn(frmt("Failed to expand strings for {}: {}", narrowWstring(message_file_str), cond.message()));
     }
 
     // Break up the strings from the record into an array of strings so we can
@@ -319,7 +319,7 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
             else {
                 std::error_condition cond =
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->warn(format("Failed to load dll from {}: {}", narrowWstring(filename), cond.message()));
+                logger()->warn(frmt("Failed to load dll from {}: {}", narrowWstring(filename), cond.message()));
             }
         }
 
@@ -331,7 +331,7 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
         if ( res == 0 && GetLastError() != ERROR_MR_MID_NOT_FOUND ) {
             std::error_condition cond =
                 std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-            logger()->warn(format("Failed to format message: {}", narrowWstring(filename), cond.message()));
+            logger()->warn(frmt("Failed to format message: {}", narrowWstring(filename), cond.message()));
         }
 
         if ( actual_message ) {

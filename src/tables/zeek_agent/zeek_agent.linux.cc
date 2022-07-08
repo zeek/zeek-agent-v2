@@ -108,7 +108,7 @@ Value distribution() {
     auto y = getKeyFromFile("/etc/lsb-release", "DISTRIB_RELEASE");
     if ( x ) {
         if ( y )
-            return format("{} {}", *x, *y);
+            return frmt("{} {}", *x, *y);
         else
             return *x;
     }
@@ -126,7 +126,7 @@ Value distribution() {
         std::string line;
         std::getline(in2, line);
         if ( line.size() )
-            return format("Debian {}", trim(line));
+            return frmt("Debian {}", trim(line));
     }
 
     return {};

@@ -205,23 +205,41 @@ jobs:
 
   debug_windows_2022:
     runs-on: windows-2022
-    if: ${{ false }} # disable temporarily
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/3rdparty/vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/3rdparty/vcpkg/bincache
+      VCPKG_TARGET_TRIPLET: x64-windows-static
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
           submodules: recursive
 
-      - name: Install dependencies
+      - name: Create vcpkg binary cache directory
+        run: mkdir -p $VCPKG_DEFAULT_BINARY_CACHE
+        shell: bash
+
+      - name: Cache vcpkg output
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ env.VCPKG_ROOT }}
+            !${{ env.VCPKG_ROOT }}/buildtrees
+            !${{ env.VCPKG_ROOT }}/packages
+            !${{ env.VCPKG_ROOT }}/downloads
+            !${{ env.VCPKG_ROOT }}/installed
+          key: |
+            ${{ hashFiles( 'vcpkg.json' ) }}-${{ hashFiles( '.git/modules/vcpkg/HEAD' )}}-${{ env.VCPKG_TARGET_TRIPLET }}
+
+      - name: Configure
         run: |
-          chocolatey install -y --no-progress openssl
+          cmake --version
+          cmake -S . -B build -A x64 -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_TARGET_TRIPLET}}
         shell: cmd
 
       - name: Build
-        run: |
-          cmake --version
-          cmake -S . -B build -A x64 -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_VERBOSE_MAKEFILE=ON -DOPENSSL_ROOT_DIR="C:\Program Files\OpenSSL-Win64"
-          cmake --build build --target install --config Debug --parallel 2
+        run: cmake --build build --target install --config Debug --parallel 2
         shell: cmd
 
       ### We can't run btest here for a number of reasons. See

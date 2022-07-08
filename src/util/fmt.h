@@ -13,13 +13,13 @@ namespace zeek::agent {
 
 /** Forwards to `fmt::format()`. */
 template<typename... Args>
-auto format(fmt::format_string<Args...> format, Args&&... args) {
+auto frmt(fmt::format_string<Args...> format, Args&&... args) {
     return ::fmt::format(format, std::forward<Args>(args)...);
 }
 
 /** Forwards to `fmt::format()`. */
 template<typename... Args>
-auto format(const wchar_t* format, Args&&... args) {
+auto frmt(const wchar_t* format, Args&&... args) {
     return ::fmt::format(format, std::forward<Args>(args)...);
 }
 

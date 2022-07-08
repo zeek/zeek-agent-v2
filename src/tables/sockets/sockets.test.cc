@@ -29,7 +29,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables"))
     int res = WSAStartup(MAKEWORD(2, 2), &wsa);
     if ( res ) {
         std::error_condition cond = std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-        printf("%s", format("Failed to initialize WSA: {}", cond.message()).c_str());
+        printf("%s", frmt("Failed to initialize WSA: {}", cond.message()).c_str());
         REQUIRE(res == 0);
     }
 #endif
@@ -63,7 +63,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables"))
     }
 
     // We should be able to see our port.
-    auto result = query(format("SELECT pid, state from sockets WHERE local_port = {}", port));
+    auto result = query(frmt("SELECT pid, state from sockets WHERE local_port = {}", port));
     REQUIRE_EQ(result.rows.size(), 1);
     CHECK_EQ(result.get<int64_t>(0, "pid"), getpid());
     CHECK_EQ(result.get<std::string>(0, "state"), std::string("LISTEN"));

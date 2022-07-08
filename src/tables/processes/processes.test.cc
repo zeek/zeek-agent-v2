@@ -25,6 +25,6 @@ TEST_CASE_FIXTURE(test::TableFixture, "processes" * doctest::test_suite("Tables"
     name = filename;
 #endif
 
-    auto result = query(format("SELECT pid from processes WHERE name = \"{}\" AND pid = {}", name, getpid()));
+    auto result = query(frmt("SELECT pid from processes WHERE name = \"{}\" AND pid = {}", name, getpid()));
     REQUIRE_EQ(result.rows.size(), 1);
 }

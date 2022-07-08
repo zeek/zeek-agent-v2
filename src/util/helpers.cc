@@ -137,7 +137,7 @@ std::string randomUUID() {
 
     // We represent the UUID in base62 for compactness.
     auto* p = reinterpret_cast<const uint64_t*>(uuid.as_bytes().data());
-    return format("{}{}", base62_encode(p[0]), base62_encode(p[1]));
+    return frmt("{}{}", base62_encode(p[0]), base62_encode(p[1]));
 }
 
 TEST_SUITE("Helpers") {

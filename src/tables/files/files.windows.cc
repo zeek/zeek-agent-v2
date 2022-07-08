@@ -93,7 +93,7 @@ std::vector<Value> FilesListWindows::buildFileRow(const std::string& pattern, co
             std::error_condition cond =
                 std::system_category().default_error_condition(static_cast<int>(GetLastError()));
             logger()->warn(
-                format("Couldn't open file {} to check for type: {} ({})", full_path, cond.message(), cond.value()));
+                frmt("Couldn't open file {} to check for type: {} ({})", full_path, cond.message(), cond.value()));
         }
         else {
             file_type = GetFileType(file_handle.get());
@@ -114,7 +114,7 @@ std::vector<Value> FilesListWindows::buildFileRow(const std::string& pattern, co
         }
     }
 
-    Value mode = format("{:o}", temp_mode);
+    Value mode = frmt("{:o}", temp_mode);
     Value size = combineHighLow(data.nFileSizeHigh, data.nFileSizeLow);
     Value mtime = to_time(convertFiletime(data.ftLastWriteTime));
 
@@ -150,7 +150,7 @@ std::vector<std::vector<Value>> FilesListWindows::snapshot(const std::vector<tab
             if ( GetLastError() != ERROR_NO_MORE_FILES ) {
                 std::error_condition cond =
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->warn(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
+                logger()->warn(frmt("Failed to find next file: {} ({})", cond.message(), cond.value()));
             }
         }
     }
@@ -204,7 +204,7 @@ std::vector<std::vector<Value>> FilesLinesWindows::snapshot(const std::vector<ta
             if ( GetLastError() != ERROR_NO_MORE_FILES ) {
                 std::error_condition cond =
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->warn(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
+                logger()->warn(frmt("Failed to find next file: {} ({})", cond.message(), cond.value()));
             }
         }
     }
@@ -225,7 +225,7 @@ std::vector<std::vector<Value>> FilesColumnsWindows::snapshot(const std::vector<
     auto& spec = Table::getArgument<std::string>(args, "_columns");
     auto columns = parseColumnsSpec(spec);
     if ( ! columns )
-        throw table::PermanentContentError(format("invalid column specification for 'files_columns': {}", spec));
+        throw table::PermanentContentError(frmt("invalid column specification for 'files_columns': {}", spec));
 
     auto& ignore = Table::getArgument<std::string>(args, "_ignore");
     std::optional<std::regex> ignore_regex;
@@ -234,7 +234,7 @@ std::vector<std::vector<Value>> FilesColumnsWindows::snapshot(const std::vector<
         try {
             ignore_regex = std::regex{ignore, std::regex::extended | std::regex::nosubs};
         } catch ( const std::regex_error& err ) {
-            throw table::PermanentContentError(format("invalid ignore regex for 'files_columns': {}", ignore));
+            throw table::PermanentContentError(frmt("invalid ignore regex for 'files_columns': {}", ignore));
         }
     }
 
@@ -300,7 +300,7 @@ std::vector<std::vector<Value>> FilesColumnsWindows::snapshot(const std::vector<
             if ( GetLastError() != ERROR_NO_MORE_FILES ) {
                 std::error_condition cond =
                     std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->warn(format("Failed to find next file: {} ({})", cond.message(), cond.value()));
+                logger()->warn(frmt("Failed to find next file: {} ({})", cond.message(), cond.value()));
             }
         }
     }
