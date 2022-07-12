@@ -310,7 +310,7 @@ T parsePlatformValue(std::string_view path, const std::string& v) {
         return x == "1" || x == "true" || x == "yes" || x == "on";
     }
 
-    throw result::Error(format("cannot parse plaform value for configuration option '{}' ({})", path, to_string(v)));
+    throw result::Error(frmt("cannot parse plaform value for configuration option '{}' ({})", path, to_string(v)));
 }
 
 // Get a value, typed correctly, if available.
@@ -378,7 +378,7 @@ bool tomlArray(const std::optional<toml::table>& t, const std::string& path, std
             return true;
         }
         else
-            throw result::Error(format("cannot parse value for configuration option '{}'", path));
+            throw result::Error(frmt("cannot parse value for configuration option '{}'", path));
     }
 }
 
