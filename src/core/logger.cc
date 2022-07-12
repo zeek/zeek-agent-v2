@@ -13,6 +13,10 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/stdout_sinks-inl.h>
 
+#ifdef HAVE_DARWIN
+#include <util/platform.darwin.h>
+#endif
+
 #ifndef HAVE_WINDOWS
 #include <spdlog/sinks/syslog_sink.h>
 #endif
@@ -45,9 +49,7 @@ Result<Nothing> zeek::agent::setGlobalLogger(options::LogType type, options::Log
 #if defined(HAVE_LINUX)
             sink = std::make_shared<spdlog::sinks::syslog_sink_mt>("zeek-agent", 0, LOG_USER, false);
 #elif defined(HAVE_DARWIN)
-            // TODO: Should log directly to oslog here. Use
-            // https://github.com/L1MeN9Yu/Senna? Roll our own sink?
-            sink = std::make_shared<spdlog::sinks::syslog_sink_mt>("zeek-agent", 0, LOG_USER, false);
+            sink = std::make_shared<platform::darwin::OSLogSink>();
 #elif defined(HAVE_WINDOWS)
             // TODO: Where should Windows system logging go? The event log?
             logger()->warn("system logging currently not supported on Windows");

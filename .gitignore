@@ -5,8 +5,10 @@ tmp
 compile_commands.json
 .clangd
 .cache
+.build
 *.swp
 old
+.DS_Store
 
 # Windows port
 /.vs

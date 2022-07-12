@@ -1,3 +1,36 @@
+2.3.0-dev.25 | 2022-07-12 13:16:30 +0200
+
+  * Extend macOS support:
+
+    - Add installer application and turn the agent into a system
+      extension. The installer does three things: (1) it asks the
+      system to install the extension persistently; (2) it interacts
+      with the user through a small UI, including offering some basic
+      configuration; and (3) it communicates with the running
+      extension through XPC for configuration and status checks.
+      Application and extensions get bundled into a DMG, and signed
+      and notarized during CI.
+
+    - Implement `system` logging on macOS.
+
+    - Read preferences from system's `org.zeek.zeek-agent` via
+      `defaults`.
+
+    - Relocate default paths for configuration and state to
+      `/Library/Application Support/ZeekAgent`, or the user's version
+      of that if not running as root. (This may not be final yet.)
+
+    - Make Endpoint Security available internally (not used yet).
+
+    - Add new icons for macOS. (Matti Bispham)
+
+  * Switch default log level to `info`.
+
+  * Make agent robust against platforms potentially not being able to
+    determine paths for configuration and state files.
+
+  * Fix bug on Linux/macOS determining admin mode.
+
 2.3.0-dev.10 | 2022-07-08 13:37:18 +0200
 
   * Rework Windows build to use `vcpkg` for dependencies.

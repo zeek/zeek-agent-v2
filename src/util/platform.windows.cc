@@ -22,13 +22,15 @@ using namespace ztd::out_ptr;
 
 std::string platform::name() { return "Windows"; }
 
-filesystem::path platform::configurationFile() {
+void platform::init(const Configuration& cfg) {}
+
+std::optional<filesystem::path> platform::configurationFile() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path exec = PathFind::FindExecutable();
     return exec / "../etc" / "zeek-agent.conf";
 }
 
-filesystem::path platform::dataDirectory() {
+std::optional<filesystem::path> platform::dataDirectory() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path dir;
 
@@ -124,6 +126,15 @@ bool platform::runningAsAdmin() {
         is_member = false;
 
     return is_member;
+}
+
+void platform::initializeOptions(Options* options) {
+    // Nothing to do.
+}
+
+std::optional<std::string> platform::retrieveConfigurationOption(const std::string& path) {
+    // Nothing to do.
+    return {};
 }
 
 WMIManager& WMIManager::Get() {

@@ -134,9 +134,13 @@ void Console::Implementation::execute(const std::string& cmd, bool terminate) {
 }
 
 void Console::Implementation::repl() {
+    filesystem::path history_path;
+
     // Runs in its own thread.
-    auto history_path = platform::dataDirectory() / "history";
-    _rx.history_load(history_path.string());
+    if ( auto dir = platform::dataDirectory() ) {
+        history_path = *dir / "history";
+        _rx.history_load(history_path.string());
+    }
 
     welcome();
 
@@ -156,7 +160,9 @@ void Console::Implementation::repl() {
             continue;
 
         _rx.history_add(input);
-        _rx.history_sync(history_path.string());
+
+        if ( ! history_path.empty() )
+            _rx.history_sync(history_path.string());
 
         execute(input, false);
     }

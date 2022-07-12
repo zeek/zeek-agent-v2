@@ -1,0 +1,22 @@
+<plist version="1.0">
+<dict>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleName</key>
+    <string>ZeekAgent</string>
+    <key>CFBundleDisplayName</key>
+    <string>Zeek Agent</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.zeek.zeek-agent</string>
+    <key>CFBundleVersion</key>
+    <string>${ZEEK_AGENT_VERSION}</string>
+    <key>CFBundleExecutable</key>
+    <string>ZeekAgent</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${ZEEK_AGENT_VERSION}></string>
+    <key>CFBundleIconFile</key>
+    <string>ZeekAgent</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>${CMAKE_OSX_DEPLOYMENT_TARGET}</string>
+</dict>
+</plist>

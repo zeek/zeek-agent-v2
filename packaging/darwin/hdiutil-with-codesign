@@ -1,0 +1,41 @@
+# /bin/sh
+#
+# CMake doesn't provide a hook running after the app bundle has been fully assembled, but before the
+# the DMG is being created. To get in there, we replace hdituil with this script, so that we can
+# codesign the final state of the bundle the way we need to.
+
+args=("$@")
+base=$(cd $(dirname $0) && pwd)
+
+codesign="/usr/bin/codesign -s '${MACOS_CERTIFICATE_APPLICATION_ID}' -v --force --options=runtime --strict --timestamp"
+
+log() {
+    echo "+++ $1" >/dev/tty
+}
+
+codesign() {
+    cd "$1"
+    app="ZeekAgent.app"
+
+    if [ "${MACOS_CERTIFICATE_APPLICATION_ID}" = "" ]; then
+        log "Not signing ${app}, MACOS_CERTIFICATE_APPLICATION_ID not set"
+        return
+    fi
+
+    eval ${codesign} --entitlements "${base}/entitlements.plist.agent"             "${app}/Contents/Library/SystemExtensions/org.zeek.zeek-agent.agent.systemextension"
+    eval ${codesign} --entitlements "${base}/entitlements.plist.network-extension" "${app}/Contents/Library/SystemExtensions/org.zeek.zeek-agent.network-extension.systemextension"
+    eval ${codesign} --entitlements "${base}/entitlements.plist.app"               "${app}"
+}
+
+if [ "$1" == "create" ]; then
+    while [ "$#" != 0 ]; do
+        if [ "$1" = "-srcfolder" -a "$2" != "" ]; then
+            codesign "$2"
+            break
+        fi
+        shift
+    done
+fi
+
+set -- "${args[@]}"
+/usr/bin/hdiutil "$@"

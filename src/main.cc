@@ -17,11 +17,15 @@
 #include <iostream>
 #include <optional>
 
-using namespace zeek::agent;
+#ifdef HAVE_DARWIN
+#include "util/platform.darwin.h"
+#endif
 
 #ifdef HAVE_WINDOWS
 #include "util/platform.windows.h"
 #endif
+
+using namespace zeek::agent;
 
 SignalManager* zeek::agent::signal_mgr = nullptr;
 signal::Handler* sigint;
@@ -45,8 +49,10 @@ int main(int argc, char** argv) {
         logger()->info("Zeek Agent {} starting up", VersionLong);
         atexit(log_termination);
 
-        if ( platform::runningAsAdmin() && ! cfg.options().use_mock_data )
+        if ( ! platform::runningAsAdmin() && ! cfg.options().use_mock_data )
             logger()->warn("not running as root, information may be incomplete");
+
+        platform::init(cfg);
 
         Scheduler scheduler;
         signal_mgr = new SignalManager({SIGINT});

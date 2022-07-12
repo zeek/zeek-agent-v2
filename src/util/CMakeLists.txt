@@ -9,7 +9,8 @@ target_sources(zeek-agent
 )
 
 if ( HAVE_DARWIN )
-    target_sources(zeek-agent PRIVATE platform.posix.cc platform.darwin.cc)
+    target_sources(zeek-agent PRIVATE platform.posix.cc platform.darwin.mm)
+    target_link_libraries(zeek-agent PRIVATE "EndpointSecurity")
 endif ()
 
 if ( HAVE_LINUX )

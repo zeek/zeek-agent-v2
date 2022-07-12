@@ -111,7 +111,9 @@ if ( HAVE_WINDOWS )
     target_link_libraries(zeek-agent PRIVATE shlwapi)
 endif()
 
-install(TARGETS zeek-agent)
+if ( NOT HAVE_DARWIN ) # On Darwin, we customize the install location later
+    install(TARGETS zeek-agent)
+endif ()
 
 configure_file(config.h.in "${CMAKE_BINARY_DIR}/include/autogen/config.h")
 

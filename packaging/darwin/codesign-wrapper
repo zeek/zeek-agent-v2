@@ -1,0 +1,9 @@
+# /usr/bin/env bash
+
+if [ -z "${MACOS_CERTIFICATE_APPLICATION_ID}" ]; then
+    echo "=== Skipping codesign execution, MACOS_CERTIFICATE_APPLICATION_ID is not set"
+    exit 0
+fi
+
+#echo "== CODESIGN: $@" >/dev/tty
+/usr/bin/codesign "$@"

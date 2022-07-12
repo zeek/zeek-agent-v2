@@ -14,13 +14,15 @@ using namespace zeek::agent;
 
 std::string platform::name() { return "Linux"; }
 
-filesystem::path platform::configurationFile() {
+void platform::init(const Configuration& cfg) {}
+
+std::optional<filesystem::path> platform::configurationFile() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path exec = PathFind::FindExecutable();
     return exec / "../etc" / "zeek-agent.conf";
 }
 
-filesystem::path platform::dataDirectory() {
+std::optional<filesystem::path> platform::dataDirectory() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path dir;
 
@@ -35,4 +37,13 @@ filesystem::path platform::dataDirectory() {
         throw FatalError(frmt("cannot create path '{}'", dir.native()));
 
     return dir;
+}
+
+void platform::initializeOptions(Options* options) {
+    // Nothing to do.
+}
+
+std::optional<std::string> platform::retrieveConfigurationOption(const std::string& path) {
+    // Nothing to do.
+    return {};
 }

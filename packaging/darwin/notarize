@@ -1,0 +1,82 @@
+#! /usr/bin/env bash
+#
+# Submits a bundle (e.g., a DMG or ZIP) for Apple notarization.
+#
+# This script can sign with either application or installers certificates. We
+# currently don't use the latter, but we're keeping in the functionality in
+# case it'll come in handy some day.
+
+set -e
+
+function usage {
+    echo "Usage: $(basename $0) application|installer <bundle>" >&2
+}
+
+if [ $# != 2 ]; then
+    usage
+    exit 1
+fi
+
+if [ -z "${MACOS_CERTIFICATE_APPLICATION_ID}" ]; then
+    echo "Error: MACOS_CERTIFICATE_APPLICATION_ID not set" >&2
+    exit 1
+fi
+
+if [ -z "${MACOS_NOTARIZATION_USER}" ]; then
+    echo "Error: MACOS_NOTARIZATION_USER not set" >&2
+    exit 1
+fi
+
+base=$(pwd)/../packaging/darwin
+sign_type=$1
+bundle=$2
+
+if [ -n "${MACOS_NOTARIZATION_PASSWORD}" ]; then
+    password="-p @env:MACOS_NOTARIZATION_PASSWORD"
+fi
+
+if [ "${sign_type}" == "installer" ]; then
+    echo "== Signing installer ..."
+    productsign --sign "${MACOS_CERTIFICATE_INSTALLER_ID}" "${bundle}" "${bundle}.tmp"
+    mv "${bundle}.tmp" "${bundle}"
+elif  [ "$1" == "application" ]; then
+    echo "== Signing bundle ..."
+    codesign -f -s "${MACOS_CERTIFICATE_APPLICATION_ID}" --timestamp --entitlements ${base}/entitlements.plist.app ${bundle}
+else
+    usage
+    exit 1
+fi
+
+echo "== Uploading for notarization ..."
+
+tmp=/tmp/$(basename $0).$$.pid
+trap "rm -f ${tmp}" EXIT
+
+xcrun altool --notarize-app --primary-bundle-id "org.zeek.zeek-agent" -u "${MACOS_NOTARIZATION_USER}" ${password} -t osx -f "${bundle}" | tee ${tmp}
+
+uuid=$(cat ${tmp} | grep "RequestUUID" | awk '{print $3}')
+if [ -z "${uuid}" ]; then
+    echo "Error: No UUID returned."
+    exit 1
+fi
+
+echo "== Waiting for confirmation on UUID ${uuid} ..."
+
+for i in $(seq 1 60); do
+    sleep 10
+    xcrun altool --notarization-info "${uuid}" -u "${MACOS_NOTARIZATION_USER}" ${password} | tee ${tmp}
+    if egrep -q "Status Message: Package Approved|LogFileURL" ${tmp}; then
+        break
+    fi
+done
+
+grep -q "Status Message: Package Approved" ${tmp}
+
+echo "== Stapling ..."
+
+xcrun stapler staple ${bundle}
+
+echo "== Verifying ..."
+
+spctl -a -vv -t install ${bundle}
+xcrun stapler validate ${bundle}

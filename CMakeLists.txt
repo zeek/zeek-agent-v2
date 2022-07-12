@@ -1,10 +1,22 @@
 # Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
-cmake_minimum_required(VERSION 3.15.0)
+cmake_minimum_required(VERSION 3.15.1)
 
-project(ZeekAgent LANGUAGES C CXX)
+project(ZeekAgent)
 
-set(macos_minimum_version "19.0.0") # macOS 10.15.0 (Catalina)
+if ( CMAKE_SYSTEM_NAME STREQUAL "Darwin" )
+    set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0 CACHE STRING "Minimum macOS version" FORCE) # Big Sur
+
+    # Hack to avoid CMake telling us that it doesn't support universal binaries for Swift.
+    # We later enable universal binaries explicitly ourselves for Swift code.
+    set(old_CMAKE_OSX_ARCHITECTURES "${CMAKE_OSX_ARCHITECTURES}")
+    set(CMAKE_OSX_ARCHITECTURES "")
+    enable_language(Swift)
+    set(CMAKE_OSX_ARCHITECTURES "${old_CMAKE_OSX_ARCHITECTURES}")
+endif ()
+
+enable_language(C)
+enable_language(CXX)
 
 ### Initialize defaults & global options
 
@@ -81,7 +93,6 @@ else()
 endif()
 
 if ( CMAKE_SYSTEM_NAME STREQUAL "Darwin" )
-    require_version("maccOS" True ${CMAKE_SYSTEM_VERSION} "${macos_minimum_version}" true)
     set(HAVE_DARWIN true)
 elseif ( CMAKE_SYSTEM_NAME STREQUAL "Linux" )
     set(HAVE_LINUX true)

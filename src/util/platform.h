@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "core/configuration.h"
 #include "filesystem.h"
 
 #include <optional>
@@ -10,14 +11,17 @@
 
 namespace zeek::agent::platform {
 
+/** Performs one-time initialization at startup. */
+extern void init(const Configuration& cfg);
+
 /** Returns a name for the current platform. */
 extern std::string name();
 
 /** Returns the path to the default configuration file. */
-extern filesystem::path configurationFile();
+extern std::optional<filesystem::path> configurationFile();
 
 /** Returns the directory path where to store dynamic, persistent state. */
-extern filesystem::path dataDirectory();
+extern std::optional<filesystem::path> dataDirectory();
 
 /** Returns true if stdin is a terminal. */
 extern bool isTTY();
@@ -44,5 +48,21 @@ extern std::optional<std::string> getenv(const std::string& name);
  * Checks for whether the process is running with administrator rights.
  */
 extern bool runningAsAdmin();
+
+/**
+ * Prepopulates an option object with defaults derived from platform-specific
+ * mechanisms.
+ */
+extern void initializeOptions(Options* options);
+
+/**
+ * Retrieves the value of an option through platform-specific means. For array
+ * values, the expectation is that the elements are returned as a
+ * comma-separated string.
+ *
+ * @param path option's key path as in the TOML file
+ * @returns the option's value, if set
+ */
+extern std::optional<std::string> retrieveConfigurationOption(const std::string& path);
 
 } // namespace zeek::agent::platform
