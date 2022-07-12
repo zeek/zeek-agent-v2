@@ -70,6 +70,17 @@ enable_testing()
 file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/VERSION ZEEK_AGENT_VERSION LIMIT_COUNT 1)
 set(CMAKE_PROJECT_VERSION ${ZEEK_AGENT_VERSION})
 
+string(REGEX MATCHALL "[0-9]+" AGENT_PARTS "${ZEEK_AGENT_VERSION}")
+list(GET AGENT_PARTS 0 ZEEK_AGENT_VERSION_MAJOR)
+list(GET AGENT_PARTS 1 ZEEK_AGENT_VERSION_MINOR)
+list(GET AGENT_PARTS 2 ZEEK_AGENT_VERSION_PATCH)
+list(LENGTH AGENT_PARTS PARTS_LEN)
+if ( PARTS_LEN GREATER 3 )
+  list(GET AGENT_PARTS 3 ZEEK_AGENT_VERSION_COMMITNUM)
+else ()
+  set(ZEEK_AGENT_VERSION_COMMITNUM 0)
+endif ()
+
 # Get current git commit. If we cannot get the current commit (e.g., no .git
 # directory present for release tarballs), this will leave ZEEK_AGENT_COMMIT unset.
 execute_process(
