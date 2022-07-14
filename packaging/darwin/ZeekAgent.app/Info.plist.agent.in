@@ -27,5 +27,19 @@
     <key>NSEndpointSecurityMachServiceName</key>
     <string>org.zeek.zeek-agent.agent</string>
 
+    <key>NSSystemExtensionUsageDescription</key>
+    <string>Endpoint agent forwarding host activity to Zeek</string>
+
+     <key>NetworkExtension</key>
+        <dict>
+                <key>NEMachServiceName</key>
+                <string>org.zeek.zeek-agent.agent</string>
+
+                <key>NEProviderClasses</key>
+                <dict>
+                        <key>com.apple.networkextension.filter-data</key>
+                        <string>FilterDataProvider</string>
+                </dict>
+        </dict>
 </dict>
 </plist>
