@@ -144,7 +144,7 @@ struct Options {
     std::vector<std::string> zeek_destinations;
 
     /**
-     * Set of groups that the agent is part of. In addition, all agengs are
+     * Set of groups that the agent is part of. In addition, all agents are
      * implicitly part of the groups `all` and `<os>`.
      */
     std::vector<std::string> zeek_groups;
