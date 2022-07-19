@@ -252,14 +252,15 @@ jobs:
             ${{ hashFiles( 'vcpkg.json' ) }}-${{ hashFiles( '.git/modules/vcpkg/HEAD' )}}-${{ env.VCPKG_TARGET_TRIPLET }}
 
       - name: Configure
-        run: >
-          cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_MAKE_PROGRAM=ninja.exe -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON -DUSE_CCACHE=yes -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_TARGET_TRIPLET}}
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_MAKE_PROGRAM=ninja.exe -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON -DUSE_CCACHE=yes -DCCACHE_PROGRAM=C:/ProgramData/Chocolatey/bin/ccache.exe -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_TARGET_TRIPLET}}
         shell: cmd
 
       - name: Build
         run: |
+          C:/ProgramData/Chocolatey/bin/ccache.exe -s
           cmake --build build --target install --config Release --parallel 2
-          dumpbin /headers "C:/Program Files (x86)/ZeekAgent/bin/zeek-agent.exe"
+          C:/ProgramData/Chocolatey/bin/ccache.exe -s
         shell: cmd
 
       ### We can't run btest here for a number of reasons. See
