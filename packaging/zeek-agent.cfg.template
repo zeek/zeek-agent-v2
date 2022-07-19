@@ -1,1 +1,65 @@
-# TODO
+# Configuration file for ZeekAgent. Most of these options should work with their
+# normal defaults. The main option that should be modified is the zeek.destinations
+# option. See the documentation below for the valid values for each option. Some of
+# these options (such as the log level) can be overridden with command-line flags.
+# See zeek-agent --help for more information about those flags.
+
+[log]
+# The granulatity of the log information.
+# Valid values: "trace", "debug", "info", "warning", "error", "critical", "off"
+# "trace" will return the most log data, while "critical" returns the least.
+# Setting this option to "off" will disable all logging.
+#level = "info"
+
+# Valid values:
+# "file": send all logs to the file defined in the log.path option
+# "system": send logs the appropriate system logging facility (e.g. syslog)
+# "stdout": send all logs to stdout
+#type = "stdout"
+
+# A path to a file to store log data if the log.type option is set to "file".
+#path = ""
+
+[zeek]
+# A bracketed list of hostname/ip:port values that define what hosts running Zeek
+# that the agent should send data to. This option must be set for zeek-agent to
+# function properly.
+#destination = []
+
+# The interval in seconds to expire any state from a connected Zeek instance if
+# no activity has been seen from it.
+#timeout = 120
+
+# The interval in seconds for when "hello" pings are sent.
+#hello_interval = 60
+
+# The amount of time in seconds to wait to reconnect to a Zeek instance if the
+# connection is closed.
+#reconnect_interval = 30
+
+#groups =
+
+# If true, the agent will not use SSL for network connections. By default,
+# SSL will be used even if no certificates / CAs have been configured, so
+# that the communication will always be encrypted.
+#ssl_disable = false
+
+# Path to a file containing concatenated trusted certificates in PEM format.
+# If set, the agent will require valid certificates for all peers.
+#ssl_cafile = ""
+
+# Path to an OpenSSL-style directory of trusted certfiicates. If set, the
+# agent will rqeuire valid certificates from all peers.
+#ssl_capath = ""
+
+# Path to a file containing an X.509 certificat for this node in PEM format.
+# If set, the agent will require valid certificates for all peers.
+#ssl_certificate = ""
+
+# Path to the file containing the private key for this node's certificate.
+# If set, the agent will require valid certificates for all peers.
+#ssl_keyfile = ""
+
+# Passphrase to decrypt the private key specified by the ssl_keyfile option.
+# If set, the agent will require valid certificates for all peers.
+#ssl_passphrase =

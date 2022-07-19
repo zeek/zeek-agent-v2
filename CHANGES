@@ -1,3 +1,13 @@
+2.3.0-dev.31 | 2022-07-19 11:15:45 +0200
+
+  * Adding Windows installer packaging.
+
+  * Publish Windows installer as part of the release workflow.
+
+  * Add keys to ccache configs in CI to avoid collisions.
+
+  * Set `ZEEK_AGENT_VERSION_{MAJOR,MINOR_PATCH}` values during CMake.
+
 2.3.0-dev.25 | 2022-07-12 13:16:30 +0200
 
   * Extend macOS support:

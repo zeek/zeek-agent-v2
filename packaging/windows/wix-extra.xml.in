@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <DirectoryRef Id="CADF_ZeekAgent">
+      <Component Id="CADF_CM_ZeekAgent" Guid="*">
+        <File Id="CADF_CF_ZeekAgent.zeek_agent_conf" Source="@CMAKE_CURRENT_BINARY_DIR@/@ZEEK_AGENT_CONF_FILE_NAME@" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

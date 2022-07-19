@@ -1,0 +1,5 @@
+<WixLocalization Culture="en-us" xmlns="http://schemas.microsoft.com/wix/2006/localization">
+  <String Id="WelcomeDlgDescription">Thank you for installing [ProductName]. To complete the installation, modify the zeek-agent.cfg file in the %PROGRAMDATA%\[ProductName] directory and reboot your computer.
+
+Click the Finish button to exit the Setup.</String>
+</WixLocalization>

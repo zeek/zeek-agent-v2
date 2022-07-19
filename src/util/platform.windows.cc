@@ -20,24 +20,28 @@ using namespace zeek::agent;
 using namespace zeek::agent::platform::windows;
 using namespace ztd::out_ptr;
 
-std::string platform::name() { return "Windows"; }
-
 void platform::init(const Configuration& cfg) {}
 
+std::string platform::name() { return "Windows"; }
+
 std::optional<filesystem::path> platform::configurationFile() {
-    // TODO: These paths aren't necessarily right yet.
-    filesystem::path exec = PathFind::FindExecutable();
-    return exec / "../etc" / "zeek-agent.conf";
+    filesystem::path dir;
+    if ( auto programdata = platform::getenv("PROGRAMDATA") )
+        dir = filesystem::path(*programdata);
+    else
+        dir = filesystem::path("c:") / "ProgramData";
+
+    return dir / "ZeekAgent" / "zeek-agent.cfg";
 }
 
 std::optional<filesystem::path> platform::dataDirectory() {
-    // TODO: These paths aren't necessarily right yet.
     filesystem::path dir;
-
-    if ( auto home = platform::getenv("HOME") )
-        dir = filesystem::path(*home) / ".cache" / "zeek-agent";
+    if ( auto programdata = platform::getenv("PROGRAMDATA") )
+        dir = filesystem::path(*programdata);
     else
-        dir = "/var/run/zeek-agent";
+        dir = filesystem::path("c:") / "ProgramData";
+
+    dir = dir / "ZeekAgent" / ".cache";
 
     std::error_code ec;
     filesystem::create_directories(dir, ec);
