@@ -5,6 +5,7 @@ on: push
 jobs:
   debug_ubuntu_latest:
     runs-on: ubuntu-latest
+    if: false
 
     strategy:
       matrix:
@@ -35,7 +36,7 @@ jobs:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.2
         with:
           key: ${{ github.job }}
 
@@ -66,6 +67,7 @@ jobs:
   release_alpine_3_15_static:
     runs-on: ubuntu-latest
     environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
+    if: false
 
     container:
       image: alpine:3.15
@@ -83,7 +85,7 @@ jobs:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.2
         with:
           key: ${{ github.job }}
 
@@ -116,6 +118,7 @@ jobs:
   release_macos_11:
     runs-on: macos-11
     environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
+    if: false
 
     steps:
       - name: Prepare
@@ -130,7 +133,7 @@ jobs:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.2
         with:
           key: ${{ github.job }}
 
@@ -229,9 +232,19 @@ jobs:
         run: mkdir -p $VCPKG_DEFAULT_BINARY_CACHE
         shell: bash
 
+      # The github runner provides a version of ccache, but it's too old to
+      # properly support use with cl.exe. We need at least version 4.6 for
+      # everything to work right. The ccache-action below should be doing
+      # if but it's still picking up the wrong version of ccache.
+      - name: Install newer ccache
+        run: |
+          choco install ccache
+        shell: cmd
+
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.2
         with:
+          verbose: 2
           key: ${{ github.job }}
 
       - name: Set up Visual Studio shell
@@ -251,16 +264,21 @@ jobs:
           key: |
             ${{ hashFiles( 'vcpkg.json' ) }}-${{ hashFiles( '.git/modules/vcpkg/HEAD' )}}-${{ env.VCPKG_TARGET_TRIPLET }}
 
+      # - name: Setup tmate session
+      #   uses: mxschmitt/action-tmate@v3
+
       - name: Configure
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_MAKE_PROGRAM=ninja.exe -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON -DUSE_CCACHE=yes -DCCACHE_PROGRAM=C:/ProgramData/Chocolatey/bin/ccache.exe -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_TARGET_TRIPLET}}
+          cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_MAKE_PROGRAM=ninja.exe -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON -DUSE_CCACHE=yes -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_TARGET_TRIPLET}}
+          ccache -p
+          ccache -s -vv
         shell: cmd
 
       - name: Build
         run: |
-          C:/ProgramData/Chocolatey/bin/ccache.exe -s
           cmake --build build --target install --config Release --parallel 2
-          C:/ProgramData/Chocolatey/bin/ccache.exe -s
+          ccache -p
+          ccache -s -vv
         shell: cmd
 
       ### We can't run btest here for a number of reasons. See
@@ -271,9 +289,6 @@ jobs:
         run: |
           "C:\Program Files (x86)\ZeekAgent\bin\zeek-agent.exe" -T
         shell: cmd
-
-      # - name: Setup tmate session
-      #   uses: mxschmitt/action-tmate@v3
 
       - name: Build installer
         run: |
@@ -289,6 +304,7 @@ jobs:
   release_source:
     runs-on: ubuntu-latest
     environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
+    if: false
 
     steps:
       - name: Prepare
@@ -303,7 +319,7 @@ jobs:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.2
         with:
           key: ${{ github.job }}
 
