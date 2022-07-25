@@ -35,7 +35,7 @@ jobs:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.2
         with:
           key: ${{ github.job }}
 
@@ -74,7 +74,7 @@ jobs:
       - name: Prepare
         run: |
           apk update
-          apk add linux-headers ccache cmake g++ gcc git make ninja tar zlib-static zlib-dev openssl-libs-static openssl-dev python3 py3-pip
+          apk add linux-headers ccache cmake g++ gcc git make ninja tar zlib-static zlib-dev openssl-libs-static openssl-dev python3 py3-pip bash
           pip3 install btest zkg
 
       - name: Checkout repository
@@ -83,7 +83,7 @@ jobs:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.2
         with:
           key: ${{ github.job }}
 
@@ -130,7 +130,7 @@ jobs:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.2
         with:
           key: ${{ github.job }}
 
@@ -219,6 +219,11 @@ jobs:
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/3rdparty/vcpkg/bincache
       VCPKG_TARGET_TRIPLET: x64-windows-static
 
+      # Something in the Windows build configuration breaks ccache and causes it to forget
+      # what its configuration is by the time we call configure and run the build. This
+      # forces it to remember.
+      CCACHE_CONFIGPATH: ~/ccache/ccache.conf
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -229,8 +234,17 @@ jobs:
         run: mkdir -p $VCPKG_DEFAULT_BINARY_CACHE
         shell: bash
 
+      # The github runner provides a version of ccache, but it's too old to
+      # properly support use with cl.exe. We need at least version 4.6 for
+      # everything to work right. The ccache-action below should be doing
+      # if but it's still picking up the wrong version of ccache.
+      - name: Install newer ccache
+        run: >
+          choco install ccache
+        shell: cmd
+
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.2
         with:
           key: ${{ github.job }}
 
@@ -257,9 +271,8 @@ jobs:
         shell: cmd
 
       - name: Build
-        run: |
+        run: >
           cmake --build build --target install --config Release --parallel 2
-          dumpbin /headers "C:/Program Files (x86)/ZeekAgent/bin/zeek-agent.exe"
         shell: cmd
 
       ### We can't run btest here for a number of reasons. See
@@ -267,12 +280,9 @@ jobs:
       ### there's no artifacts to upload upon failure.
 
       - name: Test
-        run: |
+        run: >
           "C:\Program Files (x86)\ZeekAgent\bin\zeek-agent.exe" -T
         shell: cmd
-
-      # - name: Setup tmate session
-      #   uses: mxschmitt/action-tmate@v3
 
       - name: Build installer
         run: |
@@ -302,7 +312,7 @@ jobs:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1
+        uses: hendrikmuhs/ccache-action@v1.2.2
         with:
           key: ${{ github.job }}
 
