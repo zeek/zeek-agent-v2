@@ -1,3 +1,9 @@
+2.3.0-dev.33 | 2022-07-28 13:56:49 +0200
+
+  * Fix ccache on Windows
+
+  * Update CI jobs to use `ccache-action@v1.2.2`.
+
 2.3.0-dev.31 | 2022-07-19 11:15:45 +0200
 
   * Adding Windows installer packaging.
