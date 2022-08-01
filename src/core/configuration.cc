@@ -271,7 +271,13 @@ Result<Options> Configuration::Implementation::addArgv(Options options) {
                 break;
             }
 
-            case 'D': options.mode = options::Mode::AutoDoc; break;
+            case 'D': {
+                options::default_log_type = options::LogType::Stderr;
+                options.log_type = options::LogType::Stderr;
+                options.mode = options::Mode::AutoDoc;
+                break;
+            }
+
             case 'M': options.use_mock_data = true; break;
             case 'N': options.terminate_on_disconnect = true; break;
             case 'T': options.mode = options::Mode::Test; break;

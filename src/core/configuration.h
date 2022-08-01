@@ -53,6 +53,7 @@ inline Result<options::LogLevel> from_str(const std::string& l) {
 enum class LogType {
     File,
     System,
+    Stderr,
     Stdout,
 };
 
@@ -60,6 +61,7 @@ inline std::string_view to_string(const LogType& t) {
     switch ( t ) {
         case LogType::File: return "file";
         case LogType::System: return "system";
+        case LogType::Stderr: return "stderr";
         case LogType::Stdout: return "stdout";
     }
 
@@ -70,6 +72,8 @@ namespace log_type {
 inline Result<LogType> from_str(const std::string_view& t) {
     if ( t == "file" )
         return options::LogType::File;
+    else if ( t == "stderr" )
+        return options::LogType::Stderr;
     else if ( t == "stdout" )
         return options::LogType::Stdout;
     else if ( t == "system" )
