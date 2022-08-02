@@ -46,3 +46,6 @@
 [submodule "3rdparty/vcpkg"]
 	path = 3rdparty/vcpkg
 	url = https://github.com/microsoft/vcpkg
+[submodule "3rdparty/glob"]
+	path = 3rdparty/glob
+	url = https://github.com/p-ranav/glob.git
