@@ -47,112 +47,65 @@ database::RegisterTable<FilesLinesWindows> _2;
 database::RegisterTable<FilesColumnsWindows> _3;
 } // namespace
 
-static std::string get_full_path(const std::string& pattern, const char* filename) {
-    char ret[MAX_PATH];
-    char* tmp = new char[pattern.size() + 1];
-    strncpy(tmp, pattern.c_str(), pattern.size());
-    tmp[pattern.size()] = '\0';
-
-    PathRemoveFileSpecA(tmp);
-    PathCombineA(ret, tmp, filename);
-    delete[] tmp;
-    return ret;
-}
-
 std::pair<std::string, std::vector<filesystem::path>> FilesBase::expandPaths(const std::vector<table::Argument>& args) {
-    logger()->warn("FilesBase::expandPaths is not implemented on Windows");
-    return {};
-}
+    std::pair<std::string, std::vector<filesystem::path>> result;
 
-std::vector<Value> FilesListWindows::buildFileRow(const std::string& pattern, const WIN32_FIND_DATAA& data) const {
-    std::vector<Value> row;
-    std::string full_path = get_full_path(pattern, data.cFileName);
+    auto glob = Table::getArgument<std::string>(args, "_pattern");
+    result.first = glob;
 
-    Value path = full_path;
-    Value type;
+    for ( auto p : platform::glob(glob) )
+        result.second.push_back(std::move(p));
 
-    uint16_t temp_mode = 0;
-    if ( data.dwFileAttributes & FILE_ATTRIBUTE_READONLY )
-        temp_mode = 0444;
-    else
-        temp_mode = 0666;
-
-    if ( data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ) {
-        // TODO: not sure this addition to the mode is correct
-        temp_mode += 0111;
-        type = "dir";
-    }
-    else {
-        // The data from FindFirstFile doesn't include a file type and the handle that's
-        // returned isn't a file handle (it's a search handle). Open the file separately
-        // and call GetFileType(), and then close it again.
-        DWORD file_type = FILE_TYPE_UNKNOWN;
-        HandlePtr file_handle{CreateFileA(full_path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL)};
-
-        if ( file_handle.get() == INVALID_HANDLE_VALUE ) {
-            std::error_condition cond =
-                std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-            logger()->warn(
-                frmt("Couldn't open file {} to check for type: {} ({})", full_path, cond.message(), cond.value()));
-        }
-        else {
-            file_type = GetFileType(file_handle.get());
-        }
-
-        // A few fields here don't match the counterparts on Linux. Added is 'remote',
-        // and missing is 'block' and 'socket'.
-        switch ( file_type ) {
-            case FILE_TYPE_CHAR: type = "char"; break;
-            // FILE_TYPE_DISK is just your average everyday file on a drive.
-            case FILE_TYPE_DISK: type = "file"; break;
-            // fifo on Linux is roughly the same thing as a Windows pipe.
-            case FILE_TYPE_PIPE: type = "fifo"; break;
-            // FILE_TYPE_REMOTE is marked as unused in the documentation.
-            case FILE_TYPE_REMOTE: type = "remote"; break;
-            case FILE_TYPE_UNKNOWN:
-            default: type = "other"; break;
-        }
-    }
-
-    Value mode = frmt("{:o}", temp_mode);
-    Value size = combineHighLow(data.nFileSizeHigh, data.nFileSizeLow);
-    Value mtime = to_time(convertFiletime(data.ftLastWriteTime));
-
-    return {pattern, path, type, {}, {}, mode, mtime, size};
+    return result;
 }
 
 std::vector<std::vector<Value>> FilesListWindows::snapshot(const std::vector<table::Argument>& args) {
     std::vector<std::vector<Value>> rows;
 
-    for ( const auto& a : args ) {
-        if ( a.column == "_pattern" ) {
-            auto& pattern = std::get<std::string>(a.expression);
+    auto [pattern, paths] = expandPaths(args);
 
-            // TODO: how much of the linux file-globbing pattern API do we actually
-            // support here? Windows definitely doesn't support the whole gamut,
-            // like **.
+    for ( const auto& p : paths ) {
+        Value path = p.string();
+        Value type;
+        Value mode;
+        Value mtime;
+        Value size;
 
-            WIN32_FIND_DATAA find_data{};
-            FindHandlePtr handle{FindFirstFileA(pattern.c_str(), &find_data)};
-            if ( handle.get() == INVALID_HANDLE_VALUE )
-                continue;
-
-            int find_ret = NO_ERROR;
-            do {
-                // Ignore the . and .. directories returned by FindFirstFile
-                if ( strcmp(find_data.cFileName, ".") != 0 && strcmp(find_data.cFileName, "..") != 0 )
-                    rows.emplace_back(buildFileRow(pattern, find_data));
-
-                find_ret = FindNextFile(handle.get(), &find_data);
-
-            } while ( find_ret != 0 );
-
-            if ( GetLastError() != ERROR_NO_MORE_FILES ) {
-                std::error_condition cond =
-                    std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->warn(frmt("Failed to find next file: {} ({})", cond.message(), cond.value()));
-            }
+        std::error_code ec;
+        auto status = filesystem::status(p, ec);
+        if ( ec ) {
+            ZEEK_AGENT_DEBUG("FilesListWindows", "Failed to get file status: {}", ec.message());
+            continue;
         }
+
+        mode = frmt("{:o}", static_cast<int64_t>(status.permissions()));
+        switch ( status.type() ) {
+            case filesystem::file_type::none:
+            case filesystem::file_type::not_found:
+            case filesystem::file_type::symlink:
+            case filesystem::file_type::unknown: type = "other"; break;
+            case filesystem::file_type::regular:
+                type = "file";
+                size = static_cast<int64_t>(filesystem::file_size(p, ec));
+                if ( ec ) {
+                    ZEEK_AGENT_DEBUG("FilesListWindows", "Failed to get file size: {}", ec.message());
+                    continue;
+                }
+                break;
+            case filesystem::file_type::directory: type = "dir"; break;
+            case filesystem::file_type::block: type = "block"; break;
+            case filesystem::file_type::character: type = "char"; break;
+            case filesystem::file_type::fifo: type = "fifo"; break;
+            case filesystem::file_type::socket: type = "socket"; break;
+        }
+
+        mtime = filesystem::last_write_time(p, ec);
+        if ( ec ) {
+            ZEEK_AGENT_DEBUG("FilesListWindows", "Failed to get file mtime: {}", ec.message());
+            continue;
+        }
+
+        rows.push_back({pattern, path, type, {}, {}, mode, mtime, size});
     }
 
     return rows;
@@ -161,52 +114,29 @@ std::vector<std::vector<Value>> FilesListWindows::snapshot(const std::vector<tab
 std::vector<std::vector<Value>> FilesLinesWindows::snapshot(const std::vector<table::Argument>& args) {
     std::vector<std::vector<Value>> rows;
 
-    for ( const auto& a : args ) {
-        if ( a.column == "_pattern" ) {
-            auto& pattern = std::get<std::string>(a.expression);
+    auto [pattern, paths] = expandPaths(args);
+    for ( const auto& p : paths ) {
+        std::ifstream in(p);
+        if ( in.fail() ) {
+            // If file simply doesn't exist, we silently ignore the error.
+            // Otherwise we add one row with `line` unset as an error indicator.
+            if ( filesystem::exists(p) && ! filesystem::is_directory(p) )
+                // TODO: this error doesn't actually work right. i copied it from the posix file
+                // but i'm not sure it's being tested there either. the table requires 4 columns
+                // but we're only inserting 3.
+                rows.push_back({p.string(), {}, "<failed to open file>"});
 
-            // TODO: how much of the linux file-globbing pattern API do we actually
-            // support here? Windows definitely doesn't support the whole gamut,
-            // like **. I could support recursion, but it doesn't at the moment.
-
-            WIN32_FIND_DATAA find_data{};
-            FindHandlePtr handle{FindFirstFileA(pattern.c_str(), &find_data)};
-            if ( handle.get() == INVALID_HANDLE_VALUE )
-                continue;
-
-            int find_ret = NO_ERROR;
-            do {
-                if ( (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 ) {
-                    std::string full_path = get_full_path(pattern, find_data.cFileName);
-                    std::ifstream in(full_path);
-                    if ( in.fail() ) {
-                        // If file simply doesn't exist, we silently ignore the error.
-                        // Otherwise we add one row with `line` unset as an error indicator.
-                        if ( filesystem::exists(find_data.cFileName) )
-                            rows.push_back({find_data.cFileName, {}, "<failed to open file>"});
-
-                        continue;
-                    }
-
-                    int64_t number = 0;
-                    std::string content;
-                    // TODO: We should use a version of getline() that can abort at a given max-size.
-                    while ( std::getline(in, content) )
-                        rows.push_back({pattern, find_data.cFileName, ++number, trim(content)});
-
-                    in.close();
-                }
-
-                find_ret = FindNextFile(handle.get(), &find_data);
-
-            } while ( find_ret != 0 );
-
-            if ( GetLastError() != ERROR_NO_MORE_FILES ) {
-                std::error_condition cond =
-                    std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->warn(frmt("Failed to find next file: {} ({})", cond.message(), cond.value()));
-            }
+            continue;
         }
+
+        int64_t number = 0;
+        std::string content;
+
+        // TODO: should use a version of getline() that can abort at a given max-size.
+        while ( std::getline(in, content) )
+            rows.push_back({pattern, p.string(), ++number, trim(content)});
+
+        in.close();
     }
 
     return rows;
@@ -238,71 +168,45 @@ std::vector<std::vector<Value>> FilesColumnsWindows::snapshot(const std::vector<
         }
     }
 
-    for ( const auto& a : args ) {
-        if ( a.column == "_pattern" ) {
-            auto& pattern = std::get<std::string>(a.expression);
+    auto [pattern, paths] = expandPaths(args);
 
-            // TODO: how much of the linux file-globbing pattern API do we actually
-            // support here? Windows definitely doesn't support the whole gamut,
-            // like **. I could support recursion, but it doesn't at the moment.
+    for ( const auto& p : paths ) {
+        std::ifstream in(p);
+        if ( in.fail() )
+            // We silently ignore any errors. If the file doesn't exist, we
+            // assume that's legitimate. For other errors, we don't have good
+            // way to record them.
+            continue;
 
-            WIN32_FIND_DATAA find_data{};
-            FindHandlePtr handle{FindFirstFileA(pattern.c_str(), &find_data)};
-            if ( handle.get() == INVALID_HANDLE_VALUE )
+        int64_t number = 0;
+        std::string line;
+
+        // TODO: should use a version of getline() that can abort at a given max-size.
+        while ( std::getline(in, line) ) {
+            std::smatch match;
+            if ( ignore_regex && std::regex_search(line, match, ignore_regex.value()) )
                 continue;
 
-            int find_ret = NO_ERROR;
-            do {
-                if ( (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 ) {
-                    std::string full_path = get_full_path(pattern, find_data.cFileName);
-                    std::ifstream in(full_path);
-                    if ( in.fail() )
-                        // We silently ignore any errors. If the file doesn't exist, we
-                        // assume that's legitimate. For other errors, we don't have good
-                        // way to record them.
-                        continue;
+            std::vector<std::string> m;
+            if ( ! separator.empty() )
+                m = split(line, separator);
+            else
+                m = split(line);
 
-                    int64_t number = 0;
-                    std::string line;
-
-                    // TODO: should use a version of getline() that can abort at a given max-size.
-                    while ( std::getline(in, line) ) {
-                        std::smatch match;
-                        if ( ignore_regex && std::regex_search(line, match, ignore_regex.value()) )
-                            continue;
-
-                        std::vector<std::string> m;
-                        if ( ! separator.empty() )
-                            m = split(line, separator);
-                        else
-                            m = split(line);
-
-                        Record value;
-                        for ( const auto& [nr, type] : *columns ) {
-                            if ( nr == 0 )
-                                value.emplace_back(stringToValue(line, type));
-                            else if ( nr >= 1 && nr <= m.size() )
-                                value.emplace_back(stringToValue(m[nr - 1], type));
-                            else
-                                value.emplace_back(std::monostate(), value::Type::Null);
-                        }
-
-                        rows.push_back({pattern, spec, separator, ignore, full_path, ++number, std::move(value)});
-                    }
-
-                    in.close();
-                }
-
-                find_ret = FindNextFile(handle.get(), &find_data);
-
-            } while ( find_ret != 0 );
-
-            if ( GetLastError() != ERROR_NO_MORE_FILES ) {
-                std::error_condition cond =
-                    std::system_category().default_error_condition(static_cast<int>(GetLastError()));
-                logger()->warn(frmt("Failed to find next file: {} ({})", cond.message(), cond.value()));
+            Record value;
+            for ( const auto& [nr, type] : *columns ) {
+                if ( nr == 0 )
+                    value.emplace_back(stringToValue(line, type));
+                else if ( nr >= 1 && nr <= m.size() )
+                    value.emplace_back(stringToValue(m[nr - 1], type));
+                else
+                    value.emplace_back(std::monostate(), value::Type::Null);
             }
+
+            rows.push_back({pattern, spec, separator, ignore, p.string(), ++number, std::move(value)});
         }
+
+        in.close();
     }
 
     return rows;
