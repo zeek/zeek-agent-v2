@@ -1,41 +1,21 @@
 // Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
-//
-// TODO: Split this file up.
 
 // clang-format off
 #include "platform.h"
-#include "core/configuration.h"
 #include "platform.darwin.h"
-#include "util/platform.darwin.h"
 // clang-format on
 
 #include "autogen/config.h"
 #include "core/logger.h"
-#include "fmt.h"
-#include "helpers.h"
-#include "spdlog/common.h"
-#include "testing.h"
-
-#include <iostream>
-#include <memory>
-#include <mutex>
-#include <optional>
-#include <string>
-
-#include <pathfind.hpp>
-#include <pwd.h>
 
 #include <CoreFoundation/CFPreferences.h>
-#include <CoreFoundation/CFString.h>
-#include <CoreServices/CoreServices.h>
 #include <EndpointSecurity/EndpointSecurity.h>
-#include <Foundation/Foundation.h>
-#include <util/filesystem.h>
+#include <NetworkExtension/NetworkExtension.h>
 
 using namespace zeek::agent;
 using namespace zeek::agent::platform::darwin;
 
-////// XPC header
+///// XPC types
 
 @protocol IPCProtocol
 - (void)getStatusWithReply:(void (^)(NSString*, NSString*, NSString*))reply;
@@ -73,6 +53,11 @@ std::optional<filesystem::path> platform::darwin::getApplicationSupport() {
     return filesystem::path([dir UTF8String]) / "ZeekAgent";
 }
 
+[[noreturn]] void platform::darwin::enterSystemExtensionMode() {
+    [NEProvider startSystemExtensionMode];
+    dispatch_main();
+}
+
 void platform::init(const Configuration& cfg) {
     platform::darwin::endpointSecurity();       // this initializes ES
     [[IPC sharedObject] setConfiguration:&cfg]; // create the shared object
@@ -107,7 +92,7 @@ std::optional<std::string> platform::retrieveConfigurationOption(const std::stri
 
 ////// Logging
 
-OSLogSink::OSLogSink() { _oslog = os_log_create("org.zeek.zeek-agent", "logger"); }
+OSLogSink::OSLogSink() { _oslog = os_log_create("org.zeek.zeek-agent", "agent"); }
 
 OSLogSink::~OSLogSink() {
     if ( _oslog )
@@ -135,6 +120,77 @@ void OSLogSink::sink_it_(const spdlog::details::log_msg& msg) {
 }
 
 void OSLogSink::flush_() {}
+
+////// Network Extension
+
+template<>
+struct Pimpl<NetworkExtension>::Implementation {
+    bool running = false;
+};
+
+Result<Nothing> NetworkExtension::isAvailable() {
+    if ( pimpl()->running )
+        return Nothing();
+    else
+        return result::Error("network extension  not running");
+}
+
+NetworkExtension::NetworkExtension() {}
+NetworkExtension::~NetworkExtension() {}
+
+NetworkExtension* platform::darwin::networkExtension() {
+    static auto ne = std::unique_ptr<NetworkExtension>{};
+
+    if ( ! ne )
+        ne = std::unique_ptr<NetworkExtension>(new NetworkExtension);
+
+    return ne.get();
+}
+
+// Note that contrary to what Apple's documentation says, FilterDataProvider is
+// *not* sandboxed on macOS. See // https://developer.apple.com/forums/thread/133761.
+@interface FilterDataProvider : NEFilterDataProvider
+@end
+
+@implementation FilterDataProvider
+- (void)startFilterWithCompletionHandler:(void (^)(NSError* error))completionHandler {
+    networkExtension()->pimpl()->running = true;
+
+    // Create a filter that matches all traffic and let it all pass through our
+    // `handleNewFlow()` filter.
+    auto all_traffic = [[NENetworkRule alloc] initWithRemoteNetwork:nil
+                                                       remotePrefix:0
+                                                       localNetwork:nil
+                                                        localPrefix:0
+                                                           protocol:NENetworkRuleProtocolAny
+                                                          direction:NETrafficDirectionAny];
+
+    auto rule = [[NEFilterRule alloc] initWithNetworkRule:all_traffic action:NEFilterActionFilterData];
+    auto setting = [[NEFilterSettings alloc] initWithRules:[NSArray arrayWithObjects:rule, nil]
+                                             defaultAction:NEFilterActionAllow];
+    [self applySettings:setting
+        completionHandler:^(NSError* _Nullable error) {
+          if ( error != nil ) {
+              logger()->info("failed to apply filter settings in network extension");
+              networkExtension()->pimpl()->running = false;
+          }
+
+          completionHandler(error);
+        }];
+}
+
+- (void)stopFilterWithReason:(NEProviderStopReason)reason completionHandler:(void (^)(void))completionHandler {
+    networkExtension()->pimpl()->running = false;
+    completionHandler();
+}
+
+- (NEFilterNewFlowVerdict*)handleNewFlow:(NEFilterFlow*)flow {
+    // TODO: Report new flow to subscribers here.
+    logger()->info("new flow");
+    return [NEFilterNewFlowVerdict allowVerdict];
+}
+
+@end
 
 ////// Endpoint Security
 
@@ -249,15 +305,21 @@ EndpointSecurity* platform::darwin::endpointSecurity() {
 }
 
 - (void)getStatusWithReply:(void (^)(NSString*, NSString*, NSString*))reply {
+    logger()->debug("[IPC] remote call: getStatus");
+
     auto es = (platform::darwin::endpointSecurity()->isAvailable() ? "+ES" : "-ES");
+    auto ne = (platform::darwin::networkExtension()->isAvailable() ? "+NE" : "-NE");
 
     auto version = [NSString stringWithUTF8String:Version];
-    auto capabilities = [NSString stringWithUTF8String:es];
+    auto capabilities = join(std::vector<std::string>{es, ne}, " ");
+    auto capabilities_ = [NSString stringWithUTF8String:capabilities.c_str()];
     auto agent_id = [NSString stringWithUTF8String:[[IPC sharedObject] options].agent_id.c_str()];
-    reply(version, capabilities, agent_id);
+    reply(version, capabilities_, agent_id);
 }
 
 - (void)getOptionsWithReply:(void (^)(NSDictionary<NSString*, NSString*>*))reply {
+    logger()->debug("[IPC] remote call: getOptions");
+
     auto options = [NSMutableDictionary dictionary];
 
     NSArray* keys = [NSArray arrayWithObjects:@"zeek.destination", @"log.level", nil];
@@ -273,6 +335,8 @@ EndpointSecurity* platform::darwin::endpointSecurity() {
 }
 
 - (void)setOptions:(NSDictionary<NSString*, NSString*>*)options {
+    logger()->debug("[IPC] remote call: setOptions");
+
     for ( id key in options ) {
         auto value = [options objectForKey:key];
         [_defaults setObject:value forKey:key];
@@ -280,7 +344,7 @@ EndpointSecurity* platform::darwin::endpointSecurity() {
 }
 
 - (void)exit {
-    logger()->info("[IPC] exit");
+    logger()->debug("[IPC] remote call: exit");
     exit(0);
 }
 @end

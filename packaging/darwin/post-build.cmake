@@ -4,7 +4,6 @@ foreach (pkg "${CPACK_PACKAGE_FILES}")
     foreach (path
              ZeekAgent.app
              ZeekAgent.app/Contents/Library/SystemExtensions/org.zeek.zeek-agent.agent.systemextension
-             ZeekAgent.app/Contents/Library/SystemExtensions/org.zeek.zeek-agent.network-extension.systemextension
             )
         get_filename_component(name "${path}" NAME)
         message(STATUS "Validating ${name}")

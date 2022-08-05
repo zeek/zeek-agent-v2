@@ -13,6 +13,16 @@
 
 namespace zeek::agent::platform::darwin {
 
+/**
+ * Start operating as a macOS network extension. Must be called from the main
+ * thread as early as possible, and will not return.
+ */
+[[noreturn]] extern void enterSystemExtensionMode();
+
+/**
+ * Returns the path to the `App[lication Support` directory appropiate for the
+ * user running the agent (which might be the system-wide one for root).
+ */
 extern std::optional<filesystem::path> getApplicationSupport();
 
 /** Custom spdlog sink writing is OSLog. */
@@ -29,22 +39,17 @@ private:
     os_log_t _oslog = nullptr;
 };
 
-class EndpointSecurity;
-
-/** Returns global ES singleton */
-EndpointSecurity* endpointSecurity();
-
 /**
  * Wrapper around macOS's Endpoint Security API. This encapsulates API state
- * across multiple clients, maintaining just single internal copy.
+ * across multiple clients, maintaining just a single internal copy.
  */
 class EndpointSecurity : public Pimpl<EndpointSecurity> {
 public:
     ~EndpointSecurity();
 
     /**
-     * Returns success after `init()` has been eable to initialize
-     * EndpointSecurity successfully, or an error otherwise.
+     * Returns success if EndpointSecurity has been initialized successfully,
+     * or an error otherwise.
      *
      * @returns success or an appropiate error message if ES isn't available;
      * then no functionlity must be used
@@ -55,6 +60,35 @@ private:
     friend EndpointSecurity* endpointSecurity();
     EndpointSecurity();
 };
+
+/** Returns global `EndpointSecurity` singleton. */
+EndpointSecurity* endpointSecurity();
+
+
+/**
+ * Wrapper around macOS's Network Extension API. This encapsulates API state
+ * across multiple clients, maintaining just a single internal copy.
+ */
+class NetworkExtension : public Pimpl<NetworkExtension> {
+public:
+    ~NetworkExtension();
+
+    /**
+     * Returns success if the Network Extension has been initialized
+     * successfully, or an error otherwise.
+     *
+     * @returns success or an appropiate error message if NE isn't available;
+     * then no functionlity must be used
+     */
+    Result<Nothing> isAvailable();
+
+private:
+    friend NetworkExtension* networkExtension();
+    NetworkExtension();
+};
+
+/** Returns global `NetworkExtension` singleton. */
+NetworkExtension* networkExtension();
 
 
 } // namespace zeek::agent::platform::darwin

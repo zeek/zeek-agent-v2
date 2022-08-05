@@ -53,6 +53,7 @@ inline Result<options::LogLevel> from_str(const std::string& l) {
 enum class LogType {
     File,
     System,
+    Stderr,
     Stdout,
 };
 
@@ -60,6 +61,7 @@ inline std::string_view to_string(const LogType& t) {
     switch ( t ) {
         case LogType::File: return "file";
         case LogType::System: return "system";
+        case LogType::Stderr: return "stderr";
         case LogType::Stdout: return "stdout";
     }
 
@@ -70,6 +72,8 @@ namespace log_type {
 inline Result<LogType> from_str(const std::string_view& t) {
     if ( t == "file" )
         return options::LogType::File;
+    else if ( t == "stderr" )
+        return options::LogType::Stderr;
     else if ( t == "stdout" )
         return options::LogType::Stdout;
     else if ( t == "system" )
@@ -91,9 +95,6 @@ extern filesystem::path default_log_path;
  * means.
  */
 struct Options {
-    /** Logs a summary of the current settings to the debug log stream. */
-    void debugDump();
-
     /** Agent's numerical version number. This is set automatically and cannot changed externally. */
     int64_t version_number = 0;
 
@@ -201,6 +202,21 @@ struct Options {
      * If set, the agent will require valid certificates for all peers.
      */
     std::string zeek_ssl_keyfile;
+
+    /** Parse command-line arguments into the instance variables. */
+    Result<Nothing> parseArgv(const std::vector<std::string>& argv);
+
+    /** Logs a summary of the current settings to the debug log stream. */
+    void debugDump() const;
+
+    /** Returns a set of options with all values at their default. */
+    static Options default_();
+
+private:
+    friend class Configuration;
+
+    /** Not public, use `default_()` as factory instead. */
+    Options(){};
 };
 
 /**
@@ -228,11 +244,10 @@ public:
      * For a couple of diagnostic options, this will directly terminate the
      * current processes (e.g., ``--help``).
      *
-     * @param argc number of arguments
-     * @param argv array of size `argc` with arguments, with argv[0] being the executable
+     * @param argv array with arguments, with argv[0] being the executable
      * @return result will flag any errors that occurred
      */
-    Result<Nothing> initFromArgv(int argc, const char* const* argv);
+    Result<Nothing> initFromArgv(std::vector<std::string> argv);
 
     /**
      * Parses an agent configuration file. This first resets the current

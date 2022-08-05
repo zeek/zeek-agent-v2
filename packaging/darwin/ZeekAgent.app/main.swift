@@ -2,147 +2,13 @@
 //
 // This is the container app installing Zeek Agent as a system extension.
 
-import AppKit
 import SwiftUI
-import SystemExtensions
-import WebKit
+import os.log
 
-class ExtensionManager: NSObject, OSSystemExtensionRequestDelegate {
-    private var version_old: String?
-    private var version_new: String?
-
-    public func install() {
-        let r = OSSystemExtensionRequest.activationRequest(
-            forExtensionWithIdentifier: "org.zeek.zeek-agent.agent", queue: .main)
-        r.delegate = self
-        OSSystemExtensionManager.shared.submitRequest(r)
-    }
-
-    // Callback
-    internal func request(
-        _ request: OSSystemExtensionRequest,
-        didFinishWithResult result: OSSystemExtensionRequest.Result
-    ) {
-        var version_msg = ""
-
-        if version_old != nil && version_new != nil {
-            version_msg =
-                (version_old == version_new
-                    ? "Reinstalled version \(version_new!)."
-                    : "Upgraded from version \(version_old!) to \(version_new!).")
-            version_msg += "\n\n"
-        }
-
-        Controller.shared.showMessage(msg: "Installed Zeek Agent", sub: version_msg)
-        Controller.shared.xpc.connectionError()
-        Controller.shared.openMain()
-    }
-
-    // Callback
-    internal func request(_ request: OSSystemExtensionRequest, didFailWithError error: Error) {
-        Controller.shared.showMessage(
-            msg: "System extension failed to install", sub: error.localizedDescription, style: .critical)
-        Controller.shared.application.terminate(self)
-    }
-
-    // Callback
-    internal func requestNeedsUserApproval(_ request: OSSystemExtensionRequest) {
-        // This comes after the system's dialog sending people to preferences, which seems confusing.
-        // Controller.shared.showMessage(
-        //    msg: "Zeek Agent needs permission to monitor the system", sub: "Please allow access in System Preferences.")
-        Controller.shared.openMain()
-    }
-
-    // Callback
-    internal func request(
-        _ request: OSSystemExtensionRequest, actionForReplacingExtension existing: OSSystemExtensionProperties,
-        withExtension extension_: OSSystemExtensionProperties
-    ) -> OSSystemExtensionRequest.ReplacementAction {
-        version_old = existing.bundleVersion
-        version_new = extension_.bundleVersion
-        return .replace
-    }
-}
-
-@objc(IPCProtocol) protocol IPCProtocol {
-    func getStatus(reply: @escaping (String, String, String) -> Void)
-    func getOptions(reply: @escaping ([String: String]) -> Void)
-    func setOptions(_ options: [String: String])
-    func exit()
-}
-
-class XPC {
-    private var service: IPCProtocol?
-    private var connection: NSXPCConnection?
-
-    public func getStatus(_ callback: @escaping ((String, String, String) -> Void)) {
-        guard let service = connectXPC() else { return }
-        service.getStatus(reply: callback)
-    }
-
-    public func getOptions(_ callback: @escaping (([String: String]) -> Void)) {
-        guard let service = connectXPC() else { return }
-        service.getOptions(reply: callback)
-    }
-
-    public func setOptions(_ options: [String: String]) -> Bool {
-        guard let service = connectXPC() else { return false }
-        service.setOptions(options)
-        return true
-    }
-
-    public func restart() {
-        guard let service = service else { return }
-        service.exit()
-    }
-
-    public func areExtensionsRunning() -> Bool {
-        var running = false
-        let semaphore = DispatchSemaphore(value: 0)
-
-        getStatus { version, capabilities, agent_id in
-            running = true
-
-            if let our_version = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
-                if version != our_version {
-                    DispatchQueue.main.async {
-                        Controller.shared.extensions.install()
-                    }
-                }
-            }
-
-            semaphore.signal()
-        }
-
-        _ = semaphore.wait(timeout: .now() + 1)
-        return running
-    }
-
-    private func connectXPC() -> IPCProtocol? {
-        if connection == nil {
-            connection = NSXPCConnection(machServiceName: "org.zeek.zeek-agent.agent")
-            connection!.remoteObjectInterface = NSXPCInterface(with: IPCProtocol.self)
-            connection!.interruptionHandler = { self.connectionError() }
-            connection!.invalidationHandler = { self.connectionError() }
-            connection!.resume()
-            service = nil
-        }
-
-        if service == nil {
-            service =
-                connection!.remoteObjectProxyWithErrorHandler { error in
-                    self.connectionError()
-                } as? IPCProtocol
-        }
-
-        return service
-    }
-
-    public func connectionError() {
-        service = nil
-        connection = nil
-    }
-}
+// For debugging, set this to true to always open the main dialog directly.
+// Normally, we'd try to install the extension first if it's not running yet,
+// or not the right version.
+let debug_open_main_directly = false
 
 struct MainView: View {
     enum ExtensionState {
@@ -177,6 +43,7 @@ struct MainView: View {
                 .font(.subheadline)
                 .foregroundColor(.gray)
                 .padding(.bottom, 10)
+                .multilineTextAlignment(.center)
         }
 
         if let note1 = note1 {
@@ -217,8 +84,8 @@ struct MainView: View {
                             mainBody()
 
                         case .Running:
-                            let headline = "Zeek Agent is running (v\(status.version) \(status.capabilities))"
-                            let subheadline = "Agent ID \(status.agent_id)"
+                            let headline = "Zeek Agent is running"
+                            let subheadline = "Version \(status.version) \(status.capabilities)\n\nAgent ID \(status.agent_id)"
 
                             if status.capabilities.contains("+ES") {
                                 mainBody(headline: headline, subheadline: subheadline)
@@ -275,7 +142,7 @@ struct MainView: View {
             state = .NotRunning
         }
 
-        Controller.shared.xpc.getStatus { version, capabilities, agent_id in
+        _ = Controller.shared.xpc.getStatus { version, capabilities, agent_id in
             self.state = .Running
             self.status = ExtensionStatus(version: version, capabilities: capabilities, agent_id: agent_id)
         }
@@ -285,7 +152,6 @@ struct MainView: View {
 struct ConfigurationView: View {
     @State private var log_level: String = ""
     @State private var zeek_destination: String = ""
-
     @State private var old_options: [String: String]?
 
     func asOptions() -> [String: String] {
@@ -312,7 +178,7 @@ struct ConfigurationView: View {
             }
             .onAppear {
                 old_options = asOptions()
-                Controller.shared.xpc.getOptions { options in
+                _ = Controller.shared.xpc.getOptions { options in
                     log_level = options["log.level", default: ""]
                     zeek_destination = options["zeek.destination", default: ""]
                     old_options = asOptions()
@@ -394,16 +260,27 @@ class Controller {
     public var about_view = AboutView()
     public var about: NSWindow?
 
+    private let logger = Logger(subsystem: "org.zeek.zeek-agent", category: "installer")
+
     init() {
         extensions = ExtensionManager()
         xpc = XPC()
         application = NSApplication.shared
     }
 
+    func log(_ msg: String) {
+        logger.info("\(msg, privacy: .public)")
+    }
+
     func openMain() {
         guard main == nil else { return }
         main = openWindow(
             content: main_view, title: "Zeek Agent Installer", style: [.closable, .miniaturizable, .titled])
+    }
+
+    func closeMain() {
+        main?.close()
+        main = nil
     }
 
     func openConfiguration() {
@@ -454,13 +331,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func extensionsRestart(sender: AnyObject) {
         Controller.shared.main_view.state = .NotRunning
-        Controller.shared.xpc.restart()
+        _ = Controller.shared.xpc.restart()
     }
 
     @objc func extensionsReinstall(sender: AnyObject) {
-        Controller.shared.main?.close()
         Controller.shared.main_view.state = .NotRunning
+        Controller.shared.closeMain()
         Controller.shared.extensions.install()
+    }
+
+    @objc func startNetworkExtension(ssender: AnyObject) {
+        Controller.shared.extensions.startFilter()
+    }
+
+    @objc func stopNetworkExtension(ssender: AnyObject) {
+        Controller.shared.extensions.stopFilter()
     }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -469,6 +354,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         app_menu.submenu?.autoenablesItems = true
         app_menu.submenu?.addItem(
             NSMenuItem(title: "About", action: #selector(openAbout), keyEquivalent: ""))
+        app_menu.submenu?.addItem(.separator())
         app_menu.submenu?.addItem(
             NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
@@ -479,6 +365,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             NSMenuItem(title: "Restart", action: #selector(extensionsRestart), keyEquivalent: ""))
         extension_menu.submenu?.addItem(
             NSMenuItem(title: "Reinstall", action: #selector(extensionsReinstall), keyEquivalent: ""))
+        extension_menu.submenu?.addItem(
+            NSMenuItem(title: "Start network extension", action: #selector(startNetworkExtension), keyEquivalent: ""))
+        extension_menu.submenu?.addItem(
+            NSMenuItem(title: "Stop network extension", action: #selector(stopNetworkExtension), keyEquivalent: ""))
 
         let main_menu = NSMenu()
         main_menu.addItem(app_menu)
@@ -496,17 +386,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 }
 
-let debug_open_main_directly = false
+////// Main.
 
-let controller = Controller()
 let delegate = AppDelegate()
 Controller.shared.application.delegate = delegate
+
+let our_version = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
 
 if debug_open_main_directly {
     Controller.shared.openMain()
 } else {
-    if Controller.shared.xpc.areExtensionsRunning() {
-        Controller.shared.openMain()
+    if let their_version = Controller.shared.xpc.isExtensionRunning() {
+        if their_version != our_version {
+            Controller.shared.extensions.install()
+        } else {
+            Controller.shared.openMain()
+        }
     } else {
         Controller.shared.extensions.install()
     }

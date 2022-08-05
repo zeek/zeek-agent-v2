@@ -1,3 +1,14 @@
+2.3.0-dev.39 | 2022-08-05 10:29:03 +0200
+
+  * Add a macOS network extension to the agent.
+    On macOS, the agent was already running as a system extension. This
+    adds the appropriate magic to hook into the OS as a "Network
+    Extension", so that we gain access to network activity. We don't use
+    this yet for anything, but this gets all the infrastructure pieces in
+    place.
+
+  * Add `stderr` as a log destination.
+
 2.3.0-dev.36 | 2022-08-05 10:27:48 +0200
 
   * Use `p-ranav/glob` library for Windows `files` table.

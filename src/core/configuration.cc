@@ -11,6 +11,7 @@
 #include "util/platform.h"
 
 #include <exception>
+#include <iostream>
 #include <sstream>
 #include <system_error>
 #include <type_traits>
@@ -25,15 +26,11 @@
 #include <bsd-getopt-long.h>
 #endif
 
+#include "util/testing.h"
+
 #include <uuid.h>
 
 #include <toml++/toml.h>
-
-#define DOCTEST_CONFIG_NO_UNPREFIXED_OPTIONS
-#define DOCTEST_CONFIG_IMPLEMENT
-#define DOCTEST_CONFIG_OPTIONS_PREFIX "test-"
-
-#include "util/testing.h"
 
 #ifndef NDEBUG
 #define LOG_LEVEL_HELP "info,warning,error,critical"
@@ -86,7 +83,64 @@ static void usage(const filesystem::path& name) {
     // clang-format on
 }
 
-void Options::debugDump() {
+Result<Nothing> Options::parseArgv(const std::vector<std::string>& argv) {
+    std::vector<char*> argv_;
+
+    for ( auto& x : argv ) {
+        if ( x == "--test" || x.find("--test") != 0 )
+            argv_.push_back(const_cast<char*>(x.c_str()));
+    }
+
+    // Restart getopt(). See https://stackoverflow.com/a/60484617 &&
+    // https://github.com/dnsdb/dnsdbq/commit/efa68c0499c3b5b4a1238318345e5e466a7fd99f
+#ifdef HAVE_LINUX
+    optind = 0;
+#else
+    optind = 1;
+    optreset = 1;
+#endif
+
+    while ( true ) {
+        int c =
+            getopt_long(static_cast<int>(argv_.size()), argv_.data(), "DL:MNTc:e:hivz:", long_driver_options, nullptr);
+        if ( c < 0 )
+            return Nothing();
+
+        switch ( c ) {
+            case 'L': {
+                if ( auto level = options::log_level::from_str(optarg) ) {
+                    options::default_log_level = *level; // this becomes new default for all config objects
+                    log_level = level;
+                }
+
+                break;
+            }
+
+            case 'D': {
+                options::default_log_type = options::LogType::Stderr;
+                log_type = options::LogType::Stderr;
+                mode = options::Mode::AutoDoc;
+                break;
+            }
+
+            case 'M': use_mock_data = true; break;
+            case 'N': terminate_on_disconnect = true; break;
+            case 'T': mode = options::Mode::Test; break;
+            case 'c': config_file = optarg; break;
+            case 'e': execute = optarg; break;
+            case 'i': interactive = true; break;
+            case 'z': zeek_destinations.emplace_back(optarg); break;
+
+            case 'v': std::cerr << "Zeek Agent v" << VersionLong << std::endl; exit(0);
+            case 'h': usage(argv[0]); exit(0);
+            default: usage(argv[0]); exit(1);
+        }
+    }
+
+    return Nothing();
+}
+
+void Options::debugDump() const {
     ZEEK_AGENT_DEBUG("configuration", "[option] version-number: {}", version_number);
     ZEEK_AGENT_DEBUG("configuration", "[option] mode: {}", to_string(mode));
     ZEEK_AGENT_DEBUG("configuration", "[option] agent-id: {}", agent_id);
@@ -115,15 +169,6 @@ void Options::debugDump() {
 
 template<>
 struct Pimpl<Configuration>::Implementation {
-    // Returns a copy of the current command line options as an array of char
-    // pointers that can be passed into `getopt()`. If `include_doctest` is
-    // false, skips any options belonging to doctest
-    std::vector<char*> preprocessArgv(bool include_doctest);
-
-    // Applies the current set of command line options to an existing options
-    // instance, returning the updated set.
-    Result<Options> addArgv(Options options);
-
     // Puts a new set of options into effect.
     void apply(Options options);
 
@@ -136,22 +181,18 @@ struct Pimpl<Configuration>::Implementation {
     // Sets a set of command line options.
     Result<Nothing> initFromArgv(std::vector<std::string> argv);
 
-    Options _options;                                         // options currently in effect
+    std::optional<Options> _options;                          // options currently in effect
     std::vector<std::string> _argv;                           // command line options most recently provided.
     options::LogLevel old_log_level = options::LogLevel::off; // original log level to restore later.
-
-    // Returns a set of options with all values at their default.
-    static Options default_();
 
     // Backend for the other two read() methods. If `tbl` is left unset, query
     // platform-specific options instead of TOML configuration.
     static Result<Nothing> read(const std::optional<toml::table>& tbl, Options* options);
 };
 
-Options Configuration::Implementation::default_() {
+Options Options::default_() {
     Options options;
     platform::initializeOptions(&options);
-    read({}, &options);
 
     auto version = parseVersion(Version);
     if ( ! version )
@@ -209,98 +250,26 @@ void Configuration::Implementation::apply(Options options) {
                     options.log_level ? *options.log_level : options::default_log_level,
                     options.log_path ? *options.log_path : options::default_log_path);
 
-    if ( options.mode == options::Mode::Test ) {
-#ifndef DOCTEST_CONFIG_DISABLE
-        if ( ! options.log_level ) {
-            options::default_log_level = options::LogLevel::off;
-            logger()->set_level(options::LogLevel::off);
-        }
-
-        auto argv = preprocessArgv(true);
-        platform::setenv("TZ", "GMT", 1);
-        doctest::Context context(static_cast<int>(argv.size()), argv.data());
-        exit(context.run());
-#else
-        logger::fatalError("unit tests not compiled in");
-#endif
-    }
-
     _options = std::move(options);
-    _options.debugDump();
-}
-
-std::vector<char*> Configuration::Implementation::preprocessArgv(bool include_doctest) {
-    std::vector<char*> result;
-
-    for ( auto& x : _argv ) {
-        if ( include_doctest || x.find("--" DOCTEST_CONFIG_OPTIONS_PREFIX) != 0 )
-            result.push_back(const_cast<char*>(x.c_str()));
-    }
-
-    return result;
-}
-
-Result<Options> Configuration::Implementation::addArgv(Options options) {
-    auto argv = preprocessArgv(false);
-
-    // Restart getopt(). See https://stackoverflow.com/a/60484617 &&
-    // https://github.com/dnsdb/dnsdbq/commit/efa68c0499c3b5b4a1238318345e5e466a7fd99f
-#ifdef HAVE_LINUX
-    optind = 0;
-#else
-    optind = 1;
-    optreset = 1;
-#endif
-
-    while ( true ) {
-        int c =
-            getopt_long(static_cast<int>(argv.size()), argv.data(), "DL:MNTc:e:hivz:", long_driver_options, nullptr);
-        if ( c < 0 )
-            return options;
-
-        switch ( c ) {
-            case 'L': {
-                if ( auto level = options::log_level::from_str(optarg) ) {
-                    options::default_log_level = *level; // this becomes new default for all config objects
-                    options.log_level = level;
-                }
-                else
-                    // unknown levels would turn logging off, so not setting
-                    logger()->warn("unknown log level specified, ignoring");
-
-                break;
-            }
-
-            case 'D': options.mode = options::Mode::AutoDoc; break;
-            case 'M': options.use_mock_data = true; break;
-            case 'N': options.terminate_on_disconnect = true; break;
-            case 'T': options.mode = options::Mode::Test; break;
-            case 'c': options.config_file = optarg; break;
-            case 'e': options.execute = optarg; break;
-            case 'i': options.interactive = true; break;
-            case 'z': options.zeek_destinations.emplace_back(optarg); break;
-
-            case 'v': std::cerr << "Zeek Agent v" << VersionLong << std::endl; exit(0);
-            case 'h': usage(argv[0]); exit(0);
-            default: usage(argv[0]); exit(1);
-        }
-    }
+    _options->debugDump();
 }
 
 Result<Nothing> Configuration::Implementation::initFromArgv(std::vector<std::string> argv) {
     _argv = std::move(argv);
 
-    auto config = addArgv(default_());
-    if ( ! config )
-        return result::Error(frmt("error: {}", config.error()));
+    auto options = Options::default_();
+    read({}, &options);
 
-    if ( config->config_file ) {
-        auto rc = read(*config->config_file);
+    if ( auto rc = options.parseArgv(_argv); ! rc )
+        return result::Error(frmt("error: {}", rc.error()));
+
+    if ( options.config_file ) {
+        auto rc = read(*options.config_file);
         if ( ! rc )
-            return result::Error(frmt("error reading {}: {}", config->config_file->string(), rc.error()));
+            return result::Error(frmt("error reading {}: {}", options.config_file->string(), rc.error()));
     }
     else
-        apply(std::move(*config));
+        apply(std::move(options));
 
     return Nothing();
 }
@@ -400,7 +369,7 @@ bool tomlArray(const std::optional<toml::table>& t, const std::string& path, std
 }
 
 Result<Nothing> Configuration::Implementation::read(std::istream& in, const filesystem::path& path) {
-    auto options = default_();
+    auto options = Options::default_();
     options.config_file = path;
 
     try {
@@ -408,11 +377,10 @@ Result<Nothing> Configuration::Implementation::read(std::istream& in, const file
         if ( auto rc = read(tbl, &options); ! rc )
             return rc;
 
-        auto rc = addArgv(options);
-        if ( ! rc )
+        if ( auto rc = options.parseArgv(_argv); ! rc )
             return rc.error();
 
-        apply(std::move(*rc));
+        apply(std::move(options));
         return Nothing();
 
     } catch ( const toml::parse_error& err ) {
@@ -473,7 +441,7 @@ Result<Nothing> Configuration::Implementation::read(const std::optional<toml::ta
 
 Configuration::Configuration() {
     ZEEK_AGENT_DEBUG("configuration", "creating instance");
-    pimpl()->apply(pimpl()->default_());
+    pimpl()->apply(Options::default_());
     pimpl()->old_log_level = logger()->level();
 }
 
@@ -482,16 +450,11 @@ Configuration::~Configuration() {
     logger()->set_level(pimpl()->old_log_level);
 }
 
-const Options& Configuration::options() const { return pimpl()->_options; }
+const Options& Configuration::options() const { return *pimpl()->_options; }
 
-Result<Nothing> Configuration::initFromArgv(int argc, const char* const* argv) {
-    std::vector<std::string> vargv;
-    vargv.reserve(argc);
-    for ( auto i = 0; i < argc; i++ )
-        vargv.emplace_back(argv[i]);
-
-    ZEEK_AGENT_DEBUG("configuration", "setting command line arguments: {}", join(vargv, " "));
-    return pimpl()->initFromArgv(std::move(vargv));
+Result<Nothing> Configuration::initFromArgv(std::vector<std::string> argv) {
+    ZEEK_AGENT_DEBUG("configuration", "setting command line arguments: {}", join(argv, " "));
+    return pimpl()->initFromArgv(std::move(argv));
 }
 
 Result<Nothing> Configuration::read(const filesystem::path& path) {
@@ -520,8 +483,8 @@ TEST_SUITE("Configuration") {
         Configuration cfg;
 
         SUBCASE("cli") {
-            const char* argv[] = {"<prog>", "-i"};
-            cfg.initFromArgv(2, argv);
+            auto argv = std::vector<std::string>{"<prog>", "-i"};
+            cfg.initFromArgv(argv);
             CHECK(cfg.options().interactive);
         }
     }
@@ -530,8 +493,8 @@ TEST_SUITE("Configuration") {
         Configuration cfg;
 
         SUBCASE("cli") {
-            const char* argv[] = {"<prog>", "-e", ".tables"};
-            cfg.initFromArgv(3, argv);
+            auto argv = std::vector<std::string>{"<prog>", "-e", ".tables"};
+            cfg.initFromArgv(argv);
             CHECK_EQ(cfg.options().execute, ".tables");
         }
     }
@@ -542,8 +505,8 @@ TEST_SUITE("Configuration") {
         auto old_default_log_level = options::default_log_level; // -L will change this
 
         SUBCASE("cli") {
-            const char* argv[] = {"<prog>", "-L", "info"};
-            cfg.initFromArgv(3, argv);
+            auto argv = std::vector<std::string>{"<prog>", "-L", "info"};
+            cfg.initFromArgv(argv);
             CHECK_EQ(*cfg.options().log_level, options::LogLevel::info);
         }
 
@@ -566,8 +529,8 @@ TEST_SUITE("Configuration") {
         Configuration cfg;
 
         SUBCASE("cli") {
-            const char* argv[] = {"<prog>", "-z", "host1", "-z", "host2:1234"};
-            cfg.initFromArgv(5, argv);
+            auto argv = std::vector<std::string>{"<prog>", "-z", "host1", "-z", "host2:1234"};
+            cfg.initFromArgv(argv);
             CHECK_EQ(cfg.options().zeek_destinations, std::vector<std::string>{"host1", "host2:1234"});
         }
 
@@ -580,8 +543,8 @@ TEST_SUITE("Configuration") {
         }
 
         SUBCASE("aggregate") {
-            const char* argv[] = {"<prog>", "-z", "host1"};
-            cfg.initFromArgv(3, argv);
+            auto argv = std::vector<std::string>{"<prog>", "-z", "host1"};
+            cfg.initFromArgv(argv);
             std::stringstream s;
             s << "[zeek]\n";
             s << "destination = 'host2:1234'\n";
@@ -625,8 +588,8 @@ TEST_SUITE("Configuration") {
         Configuration cfg;
         std::stringstream s;
         s << "log-level = 'warn'\n";
-        const char* argv[] = {"<prog>", "-L", "info"};
-        cfg.initFromArgv(3, argv);
+        auto argv = std::vector<std::string>{"<prog>", "-L", "info"};
+        cfg.initFromArgv(argv);
         auto rc = cfg.read(s, "<test>");
         CHECK_EQ(*cfg.options().log_level, options::LogLevel::info);
         CHECK_EQ(*cfg.options().config_file, "<test>");

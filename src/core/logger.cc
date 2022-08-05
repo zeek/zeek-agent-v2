@@ -37,6 +37,8 @@ Result<Nothing> zeek::agent::setGlobalLogger(options::LogType type, options::Log
 
     // Note we are creating thread-safe logger here (`*_mt`).
     switch ( type ) {
+        case options::LogType::Stderr: sink = std::make_shared<spdlog::sinks::stderr_sink_mt>(); break;
+
         case options::LogType::Stdout:
             if ( isatty(STDOUT_FILENO) )
                 sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();

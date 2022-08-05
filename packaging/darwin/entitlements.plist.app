@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>com.apple.application-identifier</key>
-		<string>JHQJS8VH7W.org.zeek.zeek-agent.agent</string>
+		<string>org.zeek.zeek-agent.agent</string>
 
 	<key>com.apple.security.application-groups</key>
 		<array>
-			<string>JHQJS8VH7W.org.zeek.zeek-agent</string>
+			<string>org.zeek.zeek-agent</string>
 		</array>
 
 	<key>com.apple.developer.system-extension.install</key>

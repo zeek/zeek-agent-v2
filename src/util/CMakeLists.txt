@@ -11,6 +11,8 @@ target_sources(zeek-agent
 if ( HAVE_DARWIN )
     target_sources(zeek-agent PRIVATE platform.posix.cc platform.darwin.mm)
     target_link_libraries(zeek-agent PRIVATE "EndpointSecurity")
+    target_link_libraries(zeek-agent PRIVATE "-framework NetworkExtension")
+    target_link_libraries(zeek-agent PRIVATE "-framework Cocoa")
 endif ()
 
 if ( HAVE_LINUX )
