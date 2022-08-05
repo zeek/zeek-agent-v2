@@ -1,3 +1,7 @@
+2.3.0-dev.36 | 2022-08-05 10:27:48 +0200
+
+  * Use `p-ranav/glob` library for Windows `files` table.
+
 2.3.0-dev.33 | 2022-07-28 13:56:49 +0200
 
   * Fix ccache on Windows

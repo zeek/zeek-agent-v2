@@ -100,6 +100,7 @@ target_link_libraries(zeek-agent PRIVATE sqlite::sqlite)
 target_link_libraries(zeek-agent PRIVATE stduuid)
 target_link_libraries(zeek-agent PRIVATE tomlplusplus::tomlplusplus)
 target_link_libraries(zeek-agent PRIVATE ztd::out_ptr)
+target_link_libraries(zeek-agent PRIVATE Glob)
 
 if ( NOT HAVE_GETOPT_LONG )
     target_link_libraries(zeek-agent PRIVATE 3rdparty:3rdparty)

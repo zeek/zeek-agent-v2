@@ -33,6 +33,7 @@ add_subdirectory(json EXCLUDE_FROM_ALL)
 add_subdirectory(stduuid EXCLUDE_FROM_ALL)
 add_subdirectory(tomlplusplus EXCLUDE_FROM_ALL)
 add_subdirectory(out_ptr EXCLUDE_FROM_ALL)
+add_subdirectory(glob EXCLUDE_FROM_ALL)
 
 set(SPDLOG_FMT_EXTERNAL ON)
 add_subdirectory(spdlog EXCLUDE_FROM_ALL)
