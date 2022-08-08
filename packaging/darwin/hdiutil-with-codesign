@@ -6,6 +6,7 @@
 
 args=("$@")
 base=$(cd $(dirname $0) && pwd)
+app_src=${base}/src/platform/darwin/ZeekAgent.app
 
 codesign="/usr/bin/codesign -s '${MACOS_CERTIFICATE_APPLICATION_ID}' -v --force --options=runtime --strict --timestamp"
 
@@ -22,8 +23,8 @@ codesign() {
         return
     fi
 
-    eval ${codesign} --entitlements "${base}/entitlements.plist.agent" "${app}/Contents/Library/SystemExtensions/org.zeek.zeek-agent.agent.systemextension"
-    eval ${codesign} --entitlements "${base}/entitlements.plist.app"   "${app}"
+    eval ${codesign} --entitlements "${app_src}/entitlements.plist.agent" "${app}/Contents/Library/SystemExtensions/org.zeek.zeek-agent.agent.systemextension"
+    eval ${codesign} --entitlements "${app_src}/entitlements.plist.app"   "${app}"
 }
 
 if [ "$1" == "create" ]; then

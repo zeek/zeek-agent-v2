@@ -17,6 +17,10 @@
 #include <iostream>
 #include <optional>
 
+#ifdef HAVE_DARWIN
+#include "platform/darwin/network-extension.h"
+#endif
+
 #define DOCTEST_CONFIG_NO_UNPREFIXED_OPTIONS
 #define DOCTEST_CONFIG_IMPLEMENT
 #define DOCTEST_CONFIG_OPTIONS_PREFIX "test-"
@@ -58,7 +62,7 @@ int main(int argc, char** argv) {
             // needs to start up as early as possible, in particular (it appears)
             // before we start using the configuration system.
             auto _ = std::make_unique<std::thread>([argv_]() { zeek::agent::main(argv_); });
-            platform::darwin::enterSystemExtensionMode(); // won't return
+            platform::darwin::enterNetworkExtensionMode(); // won't return
             cannot_be_reached();
 #else
             // Can run inside main thread.
