@@ -4,11 +4,11 @@
 
 #include "autogen/config.h"
 #include "logger.h"
+#include "platform/platform.h"
 #include "spdlog/common.h"
 #include "util/filesystem.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "util/platform.h"
 
 #include <exception>
 #include <iostream>

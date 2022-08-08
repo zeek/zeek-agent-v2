@@ -8,9 +8,9 @@
 #include "core/logger.h"
 #include "core/scheduler.h"
 #include "core/table.h"
+#include "platform/platform.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "util/platform.h"
 #include "util/testing.h"
 
 #include <algorithm>

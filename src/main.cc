@@ -9,9 +9,9 @@
 #include "core/table.h"
 #include "io/console.h"
 #include "io/zeek.h"
+#include "platform/platform.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "util/platform.h"
 
 #include <csignal>
 #include <iostream>
@@ -21,14 +21,6 @@
 #define DOCTEST_CONFIG_IMPLEMENT
 #define DOCTEST_CONFIG_OPTIONS_PREFIX "test-"
 #include "util/testing.h"
-
-#ifdef HAVE_DARWIN
-#include "util/platform.darwin.h"
-#endif
-
-#ifdef HAVE_WINDOWS
-#include "util/platform.windows.h"
-#endif
 
 namespace zeek::agent {
 SignalManager* signal_mgr = nullptr;
@@ -103,6 +95,8 @@ int zeek::agent::main(const std::vector<std::string>& argv) {
     logger()->info("Zeek Agent {} starting up", VersionLong);
     atexit(log_termination);
 
+    auto _ = ScopeGuard([]() { platform::done(); });
+
     try {
         Configuration cfg;
         auto rc = cfg.initFromArgv(argv);
@@ -153,10 +147,7 @@ int zeek::agent::main(const std::vector<std::string>& argv) {
             db.expire();
         }
 
-#ifdef HAVE_WINDOWS
-        platform::windows::WMIManager::Get().Shutdown();
-#endif
-
+        platform::done();
         delete sigint;
         delete signal_mgr;
 

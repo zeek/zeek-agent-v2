@@ -1,8 +1,8 @@
 // Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
-#include "platform.h"
+#include "util/testing.h"
 
-#include "testing.h"
+#include "platform.h"
 
 using namespace zeek::agent;
 

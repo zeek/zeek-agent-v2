@@ -7,8 +7,8 @@
 
 #include "core/database.h"
 #include "core/logger.h"
+#include "platform.h"
 #include "util/fmt.h"
-#include "util/platform.windows.h"
 
 #include <iostream>
 #include <map>

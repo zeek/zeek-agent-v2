@@ -79,6 +79,7 @@ add_executable(zeek-agent main.cc ${APP_ICON_RESOURCE_WINDOWS})
 
 add_subdirectory(core)
 add_subdirectory(io)
+add_subdirectory(platform)
 add_subdirectory(tables)
 add_subdirectory(util)
 

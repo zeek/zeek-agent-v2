@@ -9,6 +9,8 @@
 
 #include <uuid.h>
 
+#include <glob/glob.h>
+
 #ifdef HAVE_POSIX
 #include <unistd.h>
 
@@ -77,7 +79,7 @@ std::pair<std::string, std::string> zeek::agent::rsplit1(std::string s, const st
     return std::make_pair("", std::move(s));
 }
 
-std::string base62_encode(uint64_t i) {
+static std::string base62_encode(uint64_t i) {
     static const char* alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     std::string x;
@@ -90,7 +92,7 @@ std::string base62_encode(uint64_t i) {
     return x;
 }
 
-zeek::agent::Result<int64_t> parseVersion(std::string v) {
+zeek::agent::Result<int64_t> zeek::agent::parseVersion(std::string v) {
     unsigned long major = 0;
     unsigned long minor = 0;
     unsigned long patch = 0;
@@ -127,7 +129,7 @@ zeek::agent::Result<int64_t> parseVersion(std::string v) {
     }
 }
 
-std::string randomUUID() {
+std::string zeek::agent::randomUUID() {
     std::random_device rd;
     auto seed_data = std::array<int, std::mt19937::state_size>{};
     std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
@@ -138,6 +140,20 @@ std::string randomUUID() {
     // We represent the UUID in base62 for compactness.
     auto* p = reinterpret_cast<const uint64_t*>(uuid.as_bytes().data());
     return frmt("{}{}", base62_encode(p[0]), base62_encode(p[1]));
+}
+
+std::vector<filesystem::path> zeek::agent::glob(const filesystem::path& pattern, size_t max) {
+    // glob::glob returns std::filesystem::path, but we're using ghc::filesystem for compatibility
+    // reasons. this means we need to copy the paths from one vector type to another here.
+    auto paths = glob::glob(pattern.string());
+    if ( paths.size() > max )
+        paths.resize(max);
+
+    std::vector<filesystem::path> ret;
+    for ( const auto& path : paths )
+        ret.emplace_back(path.string());
+
+    return ret;
 }
 
 TEST_SUITE("Helpers") {

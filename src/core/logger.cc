@@ -14,7 +14,7 @@
 #include <spdlog/sinks/stdout_sinks-inl.h>
 
 #ifdef HAVE_DARWIN
-#include <util/platform.darwin.h>
+#include <platform/platform.h>
 #endif
 
 #ifndef HAVE_WINDOWS

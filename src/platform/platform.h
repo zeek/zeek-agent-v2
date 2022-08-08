@@ -3,7 +3,19 @@
 #pragma once
 
 #include "core/configuration.h"
-#include "filesystem.h"
+#include "util/filesystem.h"
+
+#ifdef HAVE_DARWIN
+#include "darwin/platform.h"
+#endif
+
+#ifdef HAVE_LINUX
+#include "linux/platform.h"
+#endif
+
+#ifdef HAVE_WINDOWS
+#include "windows/platform.h"
+#endif
 
 #include <optional>
 #include <string>
@@ -13,6 +25,9 @@ namespace zeek::agent::platform {
 
 /** Performs one-time initialization at startup. */
 extern void init(const Configuration& cfg);
+
+/** Performs one-time cleanup at shutdown. */
+extern void done();
 
 /** Returns a name for the current platform. */
 extern std::string name();
@@ -27,16 +42,10 @@ extern std::optional<filesystem::path> dataDirectory();
 extern bool isTTY();
 
 /**
- * Expands a shell-style glob to return all existing paths matching it, up to a
- * given maximum number.
- */
-extern std::vector<filesystem::path> glob(const filesystem::path& pattern, size_t max = 100);
-
-/**
  * Platform specific-implementation of setenv(). Follows the same semantics as
  * POSIX's setenv() on all platforms.
  */
-extern int setenv(const char* name, const char* value, int overwrite);
+extern Result<Nothing> setenv(const char* name, const char* value, int overwrite);
 
 /**
  * Gets a variable from the environment, returning an unset optional if the

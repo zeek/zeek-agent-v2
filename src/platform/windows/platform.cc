@@ -1,20 +1,17 @@
 // Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
-// clang-format off
-#include "platform.h"
-#include "platform.windows.h"
-// clang-format on
+#include "platform/platform.h"
 
 #include "core/logger.h"
-#include "fmt.h"
-#include "helpers.h"
+#include "util/fmt.h"
+#include "util/helpers.h"
+#include "windows.h"
 
 #include <memory>
 #include <utility>
 
 #include <pathfind.hpp>
 
-#include <glob/glob.h>
 #include <ztd/out_ptr/out_ptr.hpp>
 
 using namespace zeek::agent;
@@ -22,6 +19,8 @@ using namespace zeek::agent::platform::windows;
 using namespace ztd::out_ptr;
 
 void platform::init(const Configuration& cfg) {}
+
+void platform::done() { windows::WMIManager::Get().Shutdown(); }
 
 std::string platform::name() { return "Windows"; }
 
@@ -53,20 +52,6 @@ std::optional<filesystem::path> platform::dataDirectory() {
 }
 
 bool platform::isTTY() { return true; }
-
-std::vector<filesystem::path> platform::glob(const filesystem::path& pattern, size_t max) {
-    // glob::glob returns std::filesystem::path, but we're using ghc::filesystem for compatibility
-    // reasons. this means we need to copy the paths from one vector type to another here.
-    auto paths = glob::glob(pattern.string());
-    if ( paths.size() > max )
-        paths.resize(max);
-
-    std::vector<filesystem::path> ret;
-    for ( const auto& path : paths ) {
-        ret.emplace_back(path.string());
-    }
-    return ret;
-}
 
 int platform::setenv(const char* name, const char* value, int overwrite) {
     if ( overwrite == 0 ) {

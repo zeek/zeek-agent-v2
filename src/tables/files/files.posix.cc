@@ -5,9 +5,9 @@
 #include "core/database.h"
 #include "core/logger.h"
 #include "core/table.h"
+#include "platform/platform.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "util/platform.h"
 
 #include <variant>
 
@@ -41,10 +41,10 @@ database::RegisterTable<FilesColumnsPosix> _3;
 std::pair<std::string, std::vector<filesystem::path>> FilesBase::expandPaths(const std::vector<table::Argument>& args) {
     std::pair<std::string, std::vector<filesystem::path>> result;
 
-    auto glob = Table::getArgument<std::string>(args, "_pattern");
-    result.first = glob;
+    auto pattern = Table::getArgument<std::string>(args, "_pattern");
+    result.first = pattern;
 
-    for ( auto p : platform::glob(glob) )
+    for ( auto p : glob(pattern) )
         result.second.push_back(std::move(p));
 
     return result;

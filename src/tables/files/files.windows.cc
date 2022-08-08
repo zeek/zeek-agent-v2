@@ -5,10 +5,9 @@
 #include "core/database.h"
 #include "core/logger.h"
 #include "core/table.h"
+#include "platform/platform.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "util/platform.h"
-#include "util/platform.windows.h"
 
 #include <regex>
 

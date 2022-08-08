@@ -3,6 +3,7 @@
 #include "sockets.h"
 
 #include "autogen/config.h"
+#include "platform/platform.h"
 #include "util/fmt.h"
 #include "util/testing.h"
 
@@ -10,8 +11,6 @@
 
 #ifndef HAVE_WINDOWS
 #include <netinet/in.h>
-#else
-#include "util/platform.windows.h"
 #endif
 
 using namespace zeek::agent;

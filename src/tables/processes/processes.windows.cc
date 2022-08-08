@@ -5,8 +5,8 @@
 #include "core/configuration.h"
 #include "core/database.h"
 #include "core/table.h"
+#include "platform/platform.h"
 #include "util/fmt.h"
-#include "util/platform.windows.h"
 
 #include <Psapi.h>
 #include <TlHelp32.h>

@@ -8,7 +8,6 @@
 #include "core/table.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "util/platform.windows.h"
 
 // These have to remain in this order or the build fails.
 // clang-format off

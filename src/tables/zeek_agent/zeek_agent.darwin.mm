@@ -4,7 +4,7 @@
 
 #include "autogen/config.h"
 #include "core/database.h"
-#include "util/platform.h"
+#include "platform/platform.h"
 
 #include <chrono>
 

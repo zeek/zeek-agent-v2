@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "pimpl.h"
-#include "result.h"
+#include "util/pimpl.h"
+#include "util/result.h"
 
 #include <mutex>
 

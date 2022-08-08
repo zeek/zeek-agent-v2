@@ -3,6 +3,7 @@
 #pragma once
 
 #include "autogen/config.h"
+#include "util/filesystem.h"
 #include "util/fmt.h"
 #include "util/result.h"
 
@@ -361,16 +362,22 @@ auto makeUniqueArray(size_t len = 0, bool init = true) {
     return arr;
 }
 
-} // namespace zeek::agent
-
-/** Renders an integer in base62 ASCII. */
-std::string base62_encode(uint64_t i);
-
 /** Parsed a version string of the form `x.y.z-<N>` into a numerical number suitable for ordering. */
 zeek::agent::Result<int64_t> parseVersion(std::string v);
 
 /** Creates a new random UUID, encoded in base62 ASCII. */
 std::string randomUUID();
+
+/**
+ * Expands a shell-style glob to return all existing paths matching it, up to a
+ * given maximum number.
+ *
+ * @param pattern pattern for the path, containing globs
+ * @param max maximum number of matches to return
+ */
+extern std::vector<filesystem::path> glob(const filesystem::path& pattern, size_t max = 100);
+
+} // namespace zeek::agent
 
 namespace std::chrono { // NOLINT(cert-dcl58-cpp)
 

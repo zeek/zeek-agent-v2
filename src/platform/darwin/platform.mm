@@ -1,12 +1,10 @@
 // Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
-// clang-format off
-#include "platform.h"
-#include "platform.darwin.h"
-// clang-format on
+#include "platform/platform.h"
 
 #include "autogen/config.h"
 #include "core/logger.h"
+#include "platform/platform.h"
 
 #include <CoreFoundation/CFPreferences.h>
 #include <EndpointSecurity/EndpointSecurity.h>
@@ -37,6 +35,24 @@ using namespace zeek::agent::platform::darwin;
 
 std::string platform::name() { return "Darwin"; }
 
+bool platform::isTTY() { return ::isatty(1); }
+
+bool platform::runningAsAdmin() { return geteuid() == 0; }
+
+std::optional<std::string> platform::getenv(const std::string& name) {
+    if ( auto x = ::getenv(name.c_str()) )
+        return {x};
+    else
+        return {};
+}
+
+Result<Nothing> platform::setenv(const char* name, const char* value, int overwrite) {
+    if ( ::setenv(name, value, overwrite) == 0 )
+        return Nothing();
+    else
+        return result::Error(strerror(errno));
+}
+
 std::optional<filesystem::path> platform::configurationFile() {
     if ( auto dir = getApplicationSupport() )
         return *dir / "zeek-agent.cfg";
@@ -62,6 +78,8 @@ void platform::init(const Configuration& cfg) {
     platform::darwin::endpointSecurity();       // this initializes ES
     [[IPC sharedObject] setConfiguration:&cfg]; // create the shared object
 }
+
+void platform::done() {}
 
 void platform::initializeOptions(Options* options) {
     if ( auto service = platform::getenv("XPC_SERVICE_NAME"); service && *service != "0" )
