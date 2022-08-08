@@ -13,6 +13,7 @@ add_custom_target(ZeekAgent ALL
 configure_file("Info.plist.app.in" "Info.plist.app")
 configure_file("Info.plist.agent.in" "Info.plist.agent")
 
+set(packaging "${CMAKE_SOURCE_DIR}/packaging")
 set(contents "..") # target paths are releative to "Contents/contents", so "Contents" is one level up.
 set(resources ".")
 
@@ -20,8 +21,7 @@ set(resources ".")
 install(PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ZeekAgent DESTINATION ${contents}/MacOS)
 install(FILES "embedded.provisionprofile.app" DESTINATION "${contents}" RENAME "embedded.provisionprofile")
 install(FILES "zeek.png" DESTINATION "${resources}")
-install(FILES "../../zeek-agent.cfg.template" DESTINATION "${resources}")
-install(FILES "../../zeek-agent.cfg.template" DESTINATION "${resources}")
+install(FILES "${packaging}/zeek-agent.cfg.template" DESTINATION "${resources}")
 
 # System extension (the main zeek-agent binary)
 set(sext_base "${contents}/Library/SystemExtensions/org.zeek.zeek-agent.agent.systemextension")
