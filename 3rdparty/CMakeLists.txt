@@ -33,6 +33,8 @@ add_subdirectory(json EXCLUDE_FROM_ALL)
 add_subdirectory(stduuid EXCLUDE_FROM_ALL)
 add_subdirectory(tomlplusplus EXCLUDE_FROM_ALL)
 add_subdirectory(out_ptr EXCLUDE_FROM_ALL)
+
+option(GLOB_USE_GHC_FILESYSTEM "Use ghc::filesystem instead of std::filesystem" ON)
 add_subdirectory(glob EXCLUDE_FROM_ALL)
 
 set(SPDLOG_FMT_EXTERNAL ON)

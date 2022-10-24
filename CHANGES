@@ -1,3 +1,13 @@
+2.3.0-dev.45 | 2022-10-31 18:18:38 +0100
+
+  * GH-52: Switch `glob::glob` to use `ghc::filesystem`.
+
+  * Reorganize platform-specific code.
+
+  * Factor out our CMake compile and link options.
+
+  * Move macOS installer app into platform code.
+
 2.3.0-dev.39 | 2022-08-05 10:29:03 +0200
 
   * Add a macOS network extension to the agent.
