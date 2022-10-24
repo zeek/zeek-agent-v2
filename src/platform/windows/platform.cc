@@ -1,11 +1,11 @@
 // Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
-#include "platform/platform.h"
+#include "platform.h"
 
 #include "core/logger.h"
+#include "platform/platform.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
-#include "windows.h"
 
 #include <memory>
 #include <utility>
@@ -53,7 +53,7 @@ std::optional<filesystem::path> platform::dataDirectory() {
 
 bool platform::isTTY() { return true; }
 
-int platform::setenv(const char* name, const char* value, int overwrite) {
+Result<Nothing> platform::setenv(const char* name, const char* value, int overwrite) {
     if ( overwrite == 0 ) {
         // It doesn't matter what the length is set to here. The array is just being used
         // to check for existence.
@@ -63,12 +63,13 @@ int platform::setenv(const char* name, const char* value, int overwrite) {
         // Anything non-zero means that a length of the existing value was returned and
         // that the variable exists.
         if ( ret != 0 )
-            return 0;
+            return Nothing();
     }
 
     if ( ! SetEnvironmentVariableA(name, value) )
-        return -1;
-    return 0;
+        return result::Error("failed to set environment variable");
+
+    return Nothing();
 }
 
 extern std::optional<std::string> platform::getenv(const std::string& name) {

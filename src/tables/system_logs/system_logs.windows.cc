@@ -7,7 +7,7 @@
 
 #include "core/database.h"
 #include "core/logger.h"
-#include "platform.h"
+#include "platform/platform.h"
 #include "util/fmt.h"
 
 #include <iostream>

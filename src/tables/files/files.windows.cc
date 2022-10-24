@@ -52,7 +52,7 @@ std::pair<std::string, std::vector<filesystem::path>> FilesBase::expandPaths(con
     auto glob = Table::getArgument<std::string>(args, "_pattern");
     result.first = glob;
 
-    for ( auto p : platform::glob(glob) )
+    for ( auto p : zeek::agent::glob(glob) )
         result.second.push_back(std::move(p));
 
     return result;
