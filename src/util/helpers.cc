@@ -149,11 +149,7 @@ std::vector<filesystem::path> zeek::agent::glob(const filesystem::path& pattern,
     if ( paths.size() > max )
         paths.resize(max);
 
-    std::vector<filesystem::path> ret;
-    for ( const auto& path : paths )
-        ret.emplace_back(path.string());
-
-    return ret;
+    return paths;
 }
 
 TEST_SUITE("Helpers") {
