@@ -21,6 +21,7 @@ Checks: 'bugprone-*,
          -misc-no-recursion,
          -misc-suspicious-semicolon,
          -misc-unused-parameters,
+         -misc-const-correctnes,
          -modernize-avoid-c-arrays,
          -modernize-use-equals-default,
          -modernize-use-nodiscard,
@@ -37,6 +38,7 @@ Checks: 'bugprone-*,
          -readability-function-cognitive-complexity,
          -readability-function-size,
          -readability-isolate-declaration,
+         -readability-identifier-length,
          '
 
 HeaderFilterRegex: '/src'
