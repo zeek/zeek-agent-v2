@@ -63,14 +63,19 @@ target_compile_definitions(sqlite PRIVATE SQLITE_ENABLE_COLUMN_METADATA)
 add_library(sqlite::sqlite ALIAS sqlite)
 
 # Build a mininmal, static version of libroker.
-set(BROKER_DISABLE_DOCS ON)
-set(BROKER_DISABLE_TESTS ON)
-set(DISABLE_PYTHON_BINDINGS ON)
-set(ENABLE_STATIC_ONLY ON)
-set(BROKER_EXTERNAL_SQLITE_TARGET "sqlite::sqlite")
+if ( USE_BROKER )
+    set(HAVE_BROKER YES)
+    set(BROKER_DISABLE_DOCS ON)
+    set(BROKER_DISABLE_TESTS ON)
+    set(DISABLE_PYTHON_BINDINGS ON)
+    set(ENABLE_STATIC_ONLY ON)
+    set(BROKER_EXTERNAL_SQLITE_TARGET "sqlite::sqlite")
 
-add_subdirectory(broker EXCLUDE_FROM_ALL)
-target_link_libraries(broker_static INTERFACE ${CMAKE_DL_LIBS}) # linker gets the order wrong w/o this
+    add_subdirectory(broker EXCLUDE_FROM_ALL)
+    target_link_libraries(broker_static INTERFACE ${CMAKE_DL_LIBS}) # linker gets the order wrong w/o this
+else ()
+    set(HAVE_BROKER NO)
+endif ()
 
 # adapted from Spicy
 set(REPROC++ ON)
