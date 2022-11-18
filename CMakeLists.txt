@@ -21,6 +21,7 @@ enable_language(CXX)
 ### Initialize defaults & global options
 
 # Defaults here should match 'configure'.
+option(USE_BROKER "" "no")
 option(USE_CCACHE "" "no")
 option(USE_SANITIZERS "" "")
 option(USE_WERROR "" "no")
@@ -148,6 +149,7 @@ message(
     "\nHost system:           ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION} (${CMAKE_SYSTEM_PROCESSOR})"
     "\n"
     "\nBuild with tests:      ${USE_DOCTEST}"
+    "\nBuild with Broker:     ${USE_BROKER}"
     "\nUse ccache:            ${USE_CCACHE}"
     "\nUse sanitizers:        ${USE_SANITIZERS_DISPLAY}"
     "\nLink statically:       ${USE_STATIC_LINKING}"
