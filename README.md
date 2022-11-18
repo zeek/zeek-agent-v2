@@ -86,7 +86,8 @@ On all endpoints, run as `root`:
 
 #### Prerequisites
 
-- The agent's Zeek package requires Zeek 4.0 or newer.
+- The agent's Zeek package requires Zeek 4.0 or newer. The pre-built
+  agent binaries requires Zeek 5.0 or newer.
 
 - For a standard installation, make sure you have the Zeek package
   manager available and configured. You may need to run `eval $(zkg

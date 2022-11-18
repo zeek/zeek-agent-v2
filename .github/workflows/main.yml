@@ -8,11 +8,12 @@ jobs:
 
     strategy:
       matrix:
-        zeek: [{version: 4.0.4-0, tag: -lts}, {version: 5.0.0-0, tag: -rc}]
+        zeek: [{version: 4.0.4-0, tag: -lts, configure: "--enable-broker"}, {version: 5.0.0-0, tag: -rc, configure: ""}]
 
     env:
       ZEEK_VERSION: ${{ matrix.zeek.version }}
       ZEEK_TAG: ${{ matrix.zeek.tag }}
+      ZEEK_AGENT_CONFIGURE_ADDL: ${{ matrix.configure }}
 
     steps:
       - name: Prepare
@@ -41,7 +42,7 @@ jobs:
 
       - name: Build
         run: |
-          ./configure --prefix=/tmp/zeek-agent --enable-debug --enable-sanitizer --enable-ccache --enable-werror --generator=Ninja
+          ./configure --prefix=/tmp/zeek-agent --enable-debug --enable-sanitizer --enable-ccache --enable-werror --generator=Ninja $ZEEK_AGENT_CONFIGURE_ADDL
           ninja -C build
 
       - name: Test
