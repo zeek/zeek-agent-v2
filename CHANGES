@@ -1,3 +1,7 @@
+2.3.0-dev.47 | 2022-11-29 15:58:23 -0800
+
+  * Minor grammar fixes (William Stearns)
+
 2.3.0-dev.45 | 2022-10-31 18:18:38 +0100
 
   * GH-52: Switch `glob::glob` to use `ghc::filesystem`.
