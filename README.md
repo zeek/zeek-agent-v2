@@ -46,7 +46,7 @@ it stable. We are interested in any feedback you may have.
 
 - There are no hard dependencies on the endpoints beyond standard
   system libraries. (Individual tables may not be available if they
-  don't find on the system what they need.)
+  don't find what they need on the system.)
 
 
 #### Download & Installation
@@ -79,7 +79,7 @@ On macOS with Homebrew, use `--with-openssl={/usr/local,/opt/homebrew}/opt/opens
 On all endpoints, run as `root`:
 
 ```
-# zeek-agent -z <hostname-of-you-Zeek-system>
+# zeek-agent -z <hostname-of-your-Zeek-system>
 ```
 
 ### Zeek Package
@@ -157,7 +157,7 @@ system_logs_events  log messages recorded by the operating systems
 ```
 
 The output of such SQL queries is what gets sent to Zeek as events.
-More documentation on that forthcoming.
+More documentation on that is forthcoming.
 
 ## Table Reference
 
