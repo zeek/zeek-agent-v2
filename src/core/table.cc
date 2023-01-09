@@ -302,6 +302,15 @@ const Options& Table::options() const {
     return _db->configuration().options();
 }
 
+Time Table::systemTime() const {
+    auto t = std::chrono::system_clock::now();
+    if ( _last_time == t )
+        t += to_interval_from_ns(1);
+
+    _last_time = Time(t);
+    return t;
+}
+
 Time Table::currentTime() const {
     if ( ! _db )
         throw InternalError("no database/scheduler available in table");
