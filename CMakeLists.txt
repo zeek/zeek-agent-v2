@@ -152,6 +152,8 @@ message(
     "\nInstall prefix:        ${CMAKE_INSTALL_PREFIX}"
     "\n"
     "\nHost system:           ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION} (${CMAKE_SYSTEM_PROCESSOR})"
+    "\nC Compiler:            ${CMAKE_C_COMPILER} (${CMAKE_C_COMPILER_VERSION})"
+    "\nC++ Compiler:          ${CMAKE_CXX_COMPILER} (${CMAKE_CXX_COMPILER_VERSION})"
     "\n"
     "\nBuild with tests:      ${USE_DOCTEST}"
     "\nBuild with Broker:     ${USE_BROKER}"

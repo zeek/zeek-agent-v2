@@ -8,6 +8,8 @@
 # Defaults
 cmake_build_directory="build"
 cmake_build_type="RelWithDebInfo"
+cmake_c_compiler=""
+cmake_cxx_compiler=""
 cmake_generator=""
 cmake_install_prefix="/usr/local"
 cmake_use_broker="no"
@@ -22,6 +24,12 @@ cmake_osx_deployment_target=""
 
 display_cmake=0
 cache_entries=""
+
+if [ "$(uname -s)" = "Linux" ]; then
+    # Pick clang by default on Linux if available.
+    cmake_c_compiler="$(command -v clang 2>/dev/null)"
+    cmake_cxx_compiler="$(command -v clang++ 2>/dev/null)"
+fi
 
 set -e
 command="$0 $*"
@@ -58,6 +66,8 @@ Usage: $0 [OPTION]... [VAR=VALUE]...
     --enable-werror                    Treat compiler warnings as errors [default: ${cmake_use_werror}]
     --generator=<generator>            CMake generator to use (see cmake --help)
     --prefix=PATH                      Installation prefix [default: ${cmake_install_prefix}]
+    --with-c-compiler=<path>           Set C compiler to use [default: ${cmake_c_compiler:-determined by CMake}]
+    --with-cxx-compiler=<path>         Set C++ compiler to use [default: ${cmake_cxx_compiler:-determined by CMake}]
     --with-openssl=DIR                 Path to OpenSSL installation root
     --osx-deployment-target=VERSION    Minimum macOS version to deploy on
 
@@ -109,6 +119,15 @@ while [ $# -ne 0 ]; do
         --enable-werror)                   cmake_use_werror="yes";;
         --generator=*)                     cmake_generator="${optarg}";;
         --prefix=*)                        cmake_install_prefix="${optarg}";;
+        --with-c-compiler=*)               cmake_c_compiler="${optarg}";;
+        --with-cxx-compiler=*)
+            cmake_cxx_compiler="${optarg}"
+
+            if [ -z "${cmake_c_compiler}" ]; then
+              try_c_compiler=$(echo "${cmake_cxx_compiler}" | sed 's/++//g')
+              which "${try_c_compiler}" >/dev/null && cmake_c_compiler="${try_c_compiler}"
+            fi
+            ;;
         --with-openssl=*)                  cmake_openssl_root="${optarg}";;
         --osx-deployment-target=*)         cmake_osx_deployment_target="${optarg}";;
 
@@ -122,6 +141,8 @@ done
 
 # Set CMake cache options.
 append_cache_entry CMAKE_BUILD_TYPE             STRING "${cmake_build_type}"
+append_cache_entry CMAKE_C_COMPILER             PATH   "${cmake_c_compiler}"
+append_cache_entry CMAKE_CXX_COMPILER           PATH   "${cmake_cxx_compiler}"
 append_cache_entry CMAKE_INSTALL_PREFIX         PATH   "${cmake_install_prefix}"
 append_cache_entry CMAKE_OSX_ARCHITECTURES      STRING "${cmake_osx_architectures}"
 append_cache_entry CMAKE_OSX_DEPLOYMENT_TARGET  STRING "${cmake_osx_deployment_target}"

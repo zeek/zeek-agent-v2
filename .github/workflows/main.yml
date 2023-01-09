@@ -3,8 +3,8 @@ name: CI pipeline
 on: push
 
 jobs:
-  debug_ubuntu_latest:
-    runs-on: ubuntu-latest
+  debug_ubuntu_22:
+    runs-on: ubuntu-22.04
 
     strategy:
       matrix:
@@ -20,9 +20,19 @@ jobs:
         run: |
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update
-          sudo apt-get install -y ninja-build ccache curl ca-certificates clang-tidy-12
-          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-12 100
+          sudo apt-get install -y ninja-build ccache curl ca-certificates
           sudo pip3 install btest zkg pre-commit
+
+          # LLVM toolchain
+          echo 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main' | sudo tee -a /etc/apt/sources.list.d/llvm17.list
+          echo 'deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main' | sudo tee -a /etc/apt/sources.list.d/llvm17.list
+          sudo curl https://apt.llvm.org/llvm-snapshot.gpg.key -o /etc/apt/trusted.gpg.d/llvm.asc
+          sudo apt-get update
+          sudo apt-get install -y llvm-17-dev clang-17 libclang-17-dev clang-format-17 clang-tidy-17 libclang-rt-17-dev
+
+          # for bpftool
+          sudo ln -s $(which llvm-strip-17) /usr/local/bin/llvm-strip
+          sudo apt-get install libelf-dev gcc-multilib
 
       - name: Install Zeek
         run: |
@@ -64,19 +74,22 @@ jobs:
             zeek-agent/tests/.tmp
 
   # TODO: Install Zeek and run Zeek tests.
-  release_alpine_3_15_static:
-    runs-on: ubuntu-latest
+  release_alpine_3_19_static:
+    runs-on: ubuntu-22.04
     environment: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/topic/ci-release-test' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     container:
-      image: alpine:3.15
+      image: alpine:3.19
 
     steps:
       - name: Prepare
         run: |
           apk update
-          apk add linux-headers ccache cmake g++ gcc git make ninja tar zlib-static zlib-dev openssl-libs-static openssl-dev python3 py3-pip bash
-          pip3 install btest zkg
+          apk add linux-headers ccache cmake g++ gcc git make ninja tar zlib-static zlib-dev openssl-libs-static openssl-dev zstd-static python3 py3-pip bash
+          pip3 install --break-system-packages btest zkg
+
+          # for bpftool
+          apk add clang llvm libelf elfutils-dev
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -317,7 +330,7 @@ jobs:
           path: build/dist/${{env.ZA_DIST}}
 
   release_source:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/topic/ci-release-test' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     steps:
@@ -326,6 +339,9 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update
           sudo apt-get install -y ninja-build ccache curl ca-certificates
+
+          # for bpftool
+          sudo apt-get install llvm libelf-dev gcc-multilib
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -360,9 +376,9 @@ jobs:
   publish_release:
     permissions:
       contents: write
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))
-    needs: [debug_ubuntu_latest, release_alpine_3_15_static, release_macos_13, release_windows_2022, release_source]
+    needs: [debug_ubuntu_22, release_alpine_3_19_static, release_macos_13, release_windows_2022, release_source]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
