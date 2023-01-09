@@ -411,6 +411,12 @@ public:
         throw InternalError(frmt("table argument '{}' unexpectedly missing", name));
     }
 
+    /**
+     * Returns the current system time, guaranteeing that it's monotonically
+     * increasing between calls.
+     */
+    Time systemTime() const;
+
 protected:
     /**
      * Returns the configuration options currently in effect. This won't be
@@ -440,7 +446,8 @@ private:
 
     Database* _db = nullptr;      // database set through `setDatabase()`
     int _current_connections = 0; // counter of active queries against this table
-    bool _use_mock_data = false;  // if true, have table return mock data for testing
+    mutable Time _last_time = {};
+    bool _use_mock_data = false; // if true, have table return mock data for testing
 };
 
 /**
