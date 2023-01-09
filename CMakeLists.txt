@@ -2,6 +2,15 @@
 
 cmake_minimum_required(VERSION 3.15.1)
 
+# TODO: Limit this to Linux. But how we check here, before project()?
+# if ( LINUX )
+    # BPF CO-RE needs clang. Must come before "project()".
+    find_program(clang "clang" REQUIRED)
+    find_program(clangxx "clang++" REQUIRED)
+    set(CMAKE_C_COMPILER "${clang}" CACHE FILEPATH "")
+    set(CMAKE_CXX_COMPILER "${clangxx}" CACHE FILEPATH "")
+# endif ()
+
 project(ZeekAgent)
 
 if ( CMAKE_SYSTEM_NAME STREQUAL "Darwin" )
@@ -147,6 +156,8 @@ message(
     "\nInstall prefix:        ${CMAKE_INSTALL_PREFIX}"
     "\n"
     "\nHost system:           ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION} (${CMAKE_SYSTEM_PROCESSOR})"
+    "\nCompiler:              ${CMAKE_CXX_COMPILER}"
+    "\nCompiler version:      ${CMAKE_CXX_COMPILER_VERSION}"
     "\n"
     "\nBuild with tests:      ${USE_DOCTEST}"
     "\nBuild with Broker:     ${USE_BROKER}"

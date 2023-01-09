@@ -96,3 +96,43 @@ if ( NOT HAVE_GETOPT_LONG )
     target_include_directories(pathfind PUBLIC .)
     add_library(3rdparty:3rdparty ALIAS 3rdparty)
 endif()
+
+# On Linux, build libbpf.
+if ( HAVE_LINUX )
+    include(ExternalProject)
+
+    find_library(elf NAMES elf REQUIRED)
+
+    set(bpftool_source "${CMAKE_CURRENT_SOURCE_DIR}/bpftool")
+    set(bpftool_build "${CMAKE_CURRENT_BINARY_DIR}/bpftool")
+    set(libbpf_lib "${bpftool_build}/bootstrap/libbpf")
+
+    set(libbpf_include "${bpftool_build}/libbpf/include")
+    file(MAKE_DIRECTORY ${libbpf_include})
+
+    ExternalProject_Add(bpftool
+        SOURCE_DIR "${bpftool_source}"
+        BINARY_DIR "${bpftool_build}"
+        BUILD_COMMAND make -C ${bpftool_source}/src OUTPUT=${bpftool_build}/
+        DOWNLOAD_COMMAND ""
+        CONFIGURE_COMMAND ""
+        INSTALL_COMMAND make -C ${bpftool_source}/src OUTPUT=${bpftool_build}/ DESTDIR=${CMAKE_BINARY_DIR}/ prefix= install-bin
+        BUILD_BYPRODUCTS ${libbpf_lib}/libbpf.a
+        LOG_BUILD ON
+        LOG_INSTALL ON
+        LOG_OUTPUT_ON_FAILURE ON
+    )
+
+    # bpftools already comes with libbpf, and it conviniently builds a static
+    # library as well. We'll just use that instead of re-building our own.
+    add_library(bpf STATIC IMPORTED GLOBAL)
+    set_target_properties(bpf PROPERTIES IMPORTED_LOCATION "${libbpf_lib}/libbpf.a")
+    target_include_directories(bpf INTERFACE "${libbpf_include}")
+    target_link_libraries(bpf INTERFACE ${elf})
+    add_dependencies(bpf bpftool)
+
+    set(BPFTOOL "${CMAKE_BINARY_DIR}/sbin/bpftool" PARENT_SCOPE)
+    set(BPF_INCLUDE_DIR "${libbpf_include}" PARENT_SCOPE)
+endif ()
+
+
