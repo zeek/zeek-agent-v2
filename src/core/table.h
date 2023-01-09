@@ -487,7 +487,7 @@ public:
  * activity.
  *
  * To provide new events, derived classes should call `newEvent()` as data
- * becomes available.
+ * becomes available. It's safe to do so from any thread.
  *
  * The class inherits most of the hooks that `Table` provides, which derived
  * classes are free to implement as desired. The two exceptions are `rows()`
@@ -498,7 +498,7 @@ public:
     /**
      * Records an event that has occured.
      *
-     * Derived classes need to call this as they observe their activity.
+     * Derived classes need to call this as they observe their activity. It's safe to do so from any thread.
      *
      * @param row the column values associated with the event, which must match the table's schema
      */
@@ -529,6 +529,7 @@ private:
         bool operator<(const Event& other) const { return time < other.time; }
     };
 
+    std::mutex _events_mutex;   // mutex protecting access to the event buffer
     std::vector<Event> _events; // set of currently buffered events, sorted by timestamp
     int _mock_seed = 0;         // when generating mock data, seed value for next round
 };
