@@ -394,10 +394,13 @@ std::vector<std::vector<Value>> SnapshotTable::rows(Time t, const std::vector<ta
 }
 
 void EventTable::newEvent(std::vector<Value> row) {
+    const std::scoped_lock lock(_events_mutex);
     _events.emplace_back(Event{.time = currentTime(), .row = std::move(row)});
 }
 
 void EventTable::newEvent(Time t, std::vector<Value> row) {
+    const std::scoped_lock lock(_events_mutex);
+
     if ( ! _events.empty() && t < _events.back().time )
         throw InternalError("outdated timestamp in EventTable::newEvent()");
 
@@ -405,6 +408,8 @@ void EventTable::newEvent(Time t, std::vector<Value> row) {
 }
 
 std::vector<std::vector<Value>> EventTable::rows(Time t, const std::vector<table::Argument>& args) {
+    const std::scoped_lock lock(_events_mutex);
+
     // We ignore the WHERE constraints in this implementation.
     std::vector<std::vector<Value>> result;
 
@@ -425,6 +430,8 @@ std::vector<std::vector<Value>> EventTable::rows(Time t, const std::vector<table
 }
 
 void EventTable::expire(Time t) {
+    const std::scoped_lock lock(_events_mutex);
+
     auto end = std::lower_bound(_events.begin(), _events.end(), Event{.time = t, .row = {}});
     _events.erase(_events.begin(), end);
 }
