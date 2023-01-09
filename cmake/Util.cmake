@@ -1,4 +1,4 @@
-# Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+# Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 #
 # A collection of small helpers for the Zeek Agent build system.
 

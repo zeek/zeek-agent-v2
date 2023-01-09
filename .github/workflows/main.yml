@@ -14,6 +14,7 @@ jobs:
       ZEEK_VERSION: ${{ matrix.zeek.version }}
       ZEEK_TAG: ${{ matrix.zeek.tag }}
       ZEEK_AGENT_CONFIGURE_ADDL: ${{ matrix.configure }}
+      LD_LIBRARY_PATH: /usr/lib/llvm-17/lib/clang/17/lib/linux
 
     steps:
       - name: Prepare
