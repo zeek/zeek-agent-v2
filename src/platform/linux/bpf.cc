@@ -116,7 +116,7 @@ Result<Nothing> BPF::init(const std::string& name, void* ring_buffer) {
     }
     else {
         if ( auto rc = ring_buffer__add(_ring_buffers, bpf_map__fd(reinterpret_cast<struct bpf_map*>(ring_buffer)),
-                                        skel.event_callback, nullptr);
+                                        skel.event_callback, skel.event_context);
              rc != 0 ) {
             return error(skel.name, "creation of another ring buffer failed");
         }
