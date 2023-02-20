@@ -1,6 +1,6 @@
 #! /bin/sh
 
-awk '
+gawk '
 
 function fmt_entry(prefix, line) {
     title = gensub("^#* *", "", 1, line);
