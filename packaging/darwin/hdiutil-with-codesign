@@ -5,10 +5,10 @@
 # codesign the final state of the bundle the way we need to.
 
 args=("$@")
-base=$(cd $(dirname $0) && pwd)
+base=$(cd $(dirname $0)/../.. && pwd)
 app_src=${base}/src/platform/darwin/ZeekAgent.app
 
-codesign="/usr/bin/codesign -s '${MACOS_CERTIFICATE_APPLICATION_ID}' -v --force --options=runtime --strict --timestamp"
+codesign="/usr/bin/codesign -s '${MACOS_CERTIFICATE_APPLICATION_ID}' -v --force --options=runtime --strict --timestamp >/dev/tty 2>&1"
 
 log() {
     echo "+++ $1" >/dev/tty

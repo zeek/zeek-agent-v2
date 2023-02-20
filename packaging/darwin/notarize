@@ -27,7 +27,7 @@ if [ -z "${MACOS_NOTARIZATION_USER}" ]; then
     exit 1
 fi
 
-base=$(pwd)/../packaging/darwin
+base=$(cd $(dirname $0)/../.. && pwd)
 app_src=${base}/src/platform/darwin/ZeekAgent.app
 sign_type=$1
 bundle=$2
