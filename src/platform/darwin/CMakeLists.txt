@@ -4,5 +4,6 @@ target_sources(zeek-agent PRIVATE platform.mm endpoint-security.mm network-exten
 target_link_libraries(zeek-agent PRIVATE "EndpointSecurity")
 target_link_libraries(zeek-agent PRIVATE "-framework NetworkExtension")
 target_link_libraries(zeek-agent PRIVATE "-framework Cocoa")
+target_link_libraries(zeek-agent PRIVATE "bsm")
 
 add_subdirectory(ZeekAgent.app)

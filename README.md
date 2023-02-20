@@ -295,6 +295,30 @@ the endpoint at the time of the query.
 </details>
 
 <details>
+<summary><tt>processes_events:</tt> process activity [Linux, macOS]</summary><br />
+
+The table reports processes starting and stopping on the endpoint.
+
+| Column | Type | Description
+| --- | --- | --- |
+| `time` | time | timestamp |
+| `name` | text | name of process |
+| `pid` | count | process ID |
+| `ppid` | count | parent's process ID |
+| `uid` | count | effective user ID |
+| `gid` | count | effective group ID |
+| `ruid` | count | real user ID |
+| `rgid` | count | real group ID |
+| `priority` | text | process priority (representation is platform-specific) |
+| `startup` | interval | time process started |
+| `vsize` | count | virtual memory size |
+| `rsize` | count | resident memory size |
+| `utime` | interval | user CPU time |
+| `stime` | interval | system CPU time |
+| `state` | text | state of process |
+</details>
+
+<details>
 <summary><tt>sockets:</tt> open network sockets [Linux, Windows, macOS]</summary><br />
 
 The table provides a list of all IP sockets that are open on

@@ -64,9 +64,27 @@ using Interval = Time::duration;
 /** Converts an seconds-since-epoch timestamp into our time type. */
 constexpr Time to_time(uint64_t t) { return std::chrono::system_clock::time_point(std::chrono::seconds(t)); }
 
+/** Converts a timeval into our time type. */
+constexpr Time to_time(const struct timeval& t) {
+    auto us = std::chrono::microseconds(t.tv_sec * 1000000 + t.tv_usec);
+    return std::chrono::system_clock::time_point(us);
+};
+
+/** Converts a timespec value into our time type. */
+constexpr Time to_time(const struct timespec& t) {
+    auto us = std::chrono::microseconds(t.tv_sec * 1000000 + t.tv_nsec / 1000);
+    return std::chrono::system_clock::time_point(us);
+};
+
 /** Converts an seconds value into our interval type. */
 constexpr Interval to_interval(double t) {
     return std::chrono::duration_cast<Interval>(std::chrono::duration<double>(t));
+};
+
+/** Converts a timeval into our time type. */
+constexpr Interval to_interval(const struct timeval& t) {
+    auto us = std::chrono::microseconds(t.tv_sec * 1000000 + t.tv_usec);
+    return std::chrono::duration_cast<Interval>(us);
 };
 
 /** Converts a secs value into our interval type. */
