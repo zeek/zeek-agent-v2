@@ -14,7 +14,7 @@ using namespace zeek::agent;
 
 std::string platform::name() { return "Linux"; }
 
-void platform::init(const Configuration& cfg) {}
+void platform::init(Configuration* cfg) {}
 
 void platform::done() {}
 
@@ -61,9 +61,4 @@ std::optional<filesystem::path> platform::dataDirectory() {
 
 void platform::initializeOptions(Options* options) {
     // Nothing to do.
-}
-
-std::optional<std::string> platform::retrieveConfigurationOption(const std::string& path) {
-    // Nothing to do.
-    return {};
 }

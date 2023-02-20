@@ -1,6 +1,7 @@
 // Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
 import Foundation
+import os.log
 
 // XPC protocol between container app to communicate with the extension. The
 // app the caller, the extension the receiver. Any changes here need to be
@@ -16,6 +17,12 @@ import Foundation
 class XPC {
     private var service: IPCProtocol?
     private var connection: NSXPCConnection?
+
+    private let logger = Logger(subsystem: "org.zeek.zeek-agent", category: "installer")
+
+    func log(_ msg: String) {
+        logger.info("\(msg, privacy: .public)")
+    }
 
     // Returns true if the extension is currently running (i.e., we can
     // communicate with it). If yes, returns the version string of the running instance.
@@ -72,6 +79,11 @@ class XPC {
     private func connectXPC() -> IPCProtocol? {
         if connection == nil {
             connection = NSXPCConnection(machServiceName: "org.zeek.zeek-agent.agent")
+            if connection == nil {
+                logger.error("Failed to create XPC connection")
+                return nil
+            }
+
             connection!.remoteObjectInterface = NSXPCInterface(with: IPCProtocol.self)
             connection!.interruptionHandler = { self.resetConnection() }
             connection!.invalidationHandler = { self.resetConnection() }

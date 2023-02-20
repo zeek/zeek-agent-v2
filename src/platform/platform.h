@@ -24,7 +24,7 @@
 namespace zeek::agent::platform {
 
 /** Performs one-time initialization at startup. */
-extern void init(const Configuration& cfg);
+extern void init(Configuration* cfg);
 
 /** Performs one-time cleanup at shutdown. */
 extern void done();
@@ -63,15 +63,5 @@ extern bool runningAsAdmin();
  * mechanisms.
  */
 extern void initializeOptions(Options* options);
-
-/**
- * Retrieves the value of an option through platform-specific means. For array
- * values, the expectation is that the elements are returned as a
- * comma-separated string.
- *
- * @param path option's key path as in the TOML file
- * @returns the option's value, if set
- */
-extern std::optional<std::string> retrieveConfigurationOption(const std::string& path);
 
 } // namespace zeek::agent::platform

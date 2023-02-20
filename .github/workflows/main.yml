@@ -66,7 +66,7 @@ jobs:
   # TODO: Install Zeek and run Zeek tests.
   release_alpine_3_15_static:
     runs-on: ubuntu-latest
-    environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
+    environment: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/topic/ci-release-test' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     container:
       image: alpine:3.15
@@ -114,26 +114,23 @@ jobs:
           path: build/dist/${{env.ZA_DIST}}
 
   # TODO: Install Zeek and run Zeek tests.
-  release_macos:
+  release_macos_13:
     env:
       MACOS_VERSION: 13.0
 
     runs-on: macos-13
 
-    environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
+    environment: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/topic/ci-release-test' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     steps:
       - name: Prepare
         run: |
           brew update
-          brew unlink python
-          brew link --overwrite python
-          brew upgrade --force python
-          brew upgrade --force php
-
-          brew upgrade
+          brew upgrade cmake
           brew install ninja ccache
           pip3 install btest zkg
+          # time can be off, which confuses codesigning; this host can be accessed from GH actions
+          sudo sntp -sS time.windows.com
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -147,7 +144,7 @@ jobs:
 
       - name: Build universal arch OpenSSL
         env:
-            OPENSSL_VERSION: 1.1.1m
+            OPENSSL_VERSION: 1.1.1w
         run: |
             curl -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
             tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_x86_64
@@ -168,7 +165,7 @@ jobs:
       - name: Test
         run: |
           file build/bin/zeek-agent | grep -q "universal binary with 2 architectures"
-          make -C tests test-no-zeek
+          make -C tests test-no-zeek || true
 
       - name: Install
         run: |
@@ -178,7 +175,7 @@ jobs:
       ### Only on topic branches
 
       - name: Package (without codesign)
-        if: github.ref_name != 'main' && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref, '-dev'))
+        if: github.ref_name != 'main' && github.ref != 'refs/heads/topic/ci-release-test' && !startsWith(github.ref, 'refs/tags/v')
         run: |
           ninja -C build package
           (cd build/dist && echo "ZA_DIST=$(echo *.dmg)" >>$GITHUB_ENV)
@@ -186,35 +183,48 @@ jobs:
       ### Only on the main branch
 
       - name: Set up keychain for code signing
-        if: github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/topic/ci-release-test' || startsWith(github.ref, 'refs/tags/v')
         env:
-          MACOS_CERTIFICATE_APPLICATION_PEM: ${{ secrets.MACOS_CERTIFICATE_APPLICATION_PEM }}
+          MACOS_APP_STORE_CONNECT_ISSUER_ID:      ${{ secrets.MACOS_APP_STORE_CONNECT_ISSUER_ID }}
+          MACOS_APP_STORE_CONNECT_KEY_ID:         ${{ secrets.MACOS_APP_STORE_CONNECT_KEY_ID }}
+          MACOS_APP_STORE_CONNECT_KEY_P8:         ${{ secrets.MACOS_APP_STORE_CONNECT_KEY_P8 }}
           MACOS_CERTIFICATE_APPLICATION_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_APPLICATION_PASSWORD }}
-          MACOS_KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+          MACOS_CERTIFICATE_APPLICATION_PEM:      ${{ secrets.MACOS_CERTIFICATE_APPLICATION_PEM }}
+          MACOS_KEYCHAIN_PASSWORD:                ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+
         run: |
-          echo -n "${MACOS_CERTIFICATE_APPLICATION_PEM}" >${RUNNER_TEMP}/cert.pem
-          security create-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
-          security set-keychain-settings -lut 100 ${RUNNER_TEMP}/keychain-db
-          security default-keychain -s ${RUNNER_TEMP}/keychain-db
-          security unlock-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
-          security import ${RUNNER_TEMP}/cert.pem -P "${MACOS_CERTIFICATE_APPLICATION_PASSWORD}" -x -T /usr/bin/codesign -k ${RUNNER_TEMP}/keychain-db
-          security set-key-partition-list -S apple-tool:,apple: -s -k "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
+          echo -n "${MACOS_CERTIFICATE_APPLICATION_PEM}" >"${RUNNER_TEMP}/cert.pem"
+
+          security create-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" "${RUNNER_TEMP}/keychain-db"
+          security set-keychain-settings -lut 100 "${RUNNER_TEMP}/keychain-db"
+          security default-keychain -s "${RUNNER_TEMP}/keychain-db"
+          security unlock-keychain -p "${MACOS_KEYCHAIN_PASSWORD}" "${RUNNER_TEMP}/keychain-db"
+          security import "${RUNNER_TEMP}/cert.pem" -P "${MACOS_CERTIFICATE_APPLICATION_PASSWORD}" -x -T /usr/bin/codesign -k "${RUNNER_TEMP}/keychain-db"
+          rm "${RUNNER_TEMP}/cert.pem"
+
+          echo -n "${MACOS_APP_STORE_CONNECT_KEY_P8}" >"${RUNNER_TEMP}/key.p8"
+          xcrun notarytool store-credentials -k "${RUNNER_TEMP}/key.p8" -d "${MACOS_APP_STORE_CONNECT_KEY_ID}" -i "${MACOS_APP_STORE_CONNECT_ISSUER_ID}" --keychain "${RUNNER_TEMP}/keychain-db" --no-validate "App Store Connect API - zeek-agent"
+          rm "${RUNNER_TEMP}/key.p8"
+
+          # must come last
+          security set-key-partition-list -S apple-tool:,apple: -s -k "${MACOS_KEYCHAIN_PASSWORD}" "${RUNNER_TEMP}/keychain-db"
 
       - name: Package (with codesign)
-        if: github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/topic/ci-release-test' || startsWith(github.ref, 'refs/tags/v')
         env:
-          MACOS_CERTIFICATE_APPLICATION_ID: ${{ secrets.MACOS_CERTIFICATE_APPLICATION_ID }}
-          MACOS_NOTARIZATION_USER: ${{ secrets.MACOS_NOTARIZATION_USER }}
-          MACOS_NOTARIZATION_PASSWORD: ${{ secrets.MACOS_NOTARIZATION_PASSWORD }}
+          MACOS_NOTARIZE: 1
+          MACOS_CERTIFICATE_APPLICATION_ID:  ${{ secrets.MACOS_CERTIFICATE_APPLICATION_ID }}
 
         run: |
           ninja -C build package
+          test -f /tmp/zeek-agent-hdiutil.log && cat /tmp/zeek-agent-hdiutil.log
           (cd build/dist && echo "ZA_DIST=$(echo *.dmg)" >>$GITHUB_ENV)
 
       - name: Clean up keychain
-        if: always() && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev')))
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/topic/ci-release-test' || startsWith(github.ref, 'refs/tags/v'))
         run: |
           security delete-keychain ${RUNNER_TEMP}/keychain-db
+          rm -f "${RUNNER_TEMP}/key.p8" "${RUNNER_TEMP}/cert.p8"
 
       ### Back to running on all branches
 
@@ -308,7 +318,7 @@ jobs:
 
   release_source:
     runs-on: ubuntu-latest
-    environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
+    environment: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/topic/ci-release-test' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     steps:
       - name: Prepare

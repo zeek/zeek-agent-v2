@@ -282,37 +282,13 @@ Result<Nothing> Configuration::Implementation::read(const filesystem::path& path
     return read(in, path);
 }
 
-// Helper to parse platform-provided string values into the target type.
-template<typename T>
-T parsePlatformValue(std::string_view path, const std::string& v) {
-    if constexpr ( std::is_same<T, std::string>::value )
-        return v;
-
-    if constexpr ( std::is_same<T, double>::value )
-        return std::stod(v);
-
-    if constexpr ( std::is_same<T, bool>::value ) {
-        auto x = trim(tolower(v));
-        return x == "1" || x == "true" || x == "yes" || x == "on";
-    }
-
-    throw result::Error(frmt("cannot parse plaform value for configuration option '{}' ({})", path, to_string(v)));
-}
-
 // Get a value, typed correctly, if available.
 template<typename T>
 bool tomlValue(const std::optional<toml::table>& t, const std::string& path, T* dst) {
     using vtype = typename std::remove_reference_t<T>;
 
-    if ( ! t ) {
-        // See if we have platform-specific mechanism providing this value.
-        auto v = platform::retrieveConfigurationOption(path);
-        if ( ! v )
-            return false;
-
-        *dst = parsePlatformValue<T>(path, *v);
-        return true;
-    }
+    if ( ! t )
+        return false;
 
     auto n = t->at_path(path);
     if ( ! n )
@@ -331,16 +307,8 @@ template<typename T>
 bool tomlArray(const std::optional<toml::table>& t, const std::string& path, std::vector<T>* dst) {
     using vtype = typename std::remove_reference_t<T>;
 
-    if ( ! t ) {
-        auto v = platform::retrieveConfigurationOption(path);
-        if ( ! v )
-            return false;
-
-        for ( const auto& x : split(*v) )
-            dst->push_back(parsePlatformValue<T>(path, trim(x)));
-
-        return true;
-    }
+    if ( ! t )
+        return false;
 
     auto n = t->at_path(path);
     if ( ! n )
@@ -451,6 +419,11 @@ Configuration::~Configuration() {
 }
 
 const Options& Configuration::options() const { return *pimpl()->_options; }
+
+Result<Nothing> Configuration::setOptions(Options options) {
+    pimpl()->apply(std::move(options));
+    return Nothing();
+}
 
 Result<Nothing> Configuration::initFromArgv(std::vector<std::string> argv) {
     ZEEK_AGENT_DEBUG("configuration", "setting command line arguments: {}", join(argv, " "));
