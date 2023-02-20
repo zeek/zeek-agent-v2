@@ -1,6 +1,7 @@
 # Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
-include(BPF)
+# TODO: Re-add on Linux.
+# include(BPF)
 
 add_subdirectory(files)
 add_subdirectory(processes)
