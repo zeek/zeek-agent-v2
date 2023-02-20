@@ -114,8 +114,12 @@ jobs:
           path: build/dist/${{env.ZA_DIST}}
 
   # TODO: Install Zeek and run Zeek tests.
-  release_macos_13:
+  release_macos:
+    env:
+      MACOS_VERSION: 13.0
+
     runs-on: macos-13
+
     environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
 
     steps:
@@ -148,8 +152,8 @@ jobs:
             curl -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
             tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_x86_64
             tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_arm64
-            (cd openssl_x86_64 && CC="ccache cc" ./Configure darwin64-x86_64-cc no-shared no-tests -mmacosx-version-min=11.0 && make -j)
-            (cd openssl_arm64 && CC="ccache cc" ./Configure darwin64-arm64-cc no-shared no-tests -mmacosx-version-min=11.0 && make -j)
+            (cd openssl_x86_64 && CC="ccache cc" ./Configure darwin64-x86_64-cc no-shared no-tests -mmacosx-version-min=${MACOS_VERSION} && make -j)
+            (cd openssl_arm64 && CC="ccache cc" ./Configure darwin64-arm64-cc no-shared no-tests -mmacosx-version-min=${MACOS_VERSION} && make -j)
             mkdir -p /tmp/openssl/lib /tmp/openssl/include
             lipo -create openssl_arm64/libcrypto.a openssl_x86_64/libcrypto.a -output /tmp/openssl/lib/libcrypto.a
             lipo -create openssl_arm64/libssl.a openssl_x86_64/libssl.a -output /tmp/openssl/lib/libssl.a
@@ -158,7 +162,7 @@ jobs:
 
       - name: Build
         run: |
-          ./configure --prefix=${{runner.temp}}/zeek-agent --enable-ccache --enable-werror --enable-osx-universal --generator=Ninja --with-openssl=/tmp/openssl
+          ./configure --prefix=${{runner.temp}}/zeek-agent --enable-ccache --enable-werror --enable-osx-universal --generator=Ninja --with-openssl=/tmp/openssl --osx-deployment-target=${MACOS_VERSION}
           ninja -C build
 
       - name: Test

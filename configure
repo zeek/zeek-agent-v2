@@ -18,6 +18,7 @@ cmake_use_werror="no"
 cmake_use_static_linking="no"
 cmake_openssl_root=""
 cmake_osx_architectures=""
+cmake_osx_deployment_target=""
 
 display_cmake=0
 cache_entries=""
@@ -58,6 +59,7 @@ Usage: $0 [OPTION]... [VAR=VALUE]...
     --generator=<generator>            CMake generator to use (see cmake --help)
     --prefix=PATH                      Installation prefix [default: ${cmake_install_prefix}]
     --with-openssl=DIR                 Path to OpenSSL installation root
+    --osx-deployment-target=VERSION    Minimum macOS version to deploy on
 
     --display-cmake                    Don't create build configuration, just output final CMake invocation
 "
@@ -108,6 +110,7 @@ while [ $# -ne 0 ]; do
         --generator=*)                     cmake_generator="${optarg}";;
         --prefix=*)                        cmake_install_prefix="${optarg}";;
         --with-openssl=*)                  cmake_openssl_root="${optarg}";;
+        --osx-deployment-target=*)         cmake_osx_deployment_target="${optarg}";;
 
         --display-cmake) display_cmake=1;;
 
@@ -121,6 +124,7 @@ done
 append_cache_entry CMAKE_BUILD_TYPE             STRING "${cmake_build_type}"
 append_cache_entry CMAKE_INSTALL_PREFIX         PATH   "${cmake_install_prefix}"
 append_cache_entry CMAKE_OSX_ARCHITECTURES      STRING "${cmake_osx_architectures}"
+append_cache_entry CMAKE_OSX_DEPLOYMENT_TARGET  STRING "${cmake_osx_deployment_target}"
 append_cache_entry USE_BROKER                   BOOL   "${cmake_use_broker}"
 append_cache_entry USE_CCACHE                   BOOL   "${cmake_use_ccache}"
 append_cache_entry USE_SANITIZERS               STRING "${cmake_use_sanitizers}"
