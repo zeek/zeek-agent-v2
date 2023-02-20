@@ -7,76 +7,76 @@
 
 #include "autogen/config.h"
 #include "core/logger.h"
+#include "util/helpers.h"
 
 #include <EndpointSecurity/EndpointSecurity.h>
 
 using namespace zeek::agent;
 using namespace zeek::agent::platform::darwin;
 
-template<>
-struct Pimpl<EndpointSecurity>::Implementation {
-    // Initialize ES, if not done yet.
-    Result<Nothing> init();
+es::Subscriber::Subscriber(std::string tag, es_client_t* client) : _tag(std::move(tag)), _client(client) {
+    if ( ! _client )
+        return;
 
-    // Shutdown ES, if running.
-    void done();
+    ZEEK_AGENT_DEBUG("darwin", "[EndpointSecurity] [{}] subscription created", _tag);
+}
 
-    es_client_t* _es_client = nullptr;
-    Result<Nothing> _es_init_result;
-};
+es::Subscriber::~Subscriber() {
+    if ( ! _client )
+        return;
 
-static es_handler_block_t dummy_handler = ^(es_client_t* clt, const es_message_t* msg) {
-};
+    es_delete_client(_client);
+    ZEEK_AGENT_DEBUG("darwin", "[EndpointSecurity] [{}] subscription deleted", _tag);
+}
 
-Result<Nothing> EndpointSecurity::Implementation::init() {
-    es_new_client_result_t res = es_new_client(&_es_client, dummy_handler);
+EndpointSecurity::EndpointSecurity() {
+    if ( auto rc = subscribe("CheckAvailability", {}, [](const es_message_t*) {}) ) {
+        ZEEK_AGENT_DEBUG("darwin", "[EndpointSecurity] available");
+        _init_result = Nothing();
+    }
+    else {
+        ZEEK_AGENT_DEBUG("darwin", "[EndpointSecurity] not available: {}", rc.error());
+        _init_result = rc.error();
+    }
+}
+
+EndpointSecurity::~EndpointSecurity() {}
+
+Result<std::unique_ptr<es::Subscriber>> EndpointSecurity::subscribe(std::string tag, const Events& events,
+                                                                    Callback callback) { // NOLINT
+    es_client_t* client;
+    es_new_client_result_t res = es_new_client(&client, ^(es_client_t* c, const es_message_t* msg) {
+      callback(msg);
+    });
 
     switch ( res ) {
-        case ES_NEW_CLIENT_RESULT_SUCCESS: _es_init_result = Nothing(); break;
+        case ES_NEW_CLIENT_RESULT_SUCCESS: {
+            if ( events.size() ) {
+                if ( es_subscribe(client, events.data(), events.size()) != ES_RETURN_SUCCESS )
+                    return result::Error("failed to subscribe to EndpointSecurity events");
+            }
+
+            return std::unique_ptr<es::Subscriber>(
+                new es::Subscriber(std::move(tag), events.size() ? client : nullptr));
+        }
 
         case ES_NEW_CLIENT_RESULT_ERR_NOT_ENTITLED:
-            _es_init_result =
-                result::Error("macOS entitlement not available (com.apple.developer.endpoint-security.client)");
-            break;
+            return result::Error("macOS entitlement not available (com.apple.developer.endpoint-security.client)");
 
         case ES_NEW_CLIENT_RESULT_ERR_NOT_PERMITTED:
-            _es_init_result = result::Error(
+            return result::Error(
                 "Application lacks Transparency, Consent, and Control (TCC) approval "
                 "from the user. This can be resolved by granting 'Full Disk Access' from "
                 "the 'Security & Privacy' tab of System Preferences.");
-            break;
 
-        case ES_NEW_CLIENT_RESULT_ERR_NOT_PRIVILEGED: _es_init_result = result::Error("not running as root"); break;
-        case ES_NEW_CLIENT_RESULT_ERR_TOO_MANY_CLIENTS: _es_init_result = result::Error("too many clients"); break;
-        case ES_NEW_CLIENT_RESULT_ERR_INVALID_ARGUMENT: _es_init_result = result::Error("invalid argument"); break;
-        case ES_NEW_CLIENT_RESULT_ERR_INTERNAL: _es_init_result = result::Error("internal error"); break;
+        case ES_NEW_CLIENT_RESULT_ERR_NOT_PRIVILEGED: return result::Error("not running as root");
+        case ES_NEW_CLIENT_RESULT_ERR_TOO_MANY_CLIENTS: return result::Error("too many clients");
+        case ES_NEW_CLIENT_RESULT_ERR_INVALID_ARGUMENT: return result::Error("invalid argument");
+        case ES_NEW_CLIENT_RESULT_ERR_INTERNAL: return result::Error("internal error");
     }
 
-    if ( _es_init_result )
-        ZEEK_AGENT_DEBUG("darwin", "EndpointSecurity available");
-    else
-        ZEEK_AGENT_DEBUG("darwin", "EndpointSecurity not available: {}", _es_init_result.error());
-
-    return _es_init_result;
+    cannot_be_reached();
 }
-
-void EndpointSecurity::Implementation::done() {
-    if ( _es_client )
-        es_delete_client(_es_client);
-
-    _es_client = nullptr;
-    _es_init_result = {};
-}
-
-Result<Nothing> EndpointSecurity::isAvailable() {
-    if ( pimpl()->_es_init_result )
-        return Nothing();
-    else
-        return pimpl()->init();
-}
-
-EndpointSecurity::EndpointSecurity() { pimpl()->init(); }
-EndpointSecurity::~EndpointSecurity() { pimpl()->done(); }
 
 EndpointSecurity* platform::darwin::endpointSecurity() {
     static auto es = std::unique_ptr<EndpointSecurity>{};
