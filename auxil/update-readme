@@ -12,7 +12,7 @@ README=../README.md
 tmp=/tmp/README.$$.tmp
 trap "rm -f ${tmp}" EXIT
 
-awk '
+gawk '
     BEGIN                               { p = 1 }
 
     /<!-- begin table of contents -->/    { print;
