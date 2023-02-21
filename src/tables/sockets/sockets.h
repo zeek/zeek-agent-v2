@@ -44,7 +44,7 @@ public:
             .description = R"(
                 The table reports IP sockets opening and closing on the endpoint.
                 )",
-            .platforms = { Platform::Linux },
+            .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
                 {.name = "time", .type = value::Type::Time, .summary = "timestamp"},
                 {.name = "pid", .type = value::Type::Count, .summary = "ID of process holding socket"},

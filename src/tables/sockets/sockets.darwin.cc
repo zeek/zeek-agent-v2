@@ -9,8 +9,11 @@
 #include "core/database.h"
 #include "core/logger.h"
 #include "core/table.h"
+#include "platform/darwin/network-extension.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
+
+#include <iostream>
 
 #include <libproc.h>
 
@@ -28,7 +31,7 @@ public:
 };
 
 namespace {
-database::RegisterTable<SocketsDarwin> _;
+database::RegisterTable<SocketsDarwin> _1;
 }
 
 std::vector<std::vector<Value>> SocketsDarwin::snapshot(const std::vector<table::Argument>& args) {
@@ -146,5 +149,114 @@ void SocketsDarwin::addSocket(std::vector<std::vector<Value>>* rows, int pid, co
 
     rows->push_back({pid, process, family, protocol, local_addr, local_port, remote_addr, remote_port, state});
 }
+
+class SocketsEventsDarwin : public SocketsEventsCommon {
+public:
+    Init init() override;
+    void activate() override;
+    void deactivate() override;
+
+private:
+    std::unique_ptr<platform::darwin::ne::Subscriber> _subscriber;
+};
+
+namespace {
+database::RegisterTable<SocketsEventsDarwin> _2;
+}
+
+/*
+ * template<typename T, typename S>
+ * Value to_val(const S& i) {
+ *     return i ? Value(static_cast<T>(i)) : Value();
+ * }
+ *
+ * static int handle_event(void* ctx, void* data, size_t data_sz) {
+ *     static auto addr_to_string = [](const void* addr, uint64_t family) -> Value {
+ *         switch ( family ) {
+ *             case AF_INET:
+ *                 if ( memcmp(addr, "\x00\x00\x00\x00", 4) == 0 )
+ *                     return {};
+ *                 break;
+ *
+ *             case AF_INET6:
+ *                 if ( memcmp(addr, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+ *                             16) == 0 )
+ *                     return {};
+ *
+ *                 break;
+ *
+ *             default: break;
+ *         }
+ *
+ *         char buffer[INET6_ADDRSTRLEN];
+ *         return inet_ntop(static_cast<int>(family), addr, buffer, sizeof(buffer));
+ *     };
+ *
+ *     auto table = reinterpret_cast<SocketsEventsDarwin*>(ctx);
+ *     auto ev = reinterpret_cast<const bpfSocketEvent*>(data);
+ *
+ *     auto pid = to_val<int64_t>(ev->process.pid);
+ *     auto uid = to_val<int64_t>(ev->process.uid);
+ *     auto gid = to_val<int64_t>(ev->process.gid);
+ *     auto process = Value(ev->process.name);
+ *
+ *     Value family;
+ *     switch ( ev->family ) {
+ *         case AF_INET: family = "IPv4"; break;
+ *         case AF_INET6: family = "IPv6"; break;
+ *         default: family = frmt("family-{}", ev->family);
+ *     }
+ *
+ *     auto protocol = to_val<int64_t>(ev->protocol);
+ *     auto local_addr = addr_to_string(&ev->local_addr, ev->family);
+ *     auto local_port = to_val<int64_t>(ev->local_port);
+ *     auto remote_addr = addr_to_string(&ev->remote_addr, ev->family);
+ *     auto remote_port = to_val<int64_t>(ev->remote_port);
+ *
+ *     Value state;
+ *     switch ( ev->state ) {
+ *         case BPF_SOCKET_STATE_CLOSED: state = "closed"; break;
+ *         case BPF_SOCKET_STATE_ESTABLISHED: state = "established"; break;
+ *         case BPF_SOCKET_STATE_EXPIRED: state = "expired"; break;
+ *         case BPF_SOCKET_STATE_FAILED: state = "failed"; break;
+ *         case BPF_SOCKET_STATE_LISTEN: state = "listen"; break;
+ *         case BPF_SOCKET_STATE_UNKNOWN: break; // leave unset
+ *     }
+ *
+ *     table->newEvent({table->systemTime(), pid, process, uid, gid, family, protocol, local_addr, local_port,
+ * remote_addr, remote_port, state});
+ *
+ *     return 1;
+ * }
+ */
+
+static void handle_event(SocketsEventsDarwin* table, const platform::darwin::ne::Flow& flow) {
+    Value t = table->systemTime();
+    Value pid;
+    Value process;
+    Value uid;
+    Value gid;
+    Value family;
+    Value protocol;
+    Value state;
+
+    table->newEvent({t, pid, process, uid, gid, family, protocol, flow.local_addr, flow.local_port, flow.remote_addr,
+                     flow.remote_port, state});
+}
+
+Table::Init SocketsEventsDarwin::init() {
+    auto ne = platform::darwin::networkExtension();
+
+    // It may take a bit for the network extension to start up, so we'll keep
+    // trying.
+    return ne->isAvailable() ? Init::Available : Init::TemporarilyUnavailable;
+}
+
+void SocketsEventsDarwin::activate() {
+    auto ne = platform::darwin::networkExtension();
+    _subscriber = ne->subscribe("sockets-events", [this](const auto& event) { handle_event(this, event); });
+}
+
+void SocketsEventsDarwin::deactivate() { _subscriber.reset(); }
 
 } // namespace zeek::agent::table

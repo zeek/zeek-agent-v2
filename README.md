@@ -338,6 +338,27 @@ the endpoint at the time of the query.
 </details>
 
 <details>
+<summary><tt>sockets_events:</tt> open network sockets [Linux, macOS]</summary><br />
+
+The table reports IP sockets opening and closing on the endpoint.
+
+| Column | Type | Description
+| --- | --- | --- |
+| `time` | time | timestamp |
+| `pid` | count | ID of process holding socket |
+| `process` | text | name of process holding socket |
+| `uid` | count | user ID of process |
+| `gid` | count | group ID of process |
+| `family` | text | `IPv4` or `IPv6` |
+| `protocol` | count | transport protocol |
+| `local_addr` | address | local IP address |
+| `local_port` | count | local port number |
+| `remote_addr` | address | remote IP address |
+| `remote_port` | count | remote port number |
+| `state` | text | state of socket |
+</details>
+
+<details>
 <summary><tt>system_logs_events:</tt> log messages recorded by the operating systems [Linux, Windows, macOS]</summary><br />
 
 The table provides access to log messages recorded by the

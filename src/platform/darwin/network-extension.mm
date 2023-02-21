@@ -13,21 +13,42 @@
 using namespace zeek::agent;
 using namespace zeek::agent::platform::darwin;
 
+ne::Subscriber::~Subscriber() { _ne->_subscribers.remove(this); }
+
 template<>
 struct Pimpl<NetworkExtension>::Implementation {
     bool running = false;
 };
 
 Result<Nothing> NetworkExtension::isAvailable() {
-    if ( pimpl()->running )
+    if ( pimpl()->running ) {
+        ZEEK_AGENT_DEBUG("darwin", "[NetworkExtension] available");
         return Nothing();
-    else
-        return result::Error("network extension  not running");
+    }
+    else {
+        ZEEK_AGENT_DEBUG("darwin", "[NetworkExtension] not available");
+        return result::Error("network extension not running");
+    }
 }
 
 NetworkExtension::NetworkExtension() {}
 
 NetworkExtension::~NetworkExtension() {}
+
+std::unique_ptr<ne::Subscriber> NetworkExtension::subscribe(std::string tag, Callback callback) {
+    auto subscriber = std::unique_ptr<ne::Subscriber>(new ne::Subscriber(this, std::move(tag), std::move(callback)));
+    _subscribers.push_back(subscriber.get());
+    return std::move(subscriber);
+}
+
+void NetworkExtension::newFlow(const ne::Flow& flow) {
+    ZEEK_AGENT_DEBUG("darwin",
+                     frmt("[NetworkExtension] New flow: {}/{} -> {}/{}", to_string(flow.local_addr),
+                          to_string(flow.local_port), to_string(flow.remote_addr), to_string(flow.remote_port)));
+
+    for ( const auto& s : _subscribers )
+        s->_callback(flow);
+}
 
 NetworkExtension* platform::darwin::networkExtension() {
     static auto ne = std::unique_ptr<NetworkExtension>{};
@@ -43,6 +64,7 @@ NetworkExtension* platform::darwin::networkExtension() {
 
 @implementation FilterDataProvider
 - (void)startFilterWithCompletionHandler:(void (^)(NSError* error))completionHandler {
+    ZEEK_AGENT_DEBUG("darwin", "[NetworkExtension] starting");
     networkExtension()->pimpl()->running = true;
 
     // Create a filter that matches all traffic and let it all pass through our
@@ -69,13 +91,29 @@ NetworkExtension* platform::darwin::networkExtension() {
 }
 
 - (void)stopFilterWithReason:(NEProviderStopReason)reason completionHandler:(void (^)(void))completionHandler {
+    ZEEK_AGENT_DEBUG("darwin", "[NetworkExtension] stopping");
     networkExtension()->pimpl()->running = false;
     completionHandler();
 }
 
 - (NEFilterNewFlowVerdict*)handleNewFlow:(NEFilterFlow*)flow {
-    // TODO: Report new flow to subscribers here.
-    // logger()->info("new flow");
+    ZEEK_AGENT_DEBUG("darwin", "[NetworkExtension] got flow");
+
+    if ( ! [flow isKindOfClass:[NEFilterSocketFlow class]] )
+        return [NEFilterNewFlowVerdict allowVerdict];
+
+    auto sf = (NEFilterSocketFlow*)flow;
+    auto local = (NWHostEndpoint*)sf.localEndpoint;
+    auto remote = (NWHostEndpoint*)sf.remoteEndpoint;
+
+    ne::Flow nf;
+    nf.local_addr = [local.hostname UTF8String];
+    nf.local_port = [local.port UTF8String];
+    nf.remote_addr = [remote.hostname UTF8String];
+    nf.remote_port = [remote.port UTF8String];
+
+    networkExtension()->newFlow(nf);
+
     return [NEFilterNewFlowVerdict allowVerdict];
 }
 
