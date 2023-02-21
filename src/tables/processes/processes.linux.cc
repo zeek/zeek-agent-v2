@@ -16,7 +16,7 @@ namespace zeek::agent::table {
 class ProcessesLinux : public ProcessesCommon {
 public:
     std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
-    bool init() override;
+    Init init() override;
 
 private:
     uint64_t _clock_tick;
@@ -26,9 +26,9 @@ namespace {
 database::RegisterTable<ProcessesLinux> _;
 }
 
-bool ProcessesLinux::init() {
+EventTable::Init ProcessesLinux::init() {
     _clock_tick = sysconf(_SC_CLK_TCK);
-    return true;
+    return Init::Available;
 }
 
 std::vector<std::vector<Value>> ProcessesLinux::snapshot(const std::vector<table::Argument>& args) {

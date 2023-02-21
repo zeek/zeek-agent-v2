@@ -17,28 +17,29 @@ namespace zeek::agent::table {
 
 class ProcessesDarwin : public ProcessesCommon {
 public:
+    ProcessesDarwin() {
+        struct mach_timebase_info tb;
+        if ( mach_timebase_info(&tb) == KERN_SUCCESS )
+            _timebase = tb;
+        else
+            logger()->warn("[processes] cannot get MACH timebase, will disable table");
+    }
+
     std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
     void addProcess(std::vector<std::vector<Value>>* rows, const struct proc_bsdinfo* p,
                     const struct proc_taskinfo* ti);
 
-    bool init() override;
+    Init init() override;
 
 private:
-    struct mach_timebase_info _timebase;
+    std::optional<struct mach_timebase_info> _timebase;
 };
 
 namespace {
 database::RegisterTable<ProcessesDarwin> _;
 }
 
-bool ProcessesDarwin::init() {
-    if ( mach_timebase_info(&_timebase) != KERN_SUCCESS ) {
-        logger()->warn("[processes] cannot get MACH timebase, disabling table");
-        return false;
-    }
-
-    return true;
-}
+EventTable::Init ProcessesDarwin::init() { return _timebase ? Init::Available : Init::PermanentlyUnavailable; }
 
 std::vector<std::vector<Value>> ProcessesDarwin::snapshot(const std::vector<table::Argument>& args) {
     auto buffer_size = proc_listpids(PROC_ALL_PIDS, 0, nullptr, 0);
@@ -91,10 +92,11 @@ void ProcessesDarwin::addProcess(std::vector<std::vector<Value>>* rows, const st
     Value utime;
     Value stime;
     if ( ti ) {
+        assert(_timebase);
         vsize = static_cast<int64_t>(ti->pti_virtual_size);
         rsize = static_cast<int64_t>(ti->pti_resident_size);
-        utime = to_interval_from_ns(ti->pti_total_user * _timebase.numer / _timebase.denom);
-        stime = to_interval_from_ns(ti->pti_total_system * _timebase.numer / _timebase.denom);
+        utime = to_interval_from_ns(ti->pti_total_user * _timebase->numer / _timebase->denom);
+        stime = to_interval_from_ns(ti->pti_total_system * _timebase->numer / _timebase->denom);
     }
 
     rows->push_back({name, pid, ppid, uid, gid, ruid, rgid, priority, startup, vsize, rsize, utime, stime});

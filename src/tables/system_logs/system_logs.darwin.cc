@@ -30,7 +30,7 @@ namespace {
 
 class SystemLogsDarwin : public SystemLogs {
 public:
-    bool init() override;
+    Init init() override;
     void activate() override;
     void deactivate() override;
 
@@ -63,7 +63,7 @@ void SystemLogsDarwin::recordEntry(os_activity_stream_entry_t entry, int error) 
     free(msg);
 }
 
-bool SystemLogsDarwin::init() { return true; }
+Table::Init SystemLogsDarwin::init() { return Init::Available; }
 
 void SystemLogsDarwin::activate() {
     // Notes:
