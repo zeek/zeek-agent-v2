@@ -22,13 +22,15 @@ namespace options {
  * couple of special modes beyond normal operation.
  **/
 enum class Mode {
-    Standard, /**< normal operation */
-    Test,     /**< run unit tests and exit */
-    AutoDoc   /**< print out JSON describing table schemas and exit */
+    Standard,      /**< normal operation */
+    RemoteConsole, /**< connect to remote agent */
+    Test,          /**< run unit tests and exit */
+    AutoDoc        /**< print out JSON describing table schemas and exit */
 };
 
 inline std::string to_string(options::Mode mode) {
     switch ( mode ) {
+        case options::Mode::RemoteConsole: return "remote console";
         case options::Mode::Standard: return "standard";
         case options::Mode::Test: return "test";
         case options::Mode::AutoDoc: return "autodoc";
@@ -87,6 +89,7 @@ inline Result<LogType> from_str(const std::string_view& t) {
 extern LogLevel default_log_level;
 extern LogType default_log_type;
 extern filesystem::path default_log_path;
+extern filesystem::path default_socket_file_name;
 
 } // namespace options
 
@@ -123,8 +126,15 @@ struct Options {
     /** Console statement/command to execute at startup, and then terminate */
     std::string execute;
 
-    /** True to spawn the interactive console */
+    /** True to spawn the interactive console locally. */
     bool interactive = false;
+
+    /**
+     * Set to a socket name to spawn the interactive console connecting to a
+     * remote agent. If set to an empty path, expect remote at default socket
+     * location.
+     */
+    std::optional<filesystem::path> interactive_remote;
 
     /** The agent's level of logging. Default is `warn` and worse. */
     std::optional<options::LogLevel> log_level;
@@ -134,6 +144,9 @@ struct Options {
 
     /** File path associated with logger, if current type needs one. */
     std::optional<filesystem::path> log_path = {};
+
+    /** Default socket for remote console. */
+    std::optional<filesystem::path> socket;
 
     /** True to have any tables only report mock data for testing. */
     bool use_mock_data = false;

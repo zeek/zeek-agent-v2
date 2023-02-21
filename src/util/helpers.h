@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <codecvt>
 #include <functional>
 #include <iomanip>
 #include <memory>
@@ -113,6 +114,7 @@ inline std::string to_string(Interval t) {
     b << std::chrono::duration_cast<std::chrono::seconds>(t).count() << "s";
     return std::string(b.str());
 }
+
 
 /** Aborts with an internal error saying we should not be where we are. */
 #ifdef HAVE_MSVC
@@ -325,7 +327,7 @@ extern std::pair<std::string, std::string> rsplit1(std::string s, const std::str
  *
  * \note This function is not UTF8-aware.
  */
-std::string replace(std::string s, std::string o, std::string n);
+extern std::string replace(const std::string& s, const std::string& o, const std::string& n);
 
 /**
  * Returns true if a string begins with another.

@@ -272,7 +272,10 @@ void WMIManager::GetUserData(const std::wstring& key, bool system_accounts, std:
             info.sid = narrowWstring(var.bstrVal);
         VariantClear(&var);
 
-        std::wstring path_query = frmt(L"SELECT LocalPath from Win32_UserProfile WHERE SID = \"{}\"", var.bstrVal);
+        // TODO: Using frmt() here leads a compiler error "caused by a read of
+        // a variable outside its lifetime". Not sure why.
+        std::wstring path_query =
+            fmt::format(L"SELECT LocalPath from Win32_UserProfile WHERE SID = \"{}\"", var.bstrVal);
 
         if ( auto user_enum = GetQueryEnumerator(path_query) ) {
             IWbemClassObjectPtr user_obj = nullptr;

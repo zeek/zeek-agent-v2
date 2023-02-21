@@ -10,7 +10,7 @@
 namespace zeek::agent::platform::darwin {
 
 /** Custom spdlog sink writing to OSLog. */
-class OSLogSink : public spdlog::sinks::base_sink<std::mutex> {
+class OSLogSink final : public spdlog::sinks::base_sink<std::mutex> {
 public:
     OSLogSink();
     ~OSLogSink() override;
