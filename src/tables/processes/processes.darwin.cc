@@ -90,14 +90,14 @@ public:
     void addProcess(std::vector<std::vector<Value>>* rows, const struct proc_bsdinfo* p,
                     const struct proc_taskinfo* ti);
 
-    bool init() override;
+    Init init() override;
 };
 
 namespace {
 database::RegisterTable<ProcessesDarwin> _1;
 }
 
-bool ProcessesDarwin::init() { return true; }
+Table::Init ProcessesDarwin::init() { return Init::Available; }
 
 std::vector<std::vector<Value>> ProcessesDarwin::snapshot(const std::vector<table::Argument>& args) {
     auto buffer_size = proc_listpids(PROC_ALL_PIDS, 0, nullptr, 0);
@@ -127,7 +127,7 @@ void ProcessesDarwin::addProcess(std::vector<std::vector<Value>>* rows, const st
 
 class ProcessesEventsDarwin : public ProcessesEventsCommon {
 public:
-    bool init() override;
+    Init init() override;
     void activate() override;
     void deactivate() override;
 
@@ -191,9 +191,9 @@ static void handle_event(ProcessesEventsDarwin* table, const es_message_t* msg) 
     table->newEvent({t, name, pid, ppid, uid, gid, ruid, rgid, priority, startup, vsize, rsize, utime, stime, state});
 }
 
-bool ProcessesEventsDarwin::init() {
+Table::Init ProcessesEventsDarwin::init() {
     auto es = platform::darwin::endpointSecurity();
-    return es->isAvailable().hasValue();
+    return es->isAvailable() ? Init::Available : Init::PermanentlyUnavailable;
 }
 
 void ProcessesEventsDarwin::activate() {

@@ -311,7 +311,8 @@ public:
      * @result false to completely disable the table at this point, so that it
      * will not be available for queries.
      */
-    virtual bool init() { return true; }
+    enum class Init { Available, PermanentlyUnavailable, TemporarilyUnavailable };
+    virtual Init init() { return Init::Available; }
 
     /**
      * Hook that will be called just before the first query against this table
@@ -417,6 +418,12 @@ public:
      */
     Time systemTime() const;
 
+    /**
+     * Record the database that this table has been registered with. For
+     * internal use by database only.
+     */
+    void setDatabase(Database* db) { _db = db; }
+
 protected:
     /**
      * Returns the configuration options currently in effect. This won't be
@@ -439,11 +446,6 @@ protected:
     std::vector<Value> generateMockRow(int i);
 
 private:
-    friend Database;
-
-    // Record the database that this table has been registered with.
-    void setDatabase(Database* db) { _db = db; }
-
     Database* _db = nullptr;      // database set through `setDatabase()`
     int _current_connections = 0; // counter of active queries against this table
     mutable Time _last_time = {};

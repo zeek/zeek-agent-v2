@@ -53,17 +53,22 @@ struct Pimpl<Database>::Implementation {
     // Adds table to database.
     void addTable(Table* t);
 
+    // Adds table to list of pending ones.
+    void addPendingTable(Table* t);
+
     // Callback for the timers we install for our queries.
     Interval timerCallback(timer::ID id);
 
     // Helper to lookup scheduled query.
     std::optional<std::list<ScheduledQuery>::iterator> lookupQuery(query::ID);
 
+    Database* _db = nullptr;                       // database this implementation belongs to
     const Configuration* _configuration = nullptr; // configuration object, as passed into constructor
     Scheduler* _scheduler = nullptr;               // scheduler as passed into constructor
     std::unique_ptr<SQLite> _sqlite;               // SQLite backend for performing queries
 
     std::map<std::string, Table*> _tables; // registered tables indexed by name
+    std::list<Table*> _pending_tables;     // registered tables that we were initially temporarily unavailable
     std::list<ScheduledQuery> _queries;    // outstanding queries; list so that iterators remain valid on changes
     std::map<query::ID, std::list<ScheduledQuery>::iterator> _queries_by_id; // outstanding queries indexed by their ID
     std::set<std::pair<query::ID, bool>> _cancelled_queries; // track cancelled, but not removed, queries
@@ -167,6 +172,13 @@ void Database::Implementation::expire() {
             t->expire(expire_until);
         }
     }
+
+    // Go through pending tables and see if any has become available.
+    if ( ! _pending_tables.empty() ) {
+        auto pending = std::move(_pending_tables);
+        for ( const auto& t : pending )
+            addTable(t);
+    }
 }
 
 void Database::Implementation::poll() {
@@ -177,16 +189,36 @@ void Database::Implementation::poll() {
 }
 
 void Database::Implementation::addTable(Table* t) {
-    auto schema = t->schema();
+    switch ( t->init() ) {
+        case EventTable::Init::Available: {
+            ZEEK_AGENT_DEBUG("database", "adding table {} to database", t->name());
+            t->setDatabase(_db);
 
-    if ( _tables.find(schema.name) != _tables.end() )
-        throw InternalError(frmt("table {} registered more than once", schema.name));
+            auto schema = t->schema();
 
-    auto rc = _sqlite->addTable(t);
-    if ( ! rc )
-        throw FatalError(frmt("error registering table {} with SQLite backend: {}", schema.name, rc.error()));
+            if ( _tables.find(schema.name) != _tables.end() )
+                throw InternalError(frmt("table {} registered more than once", schema.name));
 
-    _tables[schema.name] = t;
+            auto rc = _sqlite->addTable(t);
+            if ( ! rc )
+                throw FatalError(frmt("error registering table {} with SQLite backend: {}", schema.name, rc.error()));
+
+            _tables[schema.name] = t;
+            return;
+        }
+
+        case EventTable::Init::PermanentlyUnavailable:
+            ZEEK_AGENT_DEBUG("database", "not adding table {} to database because it's permanently disabled",
+                             t->name());
+            return;
+
+        case EventTable::Init::TemporarilyUnavailable:
+            ZEEK_AGENT_DEBUG("database",
+                             "not adding table {} to database because it's currently not available; will retry",
+                             t->name());
+            _pending_tables.push_back(t);
+            return;
+    }
 }
 
 static auto diffRows(std::vector<std::vector<Value>> old, std::vector<std::vector<Value>> new_) {
@@ -333,6 +365,7 @@ Table* Database::Implementation::table(const std::string& name) {
 
 Database::Database(Configuration* configuration, Scheduler* scheduler) {
     ZEEK_AGENT_DEBUG("database", "creating instance");
+    pimpl()->_db = this;
     pimpl()->_configuration = configuration;
     pimpl()->_scheduler = scheduler;
     pimpl()->_sqlite = std::make_unique<SQLite>();
@@ -400,20 +433,14 @@ void Database::expire() {
 }
 
 void Database::addTable(Table* t) {
-    t->setDatabase(this);
-
     if ( configuration().options().use_mock_data )
         t->enableMockData();
 
-    if ( ! t->usesMockData() ) {
-        if ( ! t->init() ) {
-            ZEEK_AGENT_DEBUG("database", "not adding table {} to database because it's disabled", t->name());
-            t->setDatabase(nullptr);
-            return;
-        }
+    if ( t->usesMockData() ) {
+        t->setDatabase(this);
+        return;
     }
 
-    ZEEK_AGENT_DEBUG("database", "adding table {} to database", t->name());
     pimpl()->addTable(t);
 }
 
@@ -492,9 +519,9 @@ TEST_SUITE("Database") {
 
         ~TestTable() override {}
 
-        bool init() override {
+        Init init() override {
             initialized = true;
-            return true;
+            return Init::Available;
         }
 
         std::vector<Time> expected_times;
@@ -539,7 +566,7 @@ TEST_SUITE("Database") {
             CHECK_EQ((*db.tables().begin())->schema().description, "test-description");
         }
 
-        SUBCASE("disabled table") {
+        SUBCASE("permanently disabled table") {
             class Disabled : public TestTable {
             public:
                 Schema schema() const override {
@@ -548,7 +575,7 @@ TEST_SUITE("Database") {
                     return schema;
                 }
 
-                bool init() override { return false; }
+                Init init() override { return Init::PermanentlyUnavailable; }
             };
 
             Disabled t;
@@ -557,6 +584,31 @@ TEST_SUITE("Database") {
             Database db(&cfg, &tmgr);
             db.addTable(&t);
             REQUIRE(! db.table("disabled"));
+        }
+
+        SUBCASE("temporarily disabled table") {
+            class Disabled : public TestTable {
+            public:
+                Schema schema() const override {
+                    auto schema = TestTable::schema();
+                    schema.name = "disabled";
+                    return schema;
+                }
+
+                Init init() override { return enabled ? Init::Available : Init::TemporarilyUnavailable; }
+
+                bool enabled = false;
+            };
+
+            Disabled t;
+            Configuration cfg;
+            Scheduler tmgr;
+            Database db(&cfg, &tmgr);
+            db.addTable(&t);
+            REQUIRE(! db.table("disabled"));
+            t.enabled = true;
+            db.expire(); // will trigger retry
+            REQUIRE(db.table("disabled"));
         }
     }
 
@@ -1089,7 +1141,7 @@ TEST_SUITE("Database") {
     TEST_CASE("virtual methods with mock data") {
         // Check that some of our virtual methods aren't called when using mock data.
         class MockedTestTable : public TestTable {
-            bool init() override {
+            Init init() override {
                 CHECK(false);
                 cannot_be_reached();
             }

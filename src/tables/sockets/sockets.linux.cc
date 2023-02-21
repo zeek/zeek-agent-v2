@@ -121,7 +121,7 @@ std::vector<std::vector<Value>> SocketsLinux::snapshot(const std::vector<table::
 
 class SocketsEventsLinux : public SocketsEventsCommon {
 public:
-    bool init() override;
+    Init init() override;
     void activate() override;
     void deactivate() override;
 };
@@ -194,10 +194,10 @@ static int handle_event(void* ctx, void* data, size_t data_sz) {
     return 1;
 }
 
-bool SocketsEventsLinux::init() {
+Init SocketsEventsLinux::init() {
     auto bpf = platform::linux::bpf();
     if ( ! bpf->isAvailable() )
-        return false;
+        return Init::PermanentlyUnavailable;
 
     auto skel = platform::linux::BPF::Skeleton{.name = "Sockets",
                                                .open = reinterpret_cast<void*>(sockets__open),
@@ -211,15 +211,15 @@ bool SocketsEventsLinux::init() {
     auto our_bpf = bpf->load<sockets>(std::move(skel));
     if ( ! our_bpf ) {
         logger()->warn(frmt("could not load BPF program: {}", our_bpf.error()));
-        return false;
+        return Init::PermanentlyUnavailable;
     }
 
     if ( auto rc = bpf->init("Sockets", (*our_bpf)->maps.ring_buffer); ! rc ) {
         logger()->warn(frmt("could not initialize BPF program: {}", our_bpf.error()));
-        return false;
+        return Init::PermanentlyUnavailable;
     }
 
-    return true;
+    return Init::Available;
 }
 
 void SocketsEventsLinux::activate() {
