@@ -142,7 +142,7 @@ int zeek::agent::main(const std::vector<std::string>& argv) {
 
         ZEEK_AGENT_DEBUG("main", "looping until terminated");
 
-        while ( ! scheduler.loop() ) {
+        while ( scheduler.loop() ) {
             db.poll();
 
             if ( zeek )
