@@ -733,6 +733,14 @@ static std::pair<Value, value::Type> from_json(const nlohmann::json& json) {
     if ( type == "timespan" )
         return {to_interval_from_secs(std::stoi(value.get<std::string>())), value::Type::Interval};
 
+    if ( type == "timestamp" ) {
+        std::tm tm = {};
+        std::istringstream ss(value.get<std::string>());
+        ss >> std::get_time(&tm, "%FT%T");
+        auto tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
+        return {tp, value::Type::Time};
+    }
+
     /* Not supported, don't need these.
      *
      * if ( auto x = broker::get_if<broker::address>(&v) )
