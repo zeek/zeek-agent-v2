@@ -8,7 +8,7 @@ jobs:
 
     strategy:
       matrix:
-        zeek: [{version: 4.0.4-0, tag: -lts}, {version: 5.0.0-0, tag: -rc}]
+        zeek: [{version: 5.0.9-0, tag: -lts}]
 
     env:
       ZEEK_VERSION: ${{ matrix.zeek.version }}
@@ -25,7 +25,7 @@ jobs:
 
       - name: Install Zeek
         run: |
-          (cd /tmp && curl -L -O https://download.zeek.org/binary-packages/xUbuntu_20.04/amd64/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb)
+          (cd /tmp && curl -L -O https://download.zeek.org/binary-packages/xUbuntu_22.04/amd64/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb)
           sudo apt install -y /tmp/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb
           echo "/opt/zeek/bin:$PATH" >> $GITHUB_PATH
 
