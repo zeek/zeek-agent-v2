@@ -74,6 +74,13 @@ Selected `configure` options (see `--help` for more):
 
 On macOS with Homebrew, use `--with-openssl={/usr/local,/opt/homebrew}/opt/openssl@1.1`
 
+##### Windows
+
+For Windows builds, any recent version of Visual Studio will work. You will need
+to pass `-DCMAKE_TOOLCHAIN_FILE="3rdparty/vcpkg/scripts/buildsystems/vcpkg.cmake"`
+to the CMake invocation. This will make vcpkg install the proper dependencies for
+the build.
+
 #### Usage
 
 On all endpoints, run as `root`:
