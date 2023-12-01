@@ -8,7 +8,7 @@ jobs:
 
     strategy:
       matrix:
-        zeek: [{version: 4.0.4-0, tag: -lts}, {version: 5.0.0-0, tag: -rc}]
+        zeek: [{version: 5.0.9-0, tag: -lts}]
 
     env:
       ZEEK_VERSION: ${{ matrix.zeek.version }}
@@ -25,17 +25,17 @@ jobs:
 
       - name: Install Zeek
         run: |
-          (cd /tmp && curl -L -O https://download.zeek.org/binary-packages/xUbuntu_20.04/amd64/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb)
+          (cd /tmp && curl -L -O https://download.zeek.org/binary-packages/xUbuntu_22.04/amd64/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb)
           sudo apt install -y /tmp/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb
           echo "/opt/zeek/bin:$PATH" >> $GITHUB_PATH
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1.2.2
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ github.job }}
 
@@ -54,7 +54,7 @@ jobs:
           # TODO: tidy fails in Broker currently
           # ninja -C build tidy
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: Test output
@@ -78,12 +78,12 @@ jobs:
           pip3 install btest zkg
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1.2.2
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ github.job }}
 
@@ -107,30 +107,36 @@ jobs:
           ninja -C build package
           (cd build/dist && echo "ZA_DIST=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
 
   # TODO: Install Zeek and run Zeek tests.
-  release_macos_11:
-    runs-on: macos-11
+  release_macos_13:
+    runs-on: macos-13
     environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
 
     steps:
       - name: Prepare
         run: |
+          brew update
+          brew unlink python
+          brew link --overwrite python
+          brew upgrade --force python
+          brew upgrade --force php
+
           brew upgrade
           brew install ninja ccache
           pip3 install btest zkg
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1.2.2
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ github.job }}
 
@@ -207,7 +213,7 @@ jobs:
 
       ### Back to running on all branches
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
@@ -226,7 +232,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -244,7 +250,7 @@ jobs:
         shell: cmd
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1.2.2
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ github.job }}
 
@@ -267,7 +273,7 @@ jobs:
 
       - name: Configure
         run: >
-          cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_MAKE_PROGRAM=ninja.exe -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON -DUSE_CCACHE=yes -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_TARGET_TRIPLET}}
+          cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DCMAKE_MAKE_PROGRAM=ninja.exe -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON -DUSE_CCACHE=yes -DCMAKE_TOOLCHAIN_FILE="3rdparty/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_TARGET_TRIPLET}}
         shell: cmd
 
       - name: Build
@@ -290,7 +296,7 @@ jobs:
           (cd build/dist && echo "ZA_DIST=$(echo *.msi)" >>$GITHUB_ENV)
         shell: bash
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
@@ -307,12 +313,12 @@ jobs:
           sudo apt-get install -y ninja-build ccache curl ca-certificates
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1.2.2
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ github.job }}
 
@@ -331,7 +337,7 @@ jobs:
           cat build/dist/${{env.ZA_DIST}} | (cd ${{ runner.temp }}/test-build && tar xzvf -)
           (cd $(echo ${{ runner.temp }}/test-build/zeek-agent*) && ./configure --generator=Ninja --enable-ccache && ninja -C build && ninja -C build test)
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
@@ -341,10 +347,10 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     if: (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))
-    needs: [debug_ubuntu_latest, release_alpine_3_15_static, release_macos_11, release_windows_2022, release_source]
+    needs: [debug_ubuntu_latest, release_alpine_3_15_static, release_macos_13, release_windows_2022, release_source]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -353,7 +359,7 @@ jobs:
           cat CHANGES | awk '/^[0-9]+\./{ n++; next; } n < 2 { print }' >${{ runner.temp }}/release-msg
           echo "release_name=$(echo ${{ github.ref_name }} | sed 's/^v//')" >> $GITHUB_ENV
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           path: artifacts
 

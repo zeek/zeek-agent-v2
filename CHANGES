@@ -1,3 +1,29 @@
+2.3.0-dev.55 | 2023-12-01 09:42:11 -0700
+
+  * Add section about building for Windows to README
+
+  * CI: Use correct vcpkg root for Windows builds
+
+  * Update vcpkg to 2023.11.20
+
+    This fixes the build on Windows failing to find zlib.
+
+  * Update doctest to v2.4.11
+
+    This fixes, among other things, build failures on macOS due to sprintf
+    being fully deprecated in XCode 14.
+
+  * CI: Update ubuntu builds to use zeek 5.0.9 for ubuntu22, remove zeek 4.0 build
+
+  * CI: Update github actions used across all jobs
+
+  * CI: Update to macOS 13
+
+    GitHub's action runner complains that we're still trying to use macOS 11
+    and is killing the builds. This requires some tinkering with the brew
+    packages that are installed, but don't like to update cleanly (python
+    and php specifically).
+
 2.3.0-dev.47 | 2022-11-29 15:58:23 -0800
 
   * Minor grammar fixes (William Stearns)
