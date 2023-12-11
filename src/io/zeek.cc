@@ -1268,7 +1268,7 @@ void ZeekConnection::processEvent(const std::string& name, const std::vector<Val
                                    .requires_tables = std::move(requires_tables),
                                    .if_missing_tables = std::move(if_missing_tables),
                                    .terminate = false,
-                                   .cookie = *cookie,
+                                   .cookie = cookie,
                                }};
         } catch ( const std::exception& e ) {
             unexpectedEventArguments(zeek_instance_id, name, args);
