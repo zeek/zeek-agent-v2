@@ -65,7 +65,7 @@ jobs:
   # TODO: Install Zeek and run Zeek tests.
   release_alpine_3_15_static:
     runs-on: ubuntu-latest
-    environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
+    environment: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     container:
       image: alpine:3.15
@@ -115,20 +115,20 @@ jobs:
   # TODO: Install Zeek and run Zeek tests.
   release_macos_13:
     runs-on: macos-13
-    environment: ${{ (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))) && 'release' || '' }}
+    environment: ${{ (github.ref == 'refs/heads/topic/robin/fix-codesign' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     steps:
       - name: Prepare
         run: |
-          brew update
-          brew unlink python
-          brew link --overwrite python
-          brew upgrade --force python
-          brew upgrade --force php
+          brew update || true
+          brew unlink python || true
+          brew link --overwrite python || true
+          brew upgrade --force python || true
+          brew upgrade --force php || true
 
-          brew upgrade
-          brew install ninja ccache
-          pip3 install btest zkg
+          brew upgrade || true
+          brew install ninja ccache || true
+          pip3 install btest zkg || true
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -173,7 +173,7 @@ jobs:
       ### Only on topic branches
 
       - name: Package (without codesign)
-        if: github.ref_name != 'main' && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref, '-dev'))
+        if: github.ref_name != 'topic/robin/fix-codesign' && !startsWith(github.ref, 'refs/tags/v')
         run: |
           ninja -C build package
           (cd build/dist && echo "ZA_DIST=$(echo *.dmg)" >>$GITHUB_ENV)
@@ -181,7 +181,7 @@ jobs:
       ### Only on the main branch
 
       - name: Set up keychain for code signing
-        if: github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))
+        if: github.ref == 'refs/heads/topic/robin/fix-codesign' || startsWith(github.ref, 'refs/tags/v')
         env:
           MACOS_CERTIFICATE_APPLICATION_PEM: ${{ secrets.MACOS_CERTIFICATE_APPLICATION_PEM }}
           MACOS_CERTIFICATE_APPLICATION_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_APPLICATION_PASSWORD }}
@@ -196,7 +196,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "${MACOS_KEYCHAIN_PASSWORD}" ${RUNNER_TEMP}/keychain-db
 
       - name: Package (with codesign)
-        if: github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))
+        if: github.ref == 'refs/heads/topic/robin/fix-codesign' || startsWith(github.ref, 'refs/tags/v')
         env:
           MACOS_CERTIFICATE_APPLICATION_ID: ${{ secrets.MACOS_CERTIFICATE_APPLICATION_ID }}
           MACOS_NOTARIZATION_USER: ${{ secrets.MACOS_NOTARIZATION_USER }}
@@ -207,7 +207,7 @@ jobs:
           (cd build/dist && echo "ZA_DIST=$(echo *.dmg)" >>$GITHUB_ENV)
 
       - name: Clean up keychain
-        if: always() && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev')))
+        if: always() && (github.ref == 'refs/heads/topic/robin/fix-codesign' || startsWith(github.ref, 'refs/tags/v'))
         run: |
           security delete-keychain ${RUNNER_TEMP}/keychain-db
 

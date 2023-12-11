@@ -1,4 +1,4 @@
-# /bin/sh
+#! /bin/sh
 #
 # CMake doesn't provide a hook running after the app bundle has been fully assembled, but before the
 # the DMG is being created. To get in there, we replace hdituil with this script, so that we can
