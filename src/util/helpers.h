@@ -103,7 +103,7 @@ inline std::string to_string_iso(Time t) {
     auto tm = std::localtime(&teatime);
 
     std::stringstream b;
-    b << std::put_time(tm, "%FT%T%z");
+    b << std::put_time(tm, "%FT%T");
     return std::string(b.str());
 }
 

@@ -1,3 +1,17 @@
+2.3.0-dev.59 | 2023-12-11 09:56:46 -0700
+
+  * Merge branch 'topic/timw/fix-timestamp-parsing'
+
+    * topic/timw/fix-timestamp-parsing:
+      Don't add timezone offset to ISO time, since it results in errors
+      Parse 'timestamp' fields from json received from Zeek correctly
+
+  * Don't add timezone offset to ISO time, since it results in errors
+
+  * Parse 'timestamp' fields from json received from Zeek correctly
+
+  * Update pathfind submodule for #include fix
+
 2.3.0-dev.55 | 2023-12-01 09:42:11 -0700
 
   * Add section about building for Windows to README
