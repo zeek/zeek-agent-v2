@@ -1,3 +1,7 @@
+2.3.0-dev.61 | 2023-12-12 10:33:37 -0700
+
+  * Avoid dereferencing cookie field that could intentionally be unset
+
 2.3.0-dev.59 | 2023-12-11 09:56:46 -0700
 
   * Merge branch 'topic/timw/fix-timestamp-parsing'
