@@ -18,7 +18,7 @@ using namespace zeek::agent;
 using namespace zeek::agent::platform::windows;
 using namespace ztd::out_ptr;
 
-void platform::init(const Configuration& cfg) {}
+void platform::init(Configuration* cfg) {}
 
 void platform::done() { windows::WMIManager::Get().Shutdown(); }
 
@@ -130,11 +130,6 @@ bool platform::runningAsAdmin() {
 
 void platform::initializeOptions(Options* options) {
     // Nothing to do.
-}
-
-std::optional<std::string> platform::retrieveConfigurationOption(const std::string& path) {
-    // Nothing to do.
-    return {};
 }
 
 WMIManager& WMIManager::Get() {

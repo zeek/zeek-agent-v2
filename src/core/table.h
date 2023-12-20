@@ -311,7 +311,8 @@ public:
      * @result false to completely disable the table at this point, so that it
      * will not be available for queries.
      */
-    virtual bool init() { return true; }
+    enum class Init { Available, PermanentlyUnavailable, TemporarilyUnavailable };
+    virtual Init init() { return Init::Available; }
 
     /**
      * Hook that will be called just before the first query against this table
@@ -411,6 +412,18 @@ public:
         throw InternalError(frmt("table argument '{}' unexpectedly missing", name));
     }
 
+    /**
+     * Returns the current system time, guaranteeing that it's monotonically
+     * increasing between calls.
+     */
+    Time systemTime() const;
+
+    /**
+     * Record the database that this table has been registered with. For
+     * internal use by database only.
+     */
+    void setDatabase(Database* db) { _db = db; }
+
 protected:
     /**
      * Returns the configuration options currently in effect. This won't be
@@ -433,14 +446,10 @@ protected:
     std::vector<Value> generateMockRow(int i);
 
 private:
-    friend Database;
-
-    // Record the database that this table has been registered with.
-    void setDatabase(Database* db) { _db = db; }
-
     Database* _db = nullptr;      // database set through `setDatabase()`
     int _current_connections = 0; // counter of active queries against this table
-    bool _use_mock_data = false;  // if true, have table return mock data for testing
+    mutable Time _last_time = {};
+    bool _use_mock_data = false; // if true, have table return mock data for testing
 };
 
 /**
@@ -480,7 +489,7 @@ public:
  * activity.
  *
  * To provide new events, derived classes should call `newEvent()` as data
- * becomes available.
+ * becomes available. It's safe to do so from any thread.
  *
  * The class inherits most of the hooks that `Table` provides, which derived
  * classes are free to implement as desired. The two exceptions are `rows()`
@@ -491,7 +500,7 @@ public:
     /**
      * Records an event that has occured.
      *
-     * Derived classes need to call this as they observe their activity.
+     * Derived classes need to call this as they observe their activity. It's safe to do so from any thread.
      *
      * @param row the column values associated with the event, which must match the table's schema
      */
@@ -522,6 +531,7 @@ private:
         bool operator<(const Event& other) const { return time < other.time; }
     };
 
+    std::mutex _events_mutex;   // mutex protecting access to the event buffer
     std::vector<Event> _events; // set of currently buffered events, sorted by timestamp
     int _mock_seed = 0;         // when generating mock data, seed value for next round
 };

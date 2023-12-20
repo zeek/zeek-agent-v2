@@ -24,7 +24,7 @@ namespace {
 
 class SystemLogsLinux : public SystemLogs {
 public:
-    bool init() override;
+    Init init() override;
     void activate() override;
     void deactivate() override;
     void poll() override;
@@ -40,7 +40,7 @@ public:
 
 database::RegisterTable<SystemLogsLinux> _;
 
-bool SystemLogsLinux::init() {
+Table::Init SystemLogsLinux::init() {
     // See if we find 'journalctl'
     std::set<filesystem::path> candidates = {"/usr/bin/journalctl", "/usr/local/sbin/journalctl"};
 
@@ -67,9 +67,8 @@ bool SystemLogsLinux::init() {
     else
         ZEEK_AGENT_DEBUG("system_logs", "did not find journalctrl");
 
-    return journalctl.has_value();
+    return journalctl ? Init::Available : Init::PermanentlyUnavailable;
 }
-
 
 void SystemLogsLinux::startProcess() {
     if ( ! journalctl )

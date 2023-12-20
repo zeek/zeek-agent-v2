@@ -1,31 +1,61 @@
-# /bin/sh
+#! /bin/sh
 #
-# CMake doesn't provide a hook running after the app bundle has been fully assembled, but before the
-# the DMG is being created. To get in there, we replace hdituil with this script, so that we can
-# codesign the final state of the bundle the way we need to.
+# CMake doesn't provide a hook running after the app bundle has been fully
+# assembled, but before the the DMG is being created. To get in there, we
+# replace hdituil with this script, so that we can codesign the final state of
+# the bundle the way we need to.
+#
+# Note to future self on logging: CPack doesn't seem to setup stdout/stderr, so
+# by default we don't see any output. That's why we redirect to /dev/tty if we have it.
+# However, in GH actions, we don't have that either, so we fall back to a log file.
 
 args=("$@")
-base=$(cd $(dirname $0) && pwd)
+base=$(cd $(dirname $0)/../.. && pwd)
 app_src=${base}/src/platform/darwin/ZeekAgent.app
+log_no_tty="/tmp/zeek-agent-hdiutil.log"
 
 codesign="/usr/bin/codesign -s '${MACOS_CERTIFICATE_APPLICATION_ID}' -v --force --options=runtime --strict --timestamp"
 
+if sh -c ": >/dev/tty" >/dev/null 2>/dev/null; then
+    have_tty=1
+else
+    have_tty=0
+    rm -f ${log_no_tty}
+fi
+
 log() {
-    echo "+++ $1" >/dev/tty
+    if [ "${have_tty}" = "1" ]; then
+        echo "$@" >/dev/tty
+    else
+        echo "$@" >>${log_no_tty}
+    fi
+}
+
+log_pipe() {
+    if [ "${have_tty}" = "1" ]; then
+        cat >/dev/tty
+    else
+        cat >>${log_no_tty}
+    fi
 }
 
 codesign() {
     cd "$1"
     app="ZeekAgent.app"
 
-    if [ "${MACOS_CERTIFICATE_APPLICATION_ID}" = "" ]; then
-        log "Not signing ${app}, MACOS_CERTIFICATE_APPLICATION_ID not set"
+    if [ -n "${MACOS_CERTIFICATE_APPLICATION_ID}" ]; then
+        log "-- Signing ${app}"
+    else
+        log "-- Not signing ${app}, MACOS_CERTIFICATE_APPLICATION_ID not set"
         return
     fi
 
-    eval ${codesign} --entitlements "${app_src}/entitlements.plist.agent" "${app}/Contents/Library/SystemExtensions/org.zeek.zeek-agent.agent.systemextension"
-    eval ${codesign} --entitlements "${app_src}/entitlements.plist.app"   "${app}"
+    eval ${codesign} --entitlements "${app_src}/entitlements.plist.agent" "${app}/Contents/Library/SystemExtensions/org.zeek.zeek-agent.agent.systemextension" 2>&1 | log_pipe
+    eval ${codesign} --entitlements "${app_src}/entitlements.plist.app"   "${app}" 2>&1 | log_pipe
 }
+
+log "== Running hdiutil"
+log "-- cmdline: $@"
 
 if [ "$1" == "create" ]; then
     while [ "$#" != 0 ]; do

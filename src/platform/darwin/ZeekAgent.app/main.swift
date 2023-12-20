@@ -10,6 +10,10 @@ import os.log
 // or not the right version.
 let debug_open_main_directly = false
 
+// For debugging, set this to true to enable the "Configure ..." button
+// independent of the extension state.
+let debug_always_enable_configure = false
+
 struct MainView: View {
     enum ExtensionState {
         case Running
@@ -85,7 +89,8 @@ struct MainView: View {
 
                         case .Running:
                             let headline = "Zeek Agent is running"
-                            let subheadline = "Version \(status.version) \(status.capabilities)\n\nAgent ID \(status.agent_id)"
+                            let subheadline =
+                                "Version \(status.version) \(status.capabilities)\n\nAgent ID \(status.agent_id)"
 
                             if status.capabilities.contains("+ES") {
                                 mainBody(headline: headline, subheadline: subheadline)
@@ -115,7 +120,7 @@ struct MainView: View {
 
                     HStack {
                         Button("Configure ...") { Controller.shared.openConfiguration() }
-                            .disabled(state != .Running)
+                            .disabled(state != .Running && !debug_always_enable_configure)
 
                         Button("Exit") { Controller.shared.application.terminate(nil) }
                             .keyboardShortcut(.defaultAction)
@@ -126,7 +131,10 @@ struct MainView: View {
             Spacer()
         }
 
-        .onAppear { updateStatus() }
+        .onAppear {
+            updateStatus()
+        }
+
         .onReceive(timer) { _ in
             DispatchQueue.main.async {
                 updateStatus()
@@ -150,21 +158,30 @@ struct MainView: View {
 }
 
 struct ConfigurationView: View {
+    var window: NSWindow? = nil
+
     @State private var log_level: String = ""
     @State private var zeek_destination: String = ""
-    @State private var old_options: [String: String]?
 
-    func asOptions() -> [String: String] {
+    private let logger = Logger(subsystem: "org.zeek.zeek-agent", category: "installer")
+
+    func optionAsDictionary() -> [String: String] {
         return [
             "log.level": log_level,
             "zeek.destination": zeek_destination,
         ]
     }
 
+    func close() {
+        if let window = window {
+            window.sheetParent?.endSheet(window)
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .trailing) {
+        VStack() {
             Form {
-                TextField("ZeekHost", text: $zeek_destination)
+                TextField("Zeek Host", text: $zeek_destination)
                     .frame(minWidth: 300)
 
                 Picker("Level", selection: $log_level) {
@@ -177,41 +194,34 @@ struct ConfigurationView: View {
                 }
             }
             .onAppear {
-                old_options = asOptions()
                 _ = Controller.shared.xpc.getOptions { options in
                     log_level = options["log.level", default: ""]
                     zeek_destination = options["zeek.destination", default: ""]
-                    old_options = asOptions()
                 }
-            }
-            .onDisappear {
-                old_options = nil
             }
 
             HStack {
-                Button("Cancel") { Controller.shared.application.stopModal() }
+                Button("Cancel") { close() }
                     .keyboardShortcut(.cancelAction)
 
                 Button("Save") {
-                    let new_options = asOptions()
-
-                    if let old_options = old_options {
-                        if old_options == new_options {
-                            // No change.
-                            Controller.shared.application.stopModal()
-                            return
-                        }
-                    }
-
-                    if !Controller.shared.xpc.setOptions(new_options) {
+                    let options = optionAsDictionary()
+                    if !Controller.shared.xpc.setOptions(options) {
                         Controller.shared.showMessage(msg: "Could not save options.", sub: "", style: .critical)
                     }
 
-                    Controller.shared.application.stopModal()
+                    close()
+
                 }.keyboardShortcut(.defaultAction)
-            }.padding(.top)
+            }
+            .padding(.top, 10)
         }
-        .padding(25.0)
+        .onAppear {
+            Controller.shared.enableMenuBar(false)
+        }
+
+        .padding(.top)
+        .padding(20.0)
         .fixedSize()
     }
 }
@@ -272,6 +282,14 @@ class Controller {
         logger.info("\(msg, privacy: .public)")
     }
 
+    func enableMenuBar(_ enable: Bool) {
+        if let menu = Controller.shared.application.mainMenu {
+            for item in menu.items {
+                item.isEnabled = enable
+            }
+        }
+    }
+
     func openMain() {
         guard main == nil else { return }
         main = openWindow(
@@ -284,9 +302,11 @@ class Controller {
     }
 
     func openConfiguration() {
-        let window = openWindow(content: ConfigurationView(), title: "Configuration", style: [.titled])
-        application.runModal(for: window)
-        window.close()
+        let window = NSWindow()
+        let view = ConfigurationView(window: window)
+        window.contentViewController = NSHostingController(rootView: view)
+        main?.beginSheet(window) { _ in Controller.shared.enableMenuBar(true) }
+
     }
 
     func openAbout() {
@@ -313,7 +333,6 @@ class Controller {
         controller.view.autoresizesSubviews = false
 
         let window = NSWindow(contentViewController: controller)
-        //window.styleMask.formUnion(.fullSizeContentView)
         window.title = title
         window.styleMask = style
         window.center()

@@ -1,3 +1,40 @@
+2.3.0-dev.71 | 2023-12-20 12:11:13 +0100
+
+  * Notarization updates and fixes. We now use Apple's new
+    `notarytool` along with App Store Connect credentials.
+
+  * Rework the EndpointSecurity manager.
+
+  * Rework handling of macOS deployment target.
+
+    By default, our deployment target is now the current platform's major
+    version. That avoids problems with system libraries not matching in
+    for what they were built.
+
+    To set a different deployment target, there's now a corresponding
+    `configure` option. We set that for CI builds.
+
+    As part of this change, we also raise the CI's deployment target to
+    Monterey.
+
+  * Use `gawk` in `auxil` scripts.
+
+  * Support tables that are disabled at first, but may later become active.
+
+  * Make tables thread-safe.
+
+  * Add helper to table class for getting current system time.
+
+  * Build without Broker by default.
+
+    Broker support isn't needed anymore with Zeek >= 5.0. We now build
+    without it by default. To re-enable Broker support for Zeek 4.x,
+    you can still configure with ``--enable-broker``.
+
+    The pre-build binaries also no longer include Broker support.
+
+  * Silence new clang-tidy warnings.
+
 2.3.0-dev.61 | 2023-12-12 10:33:37 -0700
 
   * Avoid dereferencing cookie field that could intentionally be unset

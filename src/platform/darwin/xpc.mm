@@ -22,11 +22,40 @@ using namespace zeek::agent;
 
 - (instancetype)init {
     [super init];
-    _defaults = [NSUserDefaults standardUserDefaults];
+    _defaults = [[NSUserDefaults alloc] initWithSuiteName:@"group.org.zeek.zeek-agent"];
     _listener = [[NSXPCListener alloc] initWithMachServiceName:@"org.zeek.zeek-agent.agent"];
     _listener.delegate = self;
     [_listener resume];
+
     return self;
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [super dealloc];
+}
+
+- (void)updateOptions {
+    logger()->debug("updating configuration");
+
+    auto options = _configuration->options();
+
+    auto log_level = [_defaults stringForKey:@"log.level"];
+    if ( log_level ) {
+        if ( [log_level isEqual:@""] )
+            options.log_level = options::default_log_level;
+        else if ( auto rc = options::log_level::from_str([log_level UTF8String]) )
+            options.log_level = *rc;
+        else
+            logger()->warn("invalid log level: {}", [log_level UTF8String]);
+    }
+
+    auto zeek_destination = [_defaults stringForKey:@"zeek.destination"];
+    if ( zeek_destination )
+        options.zeek_destinations = {[zeek_destination UTF8String]};
+
+    if ( auto rc = _configuration->setOptions(options); ! rc )
+        logger()->warn("error applying new options: {}", rc.error());
 }
 
 - (const Options&)options {
@@ -42,7 +71,6 @@ using namespace zeek::agent;
 
 - (void)getStatusWithReply:(void (^)(NSString*, NSString*, NSString*))reply {
     logger()->debug("[IPC] remote call: getStatus");
-
     auto es = (platform::darwin::endpointSecurity()->isAvailable() ? "+ES" : "-ES");
     auto ne = (platform::darwin::networkExtension()->isAvailable() ? "+NE" : "-NE");
 
@@ -58,15 +86,20 @@ using namespace zeek::agent;
 
     auto options = [NSMutableDictionary dictionary];
 
-    NSArray* keys = [NSArray arrayWithObjects:@"zeek.destination", @"log.level", nil];
-    for ( id key in keys ) {
-        NSString* value = [_defaults stringForKey:key];
-        options[key] = (value ? value : @"");
-    }
+    auto log_level = [_defaults stringForKey:@"log.level"];
+    if ( log_level )
+        options[@"log.level"] = log_level;
+    else
+        options[@"log.level"] = @"default";
+
+    auto zeek_destination = [_defaults stringForKey:@"zeek.destination"];
+    if ( zeek_destination )
+        options[@"zeek.destination"] = zeek_destination;
+    else
+        options[@"zeek.destination"] = @"";
 
     reply(options);
 
-    CFRelease(keys);
     CFRelease(options);
 }
 
@@ -77,6 +110,8 @@ using namespace zeek::agent;
         auto value = [options objectForKey:key];
         [_defaults setObject:value forKey:key];
     }
+
+    [self updateOptions];
 }
 
 - (void)exit {

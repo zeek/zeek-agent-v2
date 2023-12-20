@@ -114,7 +114,7 @@ int zeek::agent::main(const std::vector<std::string>& argv) {
         if ( ! platform::runningAsAdmin() && ! cfg.options().use_mock_data )
             logger()->warn("not running as root, information may be incomplete");
 
-        platform::init(cfg);
+        platform::init(&cfg);
 
         Scheduler scheduler;
         signal_mgr = new SignalManager({SIGINT});

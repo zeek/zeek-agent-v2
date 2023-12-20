@@ -20,7 +20,8 @@
 + (IPC*)sharedObject;
 - (id)init;
 - (const zeek::agent::Options&)options;
+- (void)updateOptions;
 @property(strong) NSUserDefaults* defaults;
 @property(strong) NSXPCListener* listener;
-@property const zeek::agent::Configuration* configuration;
+@property zeek::agent::Configuration* configuration;
 @end

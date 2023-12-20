@@ -5,7 +5,12 @@ cmake_minimum_required(VERSION 3.15.1)
 project(ZeekAgent)
 
 if ( CMAKE_SYSTEM_NAME STREQUAL "Darwin" )
-    set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0 CACHE STRING "Minimum macOS version" FORCE) # Big Sur
+    if ( NOT CMAKE_OSX_DEPLOYMENT_TARGET )
+        # Swift needs a minumum version, use current platform's major version by default.
+        cmake_host_system_information(RESULT macos_version QUERY OS_RELEASE)
+        string(REGEX REPLACE "[0-9]+$" "0" macos_version "${macos_version}")
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "${macos_version}" CACHE STRING "Minimum macOS version" FORCE)
+    endif ()
 
     # Hack to avoid CMake telling us that it doesn't support universal binaries for Swift.
     # We later enable universal binaries explicitly ourselves for Swift code.
@@ -21,6 +26,7 @@ enable_language(CXX)
 ### Initialize defaults & global options
 
 # Defaults here should match 'configure'.
+option(USE_BROKER "" "no")
 option(USE_CCACHE "" "no")
 option(USE_SANITIZERS "" "")
 option(USE_WERROR "" "no")
@@ -148,6 +154,7 @@ message(
     "\nHost system:           ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION} (${CMAKE_SYSTEM_PROCESSOR})"
     "\n"
     "\nBuild with tests:      ${USE_DOCTEST}"
+    "\nBuild with Broker:     ${USE_BROKER}"
     "\nUse ccache:            ${USE_CCACHE}"
     "\nUse sanitizers:        ${USE_SANITIZERS_DISPLAY}"
     "\nLink statically:       ${USE_STATIC_LINKING}"

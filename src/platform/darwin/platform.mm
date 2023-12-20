@@ -46,9 +46,10 @@ std::optional<filesystem::path> platform::darwin::getApplicationSupport() {
     return filesystem::path([dir UTF8String]) / "ZeekAgent";
 }
 
-void platform::init(const Configuration& cfg) {
-    platform::darwin::endpointSecurity();       // this initializes ES
-    [[IPC sharedObject] setConfiguration:&cfg]; // create the shared IPC object
+void platform::init(Configuration* cfg) {
+    platform::darwin::endpointSecurity();      // this initializes ES
+    [[IPC sharedObject] setConfiguration:cfg]; // create the shared IPC object
+    [[IPC sharedObject] updateOptions];        // read options from defaults and update the configuration
 }
 
 void platform::done() {}
@@ -57,25 +58,4 @@ void platform::initializeOptions(Options* options) {
     if ( auto service = platform::getenv("XPC_SERVICE_NAME"); service && *service != "0" )
         // Running as an installed system extension, log to oslog by default.
         options->log_type = options::LogType::System;
-}
-
-std::optional<std::string> platform::retrieveConfigurationOption(const std::string& path) {
-    NSString* key = nullptr;
-    NSString* value = nullptr;
-
-    ScopeGuard _([&]() {
-        if ( key )
-            CFRelease(key);
-
-        if ( value )
-            CFRelease(value);
-    });
-
-    key = [NSString stringWithUTF8String:path.c_str()];
-    value = [[[IPC sharedObject] defaults] stringForKey:key];
-
-    if ( value )
-        return [value UTF8String];
-    else
-        return {};
 }

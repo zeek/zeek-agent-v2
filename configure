@@ -10,6 +10,7 @@ cmake_build_directory="build"
 cmake_build_type="RelWithDebInfo"
 cmake_generator=""
 cmake_install_prefix="/usr/local"
+cmake_use_broker="no"
 cmake_use_ccache="no"
 cmake_use_doctest="yes"
 cmake_use_sanitizers=""
@@ -17,6 +18,7 @@ cmake_use_werror="no"
 cmake_use_static_linking="no"
 cmake_openssl_root=""
 cmake_osx_architectures=""
+cmake_osx_deployment_target=""
 
 display_cmake=0
 cache_entries=""
@@ -47,6 +49,7 @@ Usage: $0 [OPTION]... [VAR=VALUE]...
     --build-dir=DIR                    Place build files in directory [default: ${cmake_build_directory}]
     --build-type=TYPE                  Set build type (Debug,Release,RelWithDebInfo) [default: ${cmake_build_type}]
     --disable-tests                    Do not include unit tests into build.
+    --enable-broker                    Build in legacy Broker support for connecting to Zeek 4.x [default: ${cmake_use_broker}]
     --enable-ccache                    Build using the compiler cache cache if in PATH [default: ${cmake_use_ccache}]
     --enable-debug                     Compile debug version (same as --build-type=Debug) [default: off]
     --enable-osx-universal             Build universal x86/arm64 binary on macOS (will need universal deps too)
@@ -56,6 +59,7 @@ Usage: $0 [OPTION]... [VAR=VALUE]...
     --generator=<generator>            CMake generator to use (see cmake --help)
     --prefix=PATH                      Installation prefix [default: ${cmake_install_prefix}]
     --with-openssl=DIR                 Path to OpenSSL installation root
+    --osx-deployment-target=VERSION    Minimum macOS version to deploy on
 
     --display-cmake                    Don't create build configuration, just output final CMake invocation
 "
@@ -95,6 +99,7 @@ while [ $# -ne 0 ]; do
         --build-dir=*)                     cmake_build_directory="${optarg}";;
         --build-type=*)                    cmake_build_type="${optarg}";;
         --disable-tests)                   cmake_use_doctest="no";;
+        --enable-broker)                   cmake_use_broker="yes";;
         --enable-ccache)                   cmake_use_ccache="yes";;
         --enable-debug)                    cmake_build_type="Debug";;
         --enable-osx-universal)            cmake_osx_architectures="'arm64;x86_64'";;
@@ -105,6 +110,7 @@ while [ $# -ne 0 ]; do
         --generator=*)                     cmake_generator="${optarg}";;
         --prefix=*)                        cmake_install_prefix="${optarg}";;
         --with-openssl=*)                  cmake_openssl_root="${optarg}";;
+        --osx-deployment-target=*)         cmake_osx_deployment_target="${optarg}";;
 
         --display-cmake) display_cmake=1;;
 
@@ -118,6 +124,8 @@ done
 append_cache_entry CMAKE_BUILD_TYPE             STRING "${cmake_build_type}"
 append_cache_entry CMAKE_INSTALL_PREFIX         PATH   "${cmake_install_prefix}"
 append_cache_entry CMAKE_OSX_ARCHITECTURES      STRING "${cmake_osx_architectures}"
+append_cache_entry CMAKE_OSX_DEPLOYMENT_TARGET  STRING "${cmake_osx_deployment_target}"
+append_cache_entry USE_BROKER                   BOOL   "${cmake_use_broker}"
 append_cache_entry USE_CCACHE                   BOOL   "${cmake_use_ccache}"
 append_cache_entry USE_SANITIZERS               STRING "${cmake_use_sanitizers}"
 append_cache_entry USE_WERROR                   BOOL   "${cmake_use_werror}"

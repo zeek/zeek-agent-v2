@@ -13,7 +13,7 @@ namespace zeek::agent::platform::darwin {
 class OSLogSink : public spdlog::sinks::base_sink<std::mutex> {
 public:
     OSLogSink();
-    ~OSLogSink() final;
+    ~OSLogSink() override;
 
 protected:
     void sink_it_(const spdlog::details::log_msg& msg) override;

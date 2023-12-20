@@ -233,6 +233,9 @@ public:
     /** Returns the options currently in effect. */
     const Options& options() const;
 
+    /** Applies new set of options provided by caller. */
+    Result<Nothing> setOptions(Options options);
+
     /**
      * Parses a set of command line options. This first resets the current
      * options back to their defaults, and then updates them according to any
@@ -253,7 +256,7 @@ public:
      * Parses an agent configuration file. This first resets the current
      * options back to their defaults, and updates the current set of options
      * accordingly. If any command line options have been previously provided,
-     * it reapplys them on top at the end as well.
+     * it reapplies them on top at the end as well.
      *
      * @param path file to read
      * @return result will flag any errors that occurred
@@ -264,7 +267,7 @@ public:
      * Parses an agent configuration file from already open input stream. This
      * first resets the current options back to their defaults, and updates the
      * current set of options accordingly. If any command line options have
-     * been previously provided, it reapplys them on top at the end as well.
+     * been previously provided, it reapplies them on top at the end as well.
      *
      * @param in already open stream to read the content from
      * @param path path associated with input (for error messages)
