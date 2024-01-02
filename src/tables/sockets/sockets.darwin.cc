@@ -9,8 +9,12 @@
 #include "core/database.h"
 #include "core/logger.h"
 #include "core/table.h"
+#include "platform/darwin/network-extension.h"
+#include "platform/darwin/platform.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
+
+#include <iostream>
 
 #include <libproc.h>
 
@@ -22,48 +26,37 @@ class SocketsDarwin : public SocketsCommon {
 public:
     std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
 
-    void addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, const std::string& process);
-    void addSocket(std::vector<std::vector<Value>>* rows, int pid, const std::string& process,
-                   const struct socket_info& si);
+    void addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, Value process);
+    void addSocket(std::vector<std::vector<Value>>* rows, int pid, Value process, const struct socket_info& si);
 };
 
 namespace {
-database::RegisterTable<SocketsDarwin> _;
+database::RegisterTable<SocketsDarwin> _1;
 }
 
 std::vector<std::vector<Value>> SocketsDarwin::snapshot(const std::vector<table::Argument>& args) {
-    // TODO: The following is replicated from proceeses.darwin.cc, could merge.
-    auto buffer_size = proc_listpids(PROC_ALL_PIDS, 0, nullptr, 0);
-    pid_t pids[buffer_size / sizeof(pid_t)];
-    buffer_size = proc_listpids(PROC_ALL_PIDS, 0, pids, static_cast<int>(sizeof(pids)));
-    if ( buffer_size <= 0 ) {
-        logger()->warn("sockets: cannot get pids");
+    auto pids = platform::darwin::getProcesses();
+    if ( ! pids ) {
+        logger()->debug("could not get process list: {}", pids.error());
         return {};
     }
 
     std::vector<std::vector<Value>> rows;
 
-    for ( size_t i = 0; i < buffer_size / sizeof(pid_t); i++ ) {
-        errno = 0;
-        struct proc_bsdinfo pi;
-        auto n = proc_pidinfo(pids[i], PROC_PIDTBSDINFO, 0, &pi, sizeof(pi));
-
-        if ( n < static_cast<int>(sizeof(pi)) || errno != 0 ) {
-            if ( errno == ESRCH ) // ESRCH -> process is gone
-                continue;
-
-            ZEEK_AGENT_DEBUG("sockets", "sockets: could not get process information for PID {}", pids[i]);
+    for ( auto pid : *pids ) {
+        if ( pid <= 0 )
             continue;
-        }
 
-        if ( pids[i] > 0 )
-            addSocketsForProcess(&rows, pids[i], pi.pbi_name);
+        if ( auto p = platform::darwin::getProcessInfo(pid) )
+            addSocketsForProcess(&rows, pid, p->name);
+        else
+            logger()->debug("could not get process info for PID {}: {}", pid, p.error());
     }
 
     return rows;
 }
 
-void SocketsDarwin::addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, const std::string& process) {
+void SocketsDarwin::addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, Value process) {
     auto buffer_size = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nullptr, 0);
     struct proc_fdinfo fds[buffer_size / sizeof(proc_fdinfo)];
     buffer_size = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, fds, buffer_size);
@@ -93,11 +86,11 @@ void SocketsDarwin::addSocketsForProcess(std::vector<std::vector<Value>>* rows, 
         }
 
         if ( socket_info.psi.soi_family == AF_INET || socket_info.psi.soi_family == AF_INET6 )
-            addSocket(rows, pid, process, socket_info.psi);
+            addSocket(rows, pid, std::move(process), socket_info.psi);
     }
 }
 
-void SocketsDarwin::addSocket(std::vector<std::vector<Value>>* rows, int pid, const std::string& process,
+void SocketsDarwin::addSocket(std::vector<std::vector<Value>>* rows, int pid, Value process,
                               const struct socket_info& si) {
     static auto addr_to_string = [](const auto& addr, int family) -> std::string {
         char buffer[INET6_ADDRSTRLEN];
@@ -144,7 +137,53 @@ void SocketsDarwin::addSocket(std::vector<std::vector<Value>>* rows, int pid, co
         }
     }
 
-    rows->push_back({pid, process, family, protocol, local_addr, local_port, remote_addr, remote_port, state});
+    rows->push_back(
+        {pid, std::move(process), family, protocol, local_addr, local_port, remote_addr, remote_port, state});
 }
+
+class SocketsEventsDarwin : public SocketsEventsCommon {
+public:
+    Init init() override;
+    void activate() override;
+    void deactivate() override;
+
+private:
+    std::unique_ptr<platform::darwin::ne::Subscriber> _subscriber;
+};
+
+namespace {
+database::RegisterTable<SocketsEventsDarwin> _2;
+}
+
+static void handle_event(SocketsEventsDarwin* table, const platform::darwin::ne::Flow& flow) {
+    ZEEK_AGENT_DEBUG("sockets-events", "got flow");
+
+    const Value t = table->systemTime();
+    const Value pid = flow.pid;
+    const Value process = flow.process.name;
+    const Value uid = flow.process.uid;
+    const Value gid = flow.process.gid;
+    const Value family = flow.family;
+    const Value protocol = flow.protocol;
+    const Value state = flow.state;
+
+    table->newEvent({t, pid, process, uid, gid, family, protocol, flow.local_addr, flow.local_port, flow.remote_addr,
+                     flow.remote_port, state});
+}
+
+Table::Init SocketsEventsDarwin::init() {
+    auto ne = platform::darwin::networkExtension();
+
+    // It may take a bit for the network extension to start up, so we'll keep
+    // trying.
+    return ne->isAvailable() ? Init::Available : Init::TemporarilyUnavailable;
+}
+
+void SocketsEventsDarwin::activate() {
+    auto ne = platform::darwin::networkExtension();
+    _subscriber = ne->subscribe("sockets-events", [this](const auto& event) { handle_event(this, event); });
+}
+
+void SocketsEventsDarwin::deactivate() { _subscriber.reset(); }
 
 } // namespace zeek::agent::table
