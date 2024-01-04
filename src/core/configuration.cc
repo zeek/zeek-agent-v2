@@ -33,9 +33,9 @@
 #include <toml++/toml.h>
 
 #ifndef NDEBUG
-#define LOG_LEVEL_HELP "info,warning,error,critical"
-#else
 #define LOG_LEVEL_HELP "trace,debug,info,warning,error,critical"
+#else
+#define LOG_LEVEL_HELP "info,warning,error,critical"
 #endif
 
 using namespace zeek::agent;
