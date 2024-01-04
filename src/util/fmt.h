@@ -8,6 +8,7 @@
 
 #include <fmt/core.h>
 #include <fmt/xchar.h>
+#include <nlohmann/json.hpp>
 
 namespace zeek::agent {
 
@@ -33,3 +34,10 @@ std::string to_string(const T& t) {
 inline std::string to_string(const std::string& s) { return s; }
 
 } // namespace zeek::agent
+
+template<>
+struct fmt::formatter<nlohmann::json> : fmt::formatter<std::string> {
+    auto format(const nlohmann::json& json, format_context& ctx) const -> decltype(ctx.out()) {
+        return fmt::format_to(ctx.out(), "{}", json.dump());
+    }
+};

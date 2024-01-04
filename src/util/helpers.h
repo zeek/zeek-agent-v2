@@ -392,3 +392,17 @@ inline std::ostream& operator<<(std::ostream& out, const zeek::agent::Interval& 
 }
 
 } // namespace std::chrono
+
+template<>
+struct fmt::formatter<zeek::agent::Time> : fmt::formatter<std::string> {
+    auto format(const zeek::agent::Time& t, format_context& ctx) const -> decltype(ctx.out()) {
+        return fmt::format_to(ctx.out(), "{}", zeek::agent::to_string(t));
+    }
+};
+
+template<>
+struct fmt::formatter<zeek::agent::Interval> : fmt::formatter<std::string> {
+    auto format(const zeek::agent::Interval& i, format_context& ctx) const -> decltype(ctx.out()) {
+        return fmt::format_to(ctx.out(), "{}", zeek::agent::to_string(i));
+    }
+};

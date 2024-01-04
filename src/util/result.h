@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "util/fmt.h"
+
 #include <exception>
 #include <optional>
 #include <ostream>
@@ -184,3 +186,10 @@ private:
 };
 
 } // namespace zeek::agent
+
+template<>
+struct fmt::formatter<zeek::agent::result::Error> : fmt::formatter<std::string> {
+    auto format(const zeek::agent::result::Error& err, format_context& ctx) const -> decltype(ctx.out()) {
+        return fmt::format_to(ctx.out(), "{}", err.description());
+    }
+};

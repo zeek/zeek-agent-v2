@@ -552,3 +552,10 @@ inline auto ValueVectorCompare = [](const std::vector<Value>& a, const std::vect
 extern std::pair<Value, value::Type> stringToValue(const std::string& str, value::Type type);
 
 } // namespace zeek::agent
+
+template<>
+struct fmt::formatter<zeek::agent::value::Type> : fmt::formatter<std::string> {
+    auto format(const zeek::agent::value::Type& t, format_context& ctx) const -> decltype(ctx.out()) {
+        return fmt::format_to(ctx.out(), "{}", to_string(t));
+    }
+};
