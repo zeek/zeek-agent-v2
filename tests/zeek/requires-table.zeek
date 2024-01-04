@@ -21,9 +21,9 @@ event got_result()
 
 event zeek_init()
 	{
-	ZeekAgent::query([$sql_stmt="SELECT foo FROM bar", $event_=got_result,
-	    $requires_tables=set("bar")]);
-	schedule 5 secs { do_terminate() };
+	ZeekAgent::query([ $sql_stmt="SELECT foo FROM bar", $event_=got_result,
+	    $requires_tables=set("bar") ]);
+	schedule 5secs { do_terminate() };
 	}
 
 event ZeekAgentAPI::agent_error_v1(ctx: ZeekAgent::Context, msg: string)

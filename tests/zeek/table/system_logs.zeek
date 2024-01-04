@@ -10,7 +10,7 @@
 
 @load test-setup
 
-redef ZeekAgent_SystemLogs::query_interval = 1 sec;
+redef ZeekAgent_SystemLogs::query_interval = 1sec;
 
 # We only accept the 2nd write writer so that our output doesn't depend on
 # runtime duration (1st write is empty).
@@ -31,5 +31,5 @@ event do_terminate()
 event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context,
     columns: ZeekAgentAPI::AgentHelloV1)
 	{
-	schedule 4 secs { do_terminate() };
+	schedule 4secs { do_terminate() };
 	}

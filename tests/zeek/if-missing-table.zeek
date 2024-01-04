@@ -27,10 +27,10 @@ event do_terminate()
 
 event zeek_init()
 	{
-	ZeekAgent::query([$sql_stmt="SELECT agent_version FROM zeek_agent",
+	ZeekAgent::query([ $sql_stmt="SELECT agent_version FROM zeek_agent",
 	    $event_=got_result, $cookie="Hurz", $if_missing_tables=set(
-	    "zeek_agent")]);
-	schedule 5 secs { do_terminate() };
+	    "zeek_agent") ]);
+	schedule 5secs { do_terminate() };
 	}
 
 event ZeekAgentAPI::agent_error_v1(ctx: ZeekAgent::Context, msg: string)
