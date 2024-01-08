@@ -15,7 +15,7 @@ event got_result()
 
 event zeek_init()
 	{
-	ZeekAgent::query([$sql_stmt="SELECT foo FROM bar", $event_=got_result]);
+	ZeekAgent::query([ $sql_stmt="SELECT foo FROM bar", $event_=got_result ]);
 	}
 
 event ZeekAgentAPI::agent_error_v1(ctx: ZeekAgent::Context, msg: string)

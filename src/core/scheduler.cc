@@ -136,7 +136,7 @@ bool Scheduler::Implementation::loop() {
     }
 
     advance(std::chrono::system_clock::now());
-    return _terminating;
+    return ! _terminating;
 }
 
 Scheduler::Scheduler() { ZEEK_AGENT_DEBUG("scheduler", "creating instance"); }

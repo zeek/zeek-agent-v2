@@ -5,4 +5,11 @@ target_sources(zeek-agent
         ascii-table.cc
         helpers.cc
         result.cc
+        socket.cc
 )
+
+if ( HAVE_POSIX )
+    target_sources(zeek-agent PRIVATE socket.posix.cc)
+else ()
+    target_sources(zeek-agent PRIVATE socket.no-ipc.cc)
+endif ()

@@ -52,7 +52,7 @@ void AsciiTable::printRow(std::ostream& out, const std::vector<std::string>& row
         out << fill_left << value << fill_right;
     }
 
-    out << sep << '\n';
+    out << '\n' << std::flush;
 }
 
 void AsciiTable::print(std::ostream& out, bool include_header) {

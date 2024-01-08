@@ -1,3 +1,37 @@
+2.3.0-dev.78 | 2024-01-08 10:25:51 +0100
+
+  * GH-8: Support attaching interactive console to a running agent.
+
+    By default, an agent now creates a UNIX socket for its console that an
+    external client can connect to. To connect to an already running
+    agent, execute `zeek-agent -r` on the same machine (note that client
+    and server must be running as the same user, probably `root`). Client
+    and server can specify a different socket path through `-s <PATH>`.
+    The environment variable `ZEEK_AGENT_SOCKET` can be set to specify the
+    path as well.
+
+    Remote consoles aren't support on Windows yet.
+
+    Internally, we switch the classic local console over to the same IPC
+    mechanism we now use for remote consoles, so that there's only one
+    implementation. For Windows, where actual IPC isn't implemented yet,
+    we provide a dummy implementation for this purpose that just forwards
+    data inside the main (and only) process.
+
+    Note: This has a known issue on Windows where the local console
+    stops taking input after the first command. That remains to be
+    fixed.
+
+  * Reformat Zeek scripts with `zeek-script`.
+
+  * Fix help message.
+
+  * Fix return value of scheduler loop.
+
+  * Bump `spdlog`.
+
+  * Bump `fmt`.
+
 2.3.0-dev.71 | 2023-12-20 12:11:13 +0100
 
   * Notarization updates and fixes. We now use Apple's new

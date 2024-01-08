@@ -39,7 +39,7 @@ Result<Nothing> platform::setenv(const char* name, const char* value, int overwr
 std::optional<filesystem::path> platform::configurationFile() {
     // TODO: These paths aren't necessarily right yet.
     filesystem::path exec = PathFind::FindExecutable();
-    return exec / "../etc" / "zeek-agent.conf";
+    return filesystem::weakly_canonical(exec.parent_path() / "../etc" / "zeek-agent.conf");
 }
 
 std::optional<filesystem::path> platform::dataDirectory() {

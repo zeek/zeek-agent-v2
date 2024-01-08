@@ -22,6 +22,6 @@ event got_result(ctx: ZeekAgent::Context, data: Columns)
 
 event zeek_init()
 	{
-	ZeekAgent::query([$sql_stmt="SELECT agent_version FROM zeek_agent",
-	    $event_=got_result, $cookie="Hurz", $schedule_=20 secs]);
+	ZeekAgent::query([ $sql_stmt="SELECT agent_version FROM zeek_agent",
+	    $event_=got_result, $cookie="Hurz", $schedule_=20secs ]);
 	}

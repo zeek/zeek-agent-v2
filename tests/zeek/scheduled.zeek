@@ -31,7 +31,7 @@ event got_result(ctx: ZeekAgent::Context, data: Columns)
 		{
 		ZeekAgent::cancel(query_id);
 		print "terminating soon - there should not be another 'got result' after this";
-		schedule 2 secs { do_terminate() };
+		schedule 2secs { do_terminate() };
 		}
 	}
 
@@ -39,5 +39,5 @@ event zeek_init()
 	{
 	query_id = ZeekAgent::query([
 	    $sql_stmt="SELECT id, agent_version FROM zeek_agent",
-	    $event_=got_result, $cookie="Hurz", $schedule_=3 secs]);
+	    $event_=got_result, $cookie="Hurz", $schedule_=3secs ]);
 	}

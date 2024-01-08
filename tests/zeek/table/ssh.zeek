@@ -36,5 +36,5 @@ event do_terminate()
 event ZeekAgentAPI::agent_hello_v1(ctx: ZeekAgent::Context,
     columns: ZeekAgentAPI::AgentHelloV1)
 	{
-	schedule 5 secs { do_terminate() };
+	schedule 5secs { do_terminate() };
 	}

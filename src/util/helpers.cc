@@ -79,6 +79,21 @@ std::pair<std::string, std::string> zeek::agent::rsplit1(std::string s, const st
     return std::make_pair("", std::move(s));
 }
 
+std::string zeek::agent::replace(const std::string& s, const std::string& o, const std::string& n) {
+    if ( o.empty() )
+        return s;
+
+    auto x = s;
+
+    size_t i = 0;
+    while ( (i = x.find(o, i)) != std::string::npos ) {
+        x.replace(i, o.length(), n);
+        i += n.length();
+    }
+
+    return x;
+}
+
 static std::string base62_encode(uint64_t i) {
     static const char* alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -341,5 +356,10 @@ TEST_SUITE("Helpers") {
     TEST_CASE("endsWith") {
         CHECK(endsWith("abcd", "cd"));
         CHECK(! endsWith("abcd", "ab"));
+    }
+
+    TEST_CASE("replace") {
+        CHECK_EQ(replace("abcd", "ab", "xy"), "xycd");
+        CHECK_EQ(replace("abcd", "QWQW", "xy"), "abcd");
     }
 }
