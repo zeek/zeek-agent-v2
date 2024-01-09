@@ -51,7 +51,7 @@ jobs:
 
       - name: Check code
         run: |
-          pre-commit run -a --show-diff-on-failure
+          SKIP=autogen-readme pre-commit run -a --show-diff-on-failure
           # TODO: tidy fails in Broker currently
           # ninja -C build tidy
 

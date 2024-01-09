@@ -37,4 +37,37 @@ public:
         };
     }
 };
+
+class ProcessesEventsCommon : public EventTable {
+public:
+    Schema schema() const override {
+        return {
+            // clang-format off
+            .name = "processes_events",
+            .summary = "process activity",
+            .description = R"(
+                The table reports processes starting and stopping on the endpoint.
+                )",
+            .platforms = { Platform::Darwin },
+            .columns = {
+                {.name = "time", .type = value::Type::Time, .summary = "timestamp"},
+                {.name = "name", .type = value::Type::Text, .summary = "name of process"},
+                {.name = "pid", .type = value::Type::Count, .summary = "process ID"},
+                {.name = "ppid", .type = value::Type::Count, .summary = "parent's process ID"},
+                {.name = "uid", .type = value::Type::Count, .summary = "effective user ID"},
+                {.name = "gid", .type = value::Type::Count, .summary = "effective group ID"},
+                {.name = "ruid", .type = value::Type::Count, .summary = "real user ID"},
+                {.name = "rgid", .type = value::Type::Count, .summary = "real group ID"},
+                {.name = "priority", .type = value::Type::Text, .summary = "process priority (representation is platform-specific)"},
+                {.name = "duration", .type = value::Type::Interval, .summary = "interval since started"},
+                {.name = "vsize", .type = value::Type::Count, .summary = "virtual memory size"},
+                {.name = "rsize", .type = value::Type::Count, .summary = "resident memory size"},
+                {.name = "utime", .type = value::Type::Interval, .summary = "user CPU time"},
+                {.name = "stime", .type = value::Type::Interval, .summary = "system CPU time"},
+                {.name = "state", .type = value::Type::Text, .summary = "state of process"},
+        }
+            // clang-format on
+        };
+    }
+};
 } // namespace zeek::agent::table

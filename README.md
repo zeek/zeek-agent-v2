@@ -302,6 +302,30 @@ the endpoint at the time of the query.
 </details>
 
 <details>
+<summary><tt>processes_events:</tt> process activity [macOS]</summary><br />
+
+The table reports processes starting and stopping on the endpoint.
+
+| Column | Type | Description
+| --- | --- | --- |
+| `time` | time | timestamp |
+| `name` | text | name of process |
+| `pid` | count | process ID |
+| `ppid` | count | parent's process ID |
+| `uid` | count | effective user ID |
+| `gid` | count | effective group ID |
+| `ruid` | count | real user ID |
+| `rgid` | count | real group ID |
+| `priority` | text | process priority (representation is platform-specific) |
+| `duration` | interval | interval since started |
+| `vsize` | count | virtual memory size |
+| `rsize` | count | resident memory size |
+| `utime` | interval | user CPU time |
+| `stime` | interval | system CPU time |
+| `state` | text | state of process |
+</details>
+
+<details>
 <summary><tt>sockets:</tt> open network sockets [Linux, Windows, macOS]</summary><br />
 
 The table provides a list of all IP sockets that are open on
@@ -311,6 +335,27 @@ the endpoint at the time of the query.
 | --- | --- | --- |
 | `pid` | count | ID of process holding socket |
 | `process` | text | name of process holding socket |
+| `family` | text | `IPv4` or `IPv6` |
+| `protocol` | count | transport protocol |
+| `local_addr` | address | local IP address |
+| `local_port` | count | local port number |
+| `remote_addr` | address | remote IP address |
+| `remote_port` | count | remote port number |
+| `state` | text | state of socket |
+</details>
+
+<details>
+<summary><tt>sockets_events:</tt> open network sockets [macOS]</summary><br />
+
+The table reports IP sockets opening and closing on the endpoint.
+
+| Column | Type | Description
+| --- | --- | --- |
+| `time` | time | timestamp |
+| `pid` | count | ID of process holding socket |
+| `process` | text | name of process holding socket |
+| `uid` | count | user ID of process |
+| `gid` | count | group ID of process |
 | `family` | text | `IPv4` or `IPv6` |
 | `protocol` | count | transport protocol |
 | `local_addr` | address | local IP address |

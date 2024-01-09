@@ -1,3 +1,9 @@
+2.3.0-dev.80 | 2024-01-09 09:15:06 +0100
+
+  * Add `processes_events` and `sockets_events` tables on macOS. The
+    former uses Endpoint Security, the latter a Network Extension.
+    These remain experimental for now.
+
 2.3.0-dev.78 | 2024-01-08 10:25:51 +0100
 
   * GH-8: Support attaching interactive console to a running agent.

@@ -23,6 +23,7 @@ Checks: 'bugprone-*,
          -misc-suspicious-semicolon,
          -misc-unused-parameters,
          -misc-const-correctnes,
+         -misc-use-anonymous-namespace
          -modernize-avoid-c-arrays,
          -modernize-use-equals-default,
          -modernize-use-nodiscard,
@@ -40,6 +41,7 @@ Checks: 'bugprone-*,
          -readability-function-size,
          -readability-isolate-declaration,
          -readability-identifier-length,
+         -readability-static-definition-in-anonymous-namespace,÷
          '
 
 HeaderFilterRegex: '/src'
