@@ -3,17 +3,16 @@
 ![Zeek Agent deployment overview](/auxil/zeek-agent.png)
 ![Zeek Agent log example](/auxil/log-example.png)
 
-The *Zeek Agent* is an endpoint agent that sends host information to
-[Zeek](http://zeek.org) for central monitoring. Inside Zeek, the host
+The **Zeek Agent** is an endpoint agent that sends host information to
+[Zeek](http://zeek.org) for central monitoring. Inside Zeek, that host
 activity—such as current processes, open sockets, or the list of users
-on the system—shows up as script-layer events, just as network
-activity does. Zeek and its agents communicate through
-[Broker](https://docs.zeek.org/projects/broker), Zeek's standard
-communication library.
+on the system—then shows up as script-layer events, just as network
+activity does. Zeek and its agents communicate through Zeek's
+WebSocket-based communication protocol.
 
-We provide a [script package for
+In addition to the Zeek Agent itself, we provide a [script package for
 Zeek](https://github.com/zeek-packages/zeek-agent-v2) that adds a
-number of new log files to Zeek recording endpoint information
+number of new log files to Zeek for recording the endpoint information
 received from agents. The package also provides an API to custom
 scripts for controlling agents and processing the events they send.
 
@@ -21,6 +20,7 @@ This is a new version of the Zeek Agent that supersedes a couple of
 older implementations (see the [history](#history)). It remains
 experimental and in development for now, but we're working on making
 it stable. We are interested in any feedback you may have.
+Contributions are welcome, too!
 
 #### Contents
 <!-- begin table of contents -->
@@ -48,7 +48,6 @@ it stable. We are interested in any feedback you may have.
   system libraries. (Individual tables may not be available if they
   don't find what they need on the system.)
 
-
 #### Download & Installation
 
 On our [releases
@@ -56,14 +55,29 @@ page](https://github.com/zeek/zeek-agent-v2/releases), you will find
 pre-built agent versions for:
 
 - **Linux**: We are providing static binaries that work on all recent
-  x86_64 systems.
+  x86_64 systems. Just copy the `zeek-agent` binary into your `PATH`.
 
 - **macOS**: We are providing signed, universal binaries that work on
-  Big Sur and newer.
+  Monterey and newer. To install, open the DMG disk image, copy the
+  `Zeek Agent` installer application into your system's
+  `/Applications` folders, and execute it there. That application will
+  install the actual agent as a system extension. You will need to
+  grant it permissions to do so, as well as for tracking the
+  endpoint's network traffic.
+
+- **Windows**: We do not provide pre-built versions for Windows yet.
+
+Note that not all features described below may already be part of the
+most recent release. To download the current development version
+instead, locate the [latest successful workflow on the `main`
+branch](https://github.com/zeek/zeek-agent-v2/actions?query=branch%3Amain+is%3Asuccess)
+and go to its list of artifacts.
+
+#### Build From Source
 
 To build the agent yourself, download the source distribution for the
-current release, or clone the code directly from git (make sure to include
-submodules through `--recursive`). Then run:
+current release, or clone the code directly from GitHub (make sure to
+include submodules through `--recursive`). Then run:
 
     # ./configure [<options>] && make -j 4 && make test && make install
 
@@ -72,29 +86,54 @@ Selected `configure` options (see `--help` for more):
 - `--prefix=<path>`: installation prefix
 - `--with-openssl=<path>`: path to OpenSSL installation.
 
-On macOS with Homebrew, use `--with-openssl={/usr/local,/opt/homebrew}/opt/openssl@1.1`
+Platform-specific notes:
 
-##### Windows
+- **Linux**
+    - You must have `clang` and `llvm` installed (compiling with `gcc`
+      isn't supported), You also need to have ELF development headers
+      available (e.g., `libelf-dev` on Ubuntu). All of these are
+      needed for eBPF support.
 
-For Windows builds, any recent version of Visual Studio will work. You will need
-to pass `-DCMAKE_TOOLCHAIN_FILE="3rdparty/vcpkg/scripts/buildsystems/vcpkg.cmake"`
-to the CMake invocation. This will make vcpkg install the proper dependencies for
-the build.
+- **macOS**
+  - When using Homebrew, add
+    `--with-openssl={/usr/local,/opt/homebrew}/opt/openssl@1.1`.
+
+  - By default, the resulting Zeek Agent application will not be
+    signed and notarized, meaning the installer application won't work
+    unless system integrity protection is disabled (not recommended).
+    You can still execute the actual `zeek-agent` binary manually,
+    with limited functionality.
+
+- **Windows**
+
+  - Any recent version of Visual Studio should work. You will need to
+    pass
+    `-DCMAKE_TOOLCHAIN_FILE="3rdparty/vcpkg/scripts/buildsystems/vcpkg.cmake"`
+    to the CMake invocation. This will make vcpkg install the proper
+    dependencies for the build.
 
 #### Usage
 
-On all endpoints, run as `root`:
+On Linux and Windows endpoints, run as `root`:
 
 ```
 # zeek-agent -z <hostname-of-your-Zeek-system>
 ```
 
+On macOS, the agent will normally be started through the installer
+application, per above. That application also provides a configuration
+screen to specify the target Zeek system. For development and
+experimentation, you can also run the `zeek-agent` binary directly,
+like on the other platforms, although it won't have access to most of
+the macOS-specific functionality then.
+
 ### Zeek Package
 
 #### Prerequisites
 
-- The agent's Zeek package requires Zeek 4.0 or newer. The pre-built
-  agent binaries requires Zeek 5.0 or newer.
+- The agent's Zeek package is tested with Zeek 6.0; older Zeek
+  versions may or may not work. The pre-built agent binaries require
+  Zeek 6.0 or newer when connecting.
 
 - For a standard installation, make sure you have the Zeek package
   manager available and configured. You may need to run `eval $(zkg
@@ -302,7 +341,7 @@ the endpoint at the time of the query.
 </details>
 
 <details>
-<summary><tt>processes_events:</tt> process activity [macOS]</summary><br />
+<summary><tt>processes_events:</tt> process activity [Linux, macOS]</summary><br />
 
 The table reports processes starting and stopping on the endpoint.
 
@@ -345,7 +384,7 @@ the endpoint at the time of the query.
 </details>
 
 <details>
-<summary><tt>sockets_events:</tt> open network sockets [macOS]</summary><br />
+<summary><tt>sockets_events:</tt> open network sockets [Linux, macOS]</summary><br />
 
 The table reports IP sockets opening and closing on the endpoint.
 
@@ -438,18 +477,12 @@ Agent process and the endpoint it's running on.
 
 - The agent remains experimental for now, and APIs and table schemas
   are still evolving. Specifics may still change without much notice.
+  If you see anything not working as expected, please open an issue.
 
 - The supply of tables and Zeek logs is still limited; we are
-  planning to add more in the future (contributions welcome!).
+  planning to add more in the future.
 
-- Currently, most data is collected in regular intervals only, meaning
-  that short-lived activity happening between the agent’s regular
-  snapshots might be missed (e.g., a process terminating quickly after
-  it started up). The agent’s internal infrastructure already supports
-  “event tables” that don’t have that limitation, and we plan to make
-  more use of that in the future. Doing so typically requires usage of
-  OS-specific APIs, which makes these tables more complex to
-  implement.
+- Contributions are welcome, we take pull requests.
 
 ## Getting in Touch
 
