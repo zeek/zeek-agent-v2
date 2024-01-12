@@ -3,12 +3,13 @@
 #include "platform/platform.h"
 
 #include "autogen/config.h"
-#include "core/logger.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
 #include "util/testing.h"
 
 #include <pathfind.hpp>
+
+#include <sys/utsname.h>
 
 using namespace zeek::agent;
 
@@ -61,4 +62,27 @@ std::optional<filesystem::path> platform::dataDirectory() {
 
 void platform::initializeOptions(Options* options) {
     // Nothing to do.
+}
+
+unsigned int platform::linux::kernelVersion() {
+    struct utsname uts;
+    if ( uname(&uts) < 0 )
+        throw FatalError("cannot retrieve Linux kernel version");
+
+    char* p = uts.release;
+
+    while ( *p && ! isdigit(*p) )
+        p++;
+
+    auto major = strtol(p, &p, 10);
+
+    while ( *p && ! isdigit(*p) )
+        p++;
+
+    auto minor = strtol(p, &p, 10);
+
+    if ( ! (major && minor) )
+        throw FatalError(frmt("cannot parse Linux kernel version: {}", uts.release));
+
+    return major * 100 + minor;
 }

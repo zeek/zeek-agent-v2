@@ -1,5 +1,9 @@
 # Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
 
+if ( HAVE_LINUX )
+include(BPF)
+endif ()
+
 add_subdirectory(files)
 add_subdirectory(processes)
 add_subdirectory(sockets)

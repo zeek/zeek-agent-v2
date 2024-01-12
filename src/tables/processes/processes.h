@@ -48,7 +48,7 @@ public:
             .description = R"(
                 The table reports processes starting and stopping on the endpoint.
                 )",
-            .platforms = { Platform::Darwin },
+            .platforms = { Platform::Darwin, Platform::Linux },
             .columns = {
                 {.name = "time", .type = value::Type::Time, .summary = "timestamp"},
                 {.name = "name", .type = value::Type::Text, .summary = "name of process"},
@@ -70,4 +70,5 @@ public:
         };
     }
 };
+
 } // namespace zeek::agent::table

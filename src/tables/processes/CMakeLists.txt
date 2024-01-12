@@ -7,6 +7,7 @@ if ( HAVE_DARWIN )
 endif ()
 
 if ( HAVE_LINUX )
+    generate_bpf_code(zeek-agent processes processes.linux.bpf.c)
     target_sources(zeek-agent PRIVATE processes.linux.cc)
     target_link_libraries(zeek-agent PRIVATE pfs)
 endif ()

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+# Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 
 cmake_minimum_required(VERSION 3.15.1)
 
@@ -152,6 +152,8 @@ message(
     "\nInstall prefix:        ${CMAKE_INSTALL_PREFIX}"
     "\n"
     "\nHost system:           ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION} (${CMAKE_SYSTEM_PROCESSOR})"
+    "\nC Compiler:            ${CMAKE_C_COMPILER} (${CMAKE_C_COMPILER_VERSION})"
+    "\nC++ Compiler:          ${CMAKE_CXX_COMPILER} (${CMAKE_CXX_COMPILER_VERSION})"
     "\n"
     "\nBuild with tests:      ${USE_DOCTEST}"
     "\nBuild with Broker:     ${USE_BROKER}"

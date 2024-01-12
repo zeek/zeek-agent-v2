@@ -49,3 +49,6 @@
 [submodule "3rdparty/glob"]
 	path = 3rdparty/glob
 	url = https://github.com/p-ranav/glob.git
+[submodule "3rdparty/bpftool"]
+	path = 3rdparty/bpftool
+	url = https://github.com/libbpf/bpftool

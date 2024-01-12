@@ -1,3 +1,21 @@
+2.3.0-dev.90 | 2024-01-12 14:49:01 +0100
+
+  * Linux: Integrate `bpftools` and add central manager for handling
+    BPF programs. We now require `clang` for building the agent on
+    Linux.
+
+  * Linux: Add BPF-based `processes_events` and `sockets_events`
+    tables. These remain experimental for now and may require further
+    fine tuning.
+
+  * Linux: Add function retrieve kernel version.
+
+  * Add Dependabot configuration.
+
+  * Update README.
+
+  * Bump IXWebSocket.
+
 2.3.0-dev.80 | 2024-01-09 09:15:06 +0100
 
   * Add `processes_events` and `sockets_events` tables on macOS. The
