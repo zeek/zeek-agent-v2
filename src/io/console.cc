@@ -220,18 +220,16 @@ void ConsoleServer::Implementation::query(const socket::Remote& remote, const st
                            if ( subscription && *subscription == query::SubscriptionType::Snapshots )
                                pending->remote << std::endl;
 
-                           if ( ! pending->remote ) {
-                               // Cancel query on error, but still try to get
-                               // the error message across.
-                               sendError(pending->remote, frmt("console send failed: {}", *pending->remote.error()));
+                           if ( ! pending->remote )
+                               // Cancel query on error.
                                pending->done_cv.notify_all();
-                           }
                        },
 
                    .callback_done =
                        [pending](query::ID id, bool regular_shutdown) {
                            std::unique_lock<std::mutex> lock(pending->done_mutex);
                            pending->remote << std::endl;
+                           sendEndOfMessage(pending->remote);
                            pending->done_cv.notify_all();
                        }};
 
@@ -256,7 +254,6 @@ void ConsoleServer::Implementation::query(const socket::Remote& remote, const st
             });
 
             pending->done_cv.wait(lock);
-            sendEndOfMessage(pending->remote);
 
             if ( auto err = pending->remote.error() )
                 logger()->warn("console send failed: {}", *err);
