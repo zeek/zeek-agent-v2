@@ -1,0 +1,10 @@
+#! /bin/sh
+
+find . -type d -mindepth 1 -maxdepth 1 | grep -E -v '^\.(/build.*|/\.git|/3rdparty|/\.cache|/\.build)(/|$)' | while read dir; do
+    echo ${dir} >/dev/tty
+    find "${dir}" -type f | while read file; do
+        echo ${file} | grep -E -q '/3rdparty/|/\..*/|update-license-headers' && continue
+        cat ${file} | grep -q Copyright || continue
+        gsed -i'' 's/Copyright .* by the Zeek Project\..* details\./Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details./' "${file}"
+    done
+done

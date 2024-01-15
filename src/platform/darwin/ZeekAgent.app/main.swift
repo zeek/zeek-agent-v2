@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+// Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 //
 // This is the container app installing Zeek Agent as a system extension.
 

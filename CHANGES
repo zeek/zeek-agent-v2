@@ -1,3 +1,10 @@
+2.3.0-dev.94 | 2024-01-15 10:58:04 +0100
+
+  * Fix synchronization issue with console. If a query couldn't be
+    processed, client and server could get synchronized.
+
+  * Update license headers.
+
 2.3.0-dev.90 | 2024-01-12 14:49:01 +0100
 
   * Linux: Integrate `bpftools` and add central manager for handling
