@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+// Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 //
 // Limited Socket implementation supporting only communication within the same
 // process. This is for platforms where we have not implemented IPC support

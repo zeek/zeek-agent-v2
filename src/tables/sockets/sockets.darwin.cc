@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+// Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 //
 // This is inspired by https://github.com/palominolabs/get_process_handles/blob/master/main.c and
 // https://chromium.googlesource.com/external/github.com/giampaolo/psutil/+/refs/heads/master/psutil/_psutil_osx.c

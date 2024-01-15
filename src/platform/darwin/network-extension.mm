@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+// Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 //
 // Note that contrary to what Apple's documentation says, FilterDataProvider is
 // *not* sandboxed on macOS. See // https://developer.apple.com/forums/thread/133761.

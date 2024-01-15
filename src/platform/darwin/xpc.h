@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+// Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 //
 // Defines the XPC protocol and API for communication between the installer app
 // and the system extension.

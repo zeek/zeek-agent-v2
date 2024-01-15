@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 by the Zeek Project. See LICENSE for details.
+// Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 //
 // This has been adapted from
 // https://github.com/zeek/spicy/blob/main/hilti/runtime/include/result.h

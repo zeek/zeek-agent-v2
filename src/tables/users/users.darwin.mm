@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+// Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 //
 // This takes inspiration from https://stackoverflow.com/questions/3681895/get-all-users-on-os-x.
 

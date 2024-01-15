@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+// Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 //
 // The EndpointSecurity code borrows from
 // https://gist.github.com/Omar-Ikram/8e6721d8e83a3da69b31d4c2612a68ba.

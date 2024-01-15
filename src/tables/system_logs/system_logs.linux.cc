@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by the Zeek Project. See LICENSE for details.
+// Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 //
 // Interface to journald. To avoid dependencies on external libraries, we spawn
 // journalctl as a child process if we find it, reading from its output.
