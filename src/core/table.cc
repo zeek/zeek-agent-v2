@@ -119,7 +119,7 @@ static Value from_json_record(const nlohmann::json& v) {
     for ( const auto& i : v ) {
         auto type = type::from_string(i["type"]);
         assert(type);
-        elements.emplace_back(from_json(i["value"], *type), *type);
+        elements.emplace_back(::from_json(i["value"], *type), *type);
     }
 
     return {elements};
@@ -142,7 +142,7 @@ static Value from_json_set(const nlohmann::json& v) {
     Set elements(*type);
 
     for ( const auto& i : values )
-        elements.insert(from_json(i, *type));
+        elements.insert(::from_json(i, *type));
 
     return elements;
 }
@@ -164,7 +164,7 @@ static Value from_json_vector(const nlohmann::json& v) {
     Vector elements(*type);
 
     for ( const auto& i : values )
-        elements.emplace_back(from_json(i, *type));
+        elements.emplace_back(::from_json(i, *type));
 
     return elements;
 }
@@ -220,7 +220,7 @@ std::string zeek::agent::to_json_string(const Value& value, value::Type type) { 
 Value zeek::agent::from_json_string(const std::string_view& data, value::Type type) {
     try {
         auto json = nlohmann::json::parse(data);
-        return from_json(json, type);
+        return ::from_json(json, type);
     } catch ( nlohmann::json::parse_error& e ) {
         // This should never happen, we only parse our own JSON.
         throw InternalError(frmt("JSON parse error: {}", e.what()));

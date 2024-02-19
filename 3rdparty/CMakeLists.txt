@@ -26,7 +26,6 @@ if ( WIN32 )
  endif()
 
 add_subdirectory(doctest EXCLUDE_FROM_ALL)
-add_subdirectory(filesystem EXCLUDE_FROM_ALL)
 add_subdirectory(fmt EXCLUDE_FROM_ALL)
 add_subdirectory(replxx EXCLUDE_FROM_ALL)
 add_subdirectory(json EXCLUDE_FROM_ALL)
@@ -34,11 +33,17 @@ add_subdirectory(stduuid EXCLUDE_FROM_ALL)
 add_subdirectory(tomlplusplus EXCLUDE_FROM_ALL)
 add_subdirectory(out_ptr EXCLUDE_FROM_ALL)
 
+option(GHC_FILESYSTEM_WITH_INSTALL "With install target" ON)
+add_subdirectory(filesystem EXCLUDE_FROM_ALL)
+
 option(GLOB_USE_GHC_FILESYSTEM "Use ghc::filesystem instead of std::filesystem" ON)
 add_subdirectory(glob EXCLUDE_FROM_ALL)
 
 set(SPDLOG_FMT_EXTERNAL ON)
 add_subdirectory(spdlog EXCLUDE_FROM_ALL)
+# just setting SPDLOG_FMT_EXTERNAL isn't sufficient for some reason
+target_compile_definitions(spdlog PUBLIC SPDLOG_FMT_EXTERNAL)
+target_link_libraries(spdlog PUBLIC fmt)
 
 # IXWebSocket will pick up on us having configured OpenSSL already.
 option(USE_TLS "Enable TLS support" ON)
@@ -88,7 +93,7 @@ set_property(TARGET reproc++ PROPERTY POSITION_INDEPENDENT_CODE ON)
 if ( HAVE_LINUX )
     set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "" FORCE)
     add_subdirectory(pfs EXCLUDE_FROM_ALL)
-    target_include_directories(pfs PUBLIC pfs/include)
+    target_include_directories(pfs PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/pfs/include>")
     target_compile_definitions(pfs PRIVATE preadv64=preadv) # work-around preadv64 not being defined on Alpine 3.19.
 endif()
 

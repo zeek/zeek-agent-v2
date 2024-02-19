@@ -169,16 +169,16 @@ void SystemLogsLinux::parseJSON(const std::string& object) {
 
         for ( const auto& i : std::vector<std::string>{"_COMM", "_EXE", "SYSLOG_IDENTIFIER"} ) {
             if ( j.contains(i) ) {
-                process = j[i];
+                process = j[i].get<std::string>();
                 break;
             }
         }
 
         if ( j.contains("PRIORITY") )
-            priority = j["PRIORITY"];
+            priority = j["PRIORITY"].get<std::string>();
 
         if ( j.contains("MESSAGE") )
-            msg = j["MESSAGE"];
+            msg = j["MESSAGE"].get<std::string>();
 
         newEvent({t, process, priority, msg, {}});
 
