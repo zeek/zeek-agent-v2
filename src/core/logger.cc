@@ -6,6 +6,7 @@
 #include "core/configuration.h"
 
 #include <memory>
+#include <string>
 #include <utility>
 
 #include <spdlog/common.h>
@@ -64,7 +65,7 @@ Result<Nothing> zeek::agent::setGlobalLogger(options::LogType type, options::Log
             if ( ! path )
                 return result::Error("file logging requires a path");
 
-            sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->native());
+            sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string());
             break;
     }
 

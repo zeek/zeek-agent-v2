@@ -66,7 +66,7 @@ jobs:
           # TODO: tidy fails in Broker currently
           # ninja -C build tidy
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: Test output
@@ -122,7 +122,7 @@ jobs:
           ninja -C build package
           (cd build/dist && echo "ZA_DIST=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
@@ -242,7 +242,7 @@ jobs:
 
       ### Back to running on all branches
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
@@ -289,7 +289,7 @@ jobs:
           arch: x64
 
       - name: Cache vcpkg output
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ${{ env.VCPKG_ROOT }}
@@ -325,7 +325,7 @@ jobs:
           (cd build/dist && echo "ZA_DIST=$(echo *.msi)" >>$GITHUB_ENV)
         shell: bash
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
@@ -369,7 +369,7 @@ jobs:
           cat build/dist/${{env.ZA_DIST}} | (cd ${{ runner.temp }}/test-build && tar xzvf -)
           (cd $(echo ${{ runner.temp }}/test-build/zeek-agent*) && ./configure --generator=Ninja --enable-ccache && ninja -C build && ninja -C build test)
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
@@ -391,7 +391,7 @@ jobs:
           cat CHANGES | awk '/^[0-9]+\./{ n++; next; } n < 2 { print }' >${{ runner.temp }}/release-msg
           echo "release_name=$(echo ${{ github.ref_name }} | sed 's/^v//')" >> $GITHUB_ENV
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
 
