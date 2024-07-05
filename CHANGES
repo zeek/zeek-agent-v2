@@ -1,4 +1,8 @@
-2.3.0 | 2024-07-05 12:56:44 +0200
+2.3.0 | 2024-07-05 13:33:50 +0200
+
+  * Extend list of artifacts included into release.
+
+  * Update link in README.
 
   * Fix for Windows compilation.
 

@@ -409,3 +409,5 @@ jobs:
           body_path: ${{ runner.temp }}/release-msg
           files: |
             artifacts/*/*.tar.gz
+            artifacts/*/*.dmg
+            artifacts/*/*.msi
