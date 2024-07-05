@@ -70,7 +70,7 @@ pre-built agent versions for:
 Note that not all features described on this page may already be part
 of the most recent release. To download the current development
 version instead, locate the [latest successful workflow on the `main`
-branch](https://github.com/zeek/zeek-agent-v2/actions?query=branch%3Amain+is%3Asuccess)
+branch](https://github.com/zeek/zeek-agent-v2/actions/workflows/main.yml?query=branch%3Amain+is%3Asuccess)
 and go to its list of artifacts.
 
 #### Build From Source
