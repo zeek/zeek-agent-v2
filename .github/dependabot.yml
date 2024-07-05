@@ -6,10 +6,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    groups:
-      3rdparty:
-        patterns:
-        - "3rdparty/*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
