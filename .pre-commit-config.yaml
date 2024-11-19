@@ -31,8 +31,8 @@ repos:
   - id: check-yaml
   - id: check-added-large-files
 
-- repo: https://gitlab.com/daverona/pre-commit/cpp
-  rev: 0.8.0
+- repo: https://github.com/cpplint/cpplint
+  rev: 1.6.1
   hooks:
   - id: cpplint
     args: ["--quiet"]
