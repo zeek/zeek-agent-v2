@@ -44,7 +44,7 @@ done
 
 type ${cmake_exe} > /dev/null 2>&1 || {
     echo "\
-This package requires CMake, please install it first, then you may
+This package requires CMake 3.x, please install it first, then you may
 use this configure script to access CMake equivalent functionality.\
 " >&2;
     exit 1;

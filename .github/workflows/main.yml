@@ -140,7 +140,13 @@ jobs:
       - name: Prepare
         run: |
           brew update
-          brew upgrade cmake
+
+          # This previously updated cmake as well, but homebrew's default CMake is now 4.x
+          # which is unsupported by our doctest submodule. Stay on the old version
+          # (3.31.6) for the time being. If the default on the runner updates to 4.x in
+          # the future we'll have to fix it, but hopefully doctest will get their stuff
+          # fixed before then.
+
           brew install ninja ccache wget
           pip3 install btest zkg
           # time can be off, which confuses codesigning; this host can be accessed from GH actions
