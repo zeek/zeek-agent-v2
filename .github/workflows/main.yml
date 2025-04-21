@@ -141,7 +141,7 @@ jobs:
         run: |
           brew update
           brew upgrade cmake
-          brew install ninja ccache
+          brew install ninja ccache wget
           pip3 install btest zkg
           # time can be off, which confuses codesigning; this host can be accessed from GH actions
           sudo sntp -sS time.windows.com
@@ -160,7 +160,7 @@ jobs:
         env:
             OPENSSL_VERSION: 1.1.1w
         run: |
-            curl -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
+            wget https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
             tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_x86_64
             tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_arm64
             (cd openssl_x86_64 && CC="ccache cc" ./Configure darwin64-x86_64-cc no-shared no-tests -mmacosx-version-min=${MACOS_VERSION} && make -j)

@@ -1,3 +1,10 @@
+2.3.0-4 | 2025-04-21 10:18:42 -0700
+
+  * Fix CI.
+
+    - Pinned cpplint to the previous version to fix CI issues. The build/include-what-you-use rule in cpplint 2.0.0 no longer supports transitive headers from the header of the current module for parity with the style guide.
+    - Replace curl with wget to download the source code of openssl.
+
 2.3.0 | 2024-07-05 13:33:50 +0200
 
   * Extend list of artifacts included into release.
