@@ -1,3 +1,13 @@
+2.3.0-19 | 2025-04-21 15:51:46 -0700
+
+  * Expand possible size of UUIDs in test canonifier
+
+  * Fix deprecated form of literal operator
+
+  * Use wformat_context when formatting wchar_t
+
+  * Upgrade fmtlib to 11.1.4
+
 2.3.0-14 | 2025-04-21 13:20:10 -0700
 
   * Bump 3rdparty/bpftool from `c428db1` to `3be8ac3`

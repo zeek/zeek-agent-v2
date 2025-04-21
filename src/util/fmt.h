@@ -59,7 +59,7 @@ struct fmt::formatter<filesystem::path> : fmt::formatter<std::string> {
 
 template<>
 struct fmt::formatter<wchar_t> : fmt::formatter<std::string> {
-    auto format(const wchar_t& c, format_context& ctx) const -> decltype(ctx.out()) {
+    auto format(const wchar_t& c, wformat_context& ctx) const -> decltype(ctx.out()) {
         return fmt::format_to(ctx.out(), L"{}", c);
     }
 };
