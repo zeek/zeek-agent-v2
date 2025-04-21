@@ -108,7 +108,7 @@ constexpr Interval to_interval_from_ns(uint64_t t) {
 };
 
 /** Converts an seconds-since-epoch timestamp into our time type. */
-constexpr Time operator"" _time(unsigned long long int t) { return to_time(t); }
+constexpr Time operator""_time(unsigned long long int t) { return to_time(t); }
 
 /** Render a time value as a readable string. */
 inline std::string to_string(Time t) {
