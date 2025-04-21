@@ -1,3 +1,13 @@
+2.3.0-14 | 2025-04-21 13:20:10 -0700
+
+  * Bump 3rdparty/bpftool from `c428db1` to `3be8ac3`
+
+  * Bump 3rdparty/broker from `3dc3aef` to `2a6e620`
+
+  * Bump 3rdparty/vcpkg from `c4467cb` to `b8d688b`
+
+  * Bump 3rdparty/spdlog from `885b547` to `e593f66`
+
 2.3.0-6 | 2025-04-21 11:59:16 -0700
 
   * Force macOS builds to use CMake 3.x to avoid incompatability with 4.x
