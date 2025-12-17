@@ -5,6 +5,10 @@
 #include "autogen/config.h"
 #include "util/testing.h"
 
+#ifdef HAVE_POSIX
+#include <unistd.h>
+#endif
+
 using namespace zeek::agent;
 
 TEST_CASE_FIXTURE(test::TableFixture, "processes" * doctest::test_suite("Tables")) {
@@ -25,6 +29,6 @@ TEST_CASE_FIXTURE(test::TableFixture, "processes" * doctest::test_suite("Tables"
     name = filename;
 #endif
 
-    auto result = query(frmt("SELECT pid from processes WHERE name = \"{}\" AND pid = {}", name, getpid()));
+    auto result = query(frmt("SELECT pid from processes WHERE name = \"{}\" AND pid = {}", name, ::getpid()));
     REQUIRE_EQ(result.rows.size(), 1);
 }

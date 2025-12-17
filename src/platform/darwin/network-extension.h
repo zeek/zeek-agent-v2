@@ -7,10 +7,13 @@
 #include "util/pimpl.h"
 #include "util/result.h"
 
+#include <functional>
 #include <list>
 #include <memory>
 #include <string>
 #include <utility>
+
+#include <sys/_types/_pid_t.h>
 
 namespace zeek::agent::platform::darwin {
 

@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include <os/log.h>
+#include <spdlog/details/log_msg.h>
 #include <spdlog/sinks/base_sink.h>
 
 namespace zeek::agent::platform::darwin {

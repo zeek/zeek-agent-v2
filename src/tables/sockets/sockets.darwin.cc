@@ -15,6 +15,7 @@
 #include "util/helpers.h"
 
 #include <iostream>
+#include <utility>
 
 #include <libproc.h>
 
@@ -26,7 +27,7 @@ class SocketsDarwin : public SocketsCommon {
 public:
     std::vector<std::vector<Value>> snapshot(const std::vector<table::Argument>& args) override;
 
-    void addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, Value process);
+    void addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, const Value& process);
     void addSocket(std::vector<std::vector<Value>>* rows, int pid, Value process, const struct socket_info& si);
 };
 
@@ -56,7 +57,7 @@ std::vector<std::vector<Value>> SocketsDarwin::snapshot(const std::vector<table:
     return rows;
 }
 
-void SocketsDarwin::addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, Value process) {
+void SocketsDarwin::addSocketsForProcess(std::vector<std::vector<Value>>* rows, int pid, const Value& process) {
     auto buffer_size = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nullptr, 0);
     struct proc_fdinfo fds[buffer_size / sizeof(proc_fdinfo)];
     buffer_size = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, fds, buffer_size);
@@ -73,7 +74,7 @@ void SocketsDarwin::addSocketsForProcess(std::vector<std::vector<Value>>* rows, 
         errno = 0;
         auto n = proc_pidfdinfo(pid, fds[i].proc_fd, PROC_PIDFDSOCKETINFO, &socket_info, sizeof(socket_fdinfo));
 
-        if ( n < static_cast<int>(sizeof(socket_fdinfo)) || errno != 0 ) {
+        if ( std::cmp_less(n, sizeof(socket_fdinfo)) || errno != 0 ) {
             if ( errno == EBADF )
                 continue; // assume closed
 
@@ -86,7 +87,7 @@ void SocketsDarwin::addSocketsForProcess(std::vector<std::vector<Value>>* rows, 
         }
 
         if ( socket_info.psi.soi_family == AF_INET || socket_info.psi.soi_family == AF_INET6 )
-            addSocket(rows, pid, std::move(process), socket_info.psi);
+            addSocket(rows, pid, process, socket_info.psi);
     }
 }
 
@@ -134,7 +135,9 @@ void SocketsDarwin::addSocket(std::vector<std::vector<Value>>* rows, int pid, Va
                 case 11: state = "RESERVED"; break;
                 default: break;
             }
+            break;
         }
+        default: break;
     }
 
     rows->push_back(

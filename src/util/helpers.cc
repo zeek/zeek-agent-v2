@@ -23,13 +23,13 @@ void zeek::agent::cannot_be_reached() { throw InternalError("code is executing t
 
 std::string zeek::agent::tolower(const std::string& s) {
     std::string t = s;
-    std::transform(t.begin(), t.end(), t.begin(), ::tolower);
+    std::ranges::transform(t, t.begin(), ::tolower);
     return t;
 }
 
 std::string zeek::agent::toupper(const std::string& s) {
     std::string t = s;
-    std::transform(t.begin(), t.end(), t.begin(), ::toupper);
+    std::ranges::transform(t, t.begin(), ::toupper);
     return t;
 }
 
@@ -133,7 +133,7 @@ zeek::agent::Result<int64_t> zeek::agent::parseVersion(std::string v) {
         if ( m.size() > 1 ) {
             try {
                 commit = std::stoul(m[m.size() - 1]);
-            } catch ( ... ) {
+            } catch ( ... ) { // NOLINT(bugprone-empty-catch)
                 // ignore errors
             }
         }
@@ -147,8 +147,8 @@ zeek::agent::Result<int64_t> zeek::agent::parseVersion(std::string v) {
 std::string zeek::agent::randomUUID() {
     std::random_device rd;
     auto seed_data = std::array<int, std::mt19937::state_size>{};
-    std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
-    std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
+    std::ranges::generate(seed_data, std::ref(rd));
+    std::seed_seq seq(seed_data.begin(), seed_data.end());
     std::mt19937 generator(seq);
     auto uuid = uuids::uuid_random_generator(generator)();
 
@@ -157,7 +157,7 @@ std::string zeek::agent::randomUUID() {
     return frmt("{}{}", base62_encode(p[0]), base62_encode(p[1]));
 }
 
-std::vector<filesystem::path> zeek::agent::glob(const filesystem::path& pattern, size_t max) {
+std::vector<std::filesystem::path> zeek::agent::glob(const std::filesystem::path& pattern, size_t max) {
     // glob::glob returns std::filesystem::path, but we're using ghc::filesystem for compatibility
     // reasons. this means we need to copy the paths from one vector type to another here.
     auto paths = glob::glob(pattern.string());
@@ -198,8 +198,8 @@ TEST_SUITE("Helpers") {
     }
 
     TEST_CASE("transform") {
-        CHECK_EQ(transform(std::set<int>(), [](auto&& x) { return x + x; }), std::set<int>());
-        CHECK_EQ(transform(std::set({1, 2, 3}), [](auto&& x) { return x + x; }), std::set({2, 4, 6}));
+        CHECK_EQ(transform_(std::set<int>(), [](auto&& x) { return x + x; }), std::set<int>());
+        CHECK_EQ(transform_(std::set({1, 2, 3}), [](auto&& x) { return x + x; }), std::set({2, 4, 6}));
     }
 
     TEST_CASE("tolower") { CHECK_EQ(tolower("AbCd"), "abcd"); }

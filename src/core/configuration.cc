@@ -5,20 +5,35 @@
 #include "autogen/config.h"
 #include "logger.h"
 #include "platform/platform.h"
-#include "spdlog/common.h"
-#include "util/filesystem.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
+#include "util/pimpl.h"
+#include "util/result.h"
 
+#include <cerrno>
+#include <chrono>
+#include <cstdlib>
+#include <cstring>
 #include <exception>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <optional>
 #include <sstream>
-#include <system_error>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
+#ifdef HAVE_POSIX
+#include <unistd.h>
+#endif
+
 #include <fmt/format.h>
+#include <spdlog/common.h>
+#include <toml++/impl/parse_error.hpp>
+#include <toml++/impl/parser.hpp>
+#include <toml++/impl/table.hpp>
 
 #ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
@@ -42,8 +57,8 @@ using namespace zeek::agent;
 
 options::LogLevel options::default_log_level = options::LogLevel::info;
 options::LogType options::default_log_type = options::LogType::Stdout;
-filesystem::path options::default_log_path = {};
-filesystem::path options::default_socket_file_name = "zeek-agent.$$.sock";
+std::filesystem::path options::default_log_path = {};
+std::filesystem::path options::default_socket_file_name = "zeek-agent.$$.sock";
 
 static struct option long_driver_options[] = {
     // clang-format off
@@ -64,7 +79,7 @@ static struct option long_driver_options[] = {
     // clang-format on
 };
 
-static void usage(const filesystem::path& name) {
+static void usage(const std::filesystem::path& name) {
     auto cfg = platform::configurationFile() ? platform::configurationFile()->string() : std::string("n/a");
 
     auto options = Options::default_();
@@ -98,7 +113,7 @@ Result<Nothing> Options::parseArgv(const std::vector<std::string>& argv) {
     std::vector<char*> argv_;
 
     for ( auto& x : argv ) {
-        if ( x == "--test" || x.find("--test") != 0 )
+        if ( x == "--test" || ! x.starts_with("--test") )
             argv_.push_back(const_cast<char*>(x.c_str()));
     }
 
@@ -141,7 +156,7 @@ Result<Nothing> Options::parseArgv(const std::vector<std::string>& argv) {
             case 'e': execute = optarg; break;
             case 'i': interactive = true; break;
             case 'r': mode = options::Mode::RemoteConsole; break;
-            case 's': socket = filesystem::path(optarg); break;
+            case 's': socket = std::filesystem::path(optarg); break;
             case 'z': zeek_destinations.emplace_back(optarg); break;
 
             case 'v': std::cerr << "Zeek Agent v" << VersionLong << std::endl; exit(0);
@@ -159,7 +174,7 @@ void Options::debugDump() const {
     ZEEK_AGENT_DEBUG("configuration", "[option] agent-id: {}", agent_id);
     ZEEK_AGENT_DEBUG("configuration", "[option] instance-id: {}", instance_id);
     ZEEK_AGENT_DEBUG("configuration", "[option] config-file: {}",
-                     (config_file ? *config_file : filesystem::path()).string());
+                     (config_file ? *config_file : std::filesystem::path()).string());
     ZEEK_AGENT_DEBUG("configuration", "[option] interactive: {}", (interactive ? "true" : "false"));
     ZEEK_AGENT_DEBUG("configuration", "[option] log.level: {}",
                      (log_level ? options::to_string(*log_level) : "<not set>"));
@@ -187,10 +202,10 @@ struct Pimpl<Configuration>::Implementation {
     void apply(Options options);
 
     // Processes a configuration file.
-    Result<Nothing> read(const filesystem::path& path);
+    Result<Nothing> read(const std::filesystem::path& path);
 
     // Processes a configuration file's content from an already open stream.
-    Result<Nothing> read(std::istream& in, const filesystem::path& path);
+    Result<Nothing> read(std::istream& in, const std::filesystem::path& path);
 
     // Sets a set of command line options.
     Result<Nothing> initFromArgv(std::vector<std::string> argv);
@@ -215,17 +230,20 @@ Options Options::default_() {
     options.version_number = *version;
 
     // Attempt to read our agent's ID from previously created cache file.
-    filesystem::path uuid_path;
+    std::filesystem::path uuid_path;
 
     if ( auto dir = platform::dataDirectory() ) {
         uuid_path = (*dir / "uuid").native();
-        if ( filesystem::is_regular_file(uuid_path) ) {
+        if ( std::filesystem::is_regular_file(uuid_path) ) {
             if ( auto in = std::ifstream(uuid_path) ) {
                 std::string line;
                 std::getline(in, line);
 
-                if ( auto uuid = uuids::uuid::from_string(line) )
-                    options.agent_id = uuids::to_string(*uuid);
+                // The cached value is opaque: we wrote it, we read it back
+                // as-is (just trimming the newline we appended ourselves).
+                line = trim(line);
+                if ( ! line.empty() )
+                    options.agent_id = std::move(line);
             }
         }
     }
@@ -239,7 +257,7 @@ Options Options::default_() {
         // Cache it.
         if ( ! uuid_path.empty() ) {
             try {
-                filesystem::create_directories(uuid_path.parent_path());
+                std::filesystem::create_directories(uuid_path.parent_path());
                 std::ofstream out(uuid_path, std::ios::out | std::ios::trunc);
                 out << options.agent_id << "\n";
             } catch ( const std::exception& e ) {
@@ -251,7 +269,7 @@ Options Options::default_() {
     options.instance_id = frmt("I{}", randomUUID());
 
     auto path = platform::configurationFile();
-    if ( path && filesystem::is_regular_file(*path) )
+    if ( path && std::filesystem::is_regular_file(*path) )
         options.config_file = *path;
 
 #ifndef HAVE_WINDOWS
@@ -260,7 +278,7 @@ Options Options::default_() {
         if ( env && *env )
             options.socket = env;
         else {
-            filesystem::path socket_dir = "/tmp";
+            std::filesystem::path socket_dir = "/tmp";
             if ( auto d = platform::dataDirectory() )
                 socket_dir = *d;
 
@@ -303,7 +321,7 @@ Result<Nothing> Configuration::Implementation::initFromArgv(std::vector<std::str
     return Nothing();
 }
 
-Result<Nothing> Configuration::Implementation::read(const filesystem::path& path) {
+Result<Nothing> Configuration::Implementation::read(const std::filesystem::path& path) {
     auto in = std::ifstream(path);
     if ( ! in.is_open() )
         return result::Error(frmt("cannot open configuration file {}: {}", path.string(), strerror(errno)));
@@ -313,8 +331,8 @@ Result<Nothing> Configuration::Implementation::read(const filesystem::path& path
 
 // Get a value, typed correctly, if available.
 template<typename T>
-bool tomlValue(const std::optional<toml::table>& t, const std::string& path, T* dst) {
-    using vtype = typename std::remove_reference_t<T>;
+static bool tomlValue(const std::optional<toml::table>& t, const std::string& path, T* dst) {
+    using vtype = std::remove_reference_t<T>;
 
     if ( ! t )
         return false;
@@ -333,8 +351,8 @@ bool tomlValue(const std::optional<toml::table>& t, const std::string& path, T* 
 
 // Get an array, typed correctly, if available. This allows single values, too.
 template<typename T>
-bool tomlArray(const std::optional<toml::table>& t, const std::string& path, std::vector<T>* dst) {
-    using vtype = typename std::remove_reference_t<T>;
+static bool tomlArray(const std::optional<toml::table>& t, const std::string& path, std::vector<T>* dst) {
+    using vtype = std::remove_reference_t<T>;
 
     if ( ! t )
         return false;
@@ -365,7 +383,7 @@ bool tomlArray(const std::optional<toml::table>& t, const std::string& path, std
     }
 }
 
-Result<Nothing> Configuration::Implementation::read(std::istream& in, const filesystem::path& path) {
+Result<Nothing> Configuration::Implementation::read(std::istream& in, const std::filesystem::path& path) {
     auto options = Options::default_();
     options.config_file = path;
 
@@ -459,12 +477,12 @@ Result<Nothing> Configuration::initFromArgv(std::vector<std::string> argv) {
     return pimpl()->initFromArgv(std::move(argv));
 }
 
-Result<Nothing> Configuration::read(const filesystem::path& path) {
+Result<Nothing> Configuration::read(const std::filesystem::path& path) {
     ZEEK_AGENT_DEBUG("configuration", "reading file {}", path.string());
     return pimpl()->read(path);
 }
 
-Result<Nothing> Configuration::read(std::istream& in, const filesystem::path& path) {
+Result<Nothing> Configuration::read(std::istream& in, const std::filesystem::path& path) {
     ZEEK_AGENT_DEBUG("configuration", "reading stream associated with file {}", path.string());
     return pimpl()->read(in, path);
 }

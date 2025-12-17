@@ -18,7 +18,6 @@ OSLogSink::~OSLogSink() {
 }
 
 void OSLogSink::sink_it_(const spdlog::details::log_msg& msg) {
-    std::string formatted = std::string(msg.payload.data(), msg.payload.size());
     os_log_type_t level;
 
     switch ( msg.level ) {

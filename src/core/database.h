@@ -2,15 +2,25 @@
 
 #pragma once
 
+#include "core/configuration.h"
+#include "core/scheduler.h"
 #include "sqlite.h"
 #include "table.h"
+#include "util/fmt.h"
+#include "util/helpers.h"
 #include "util/pimpl.h"
 #include "util/result.h"
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace zeek::agent {
@@ -141,7 +151,7 @@ public:
      * @param timer_mgr timer manager to use for scheduling queries; caller must keep object around for the lifetime of
      * the database
      */
-    Database(Configuration* configuration, Scheduler* scheduler);
+    Database(const Configuration* configuration, Scheduler* scheduler);
     ~Database();
 
     /** Returns the configuration object provided to the constructor. */

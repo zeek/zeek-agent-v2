@@ -5,21 +5,29 @@
 #include "autogen/config.h"
 #include "core/configuration.h"
 #include "util/filesystem.h"
+#include "util/result.h"
 
+#include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
+#ifdef HAVE_POSIX
+#include <unistd.h>
+#endif
+
 #include <spdlog/common.h>
+#include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/sinks/stdout_sinks-inl.h>
+#include <spdlog/sinks/stdout_sinks.h>
 
 #ifdef HAVE_DARWIN
 #include <platform/darwin/os-log-sink.h>
 #endif
 
-#ifndef HAVE_WINDOWS
+#ifdef HAVE_LINUX
 #include <spdlog/sinks/syslog_sink.h>
 #endif
 
@@ -34,7 +42,7 @@ std::shared_ptr<spdlog::logger> global_logger = {};
 }
 
 Result<Nothing> zeek::agent::setGlobalLogger(options::LogType type, options::LogLevel level,
-                                             const std::optional<filesystem::path>& path) {
+                                             const std::optional<std::filesystem::path>& path) {
     spdlog::sink_ptr sink{};
 
     // Note we are creating thread-safe logger here (`*_mt`).
@@ -50,7 +58,7 @@ Result<Nothing> zeek::agent::setGlobalLogger(options::LogType type, options::Log
             break;
 
         case options::LogType::System:
-#if defined(HAVE_LINUX)
+#if defined(HAVE_LINUX) // NOLINT
             sink = std::make_shared<spdlog::sinks::syslog_sink_mt>("zeek-agent", 0, LOG_USER, false);
 #elif defined(HAVE_DARWIN)
             sink = std::make_shared<platform::darwin::OSLogSink>();

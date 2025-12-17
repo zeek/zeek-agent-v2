@@ -1,9 +1,11 @@
 # @TEST-DOC: Test a repeatedly scheduled query with cancel.
 #
-# @TEST-PORT: ZEEK_PORT
+# @TEST-PORT: ZEEK_WEBSOCKET_LISTEN_PORT
+# @TEST-PORT: XPUB_PORT
+# @TEST-PORT: XSUB_PORT
 #
 # @TEST-EXEC: btest-bg-run zeek  zeek ${FRAMEWORK} %INPUT
-# @TEST-EXEC: btest-bg-run agent zeek-agent -c ${CONFIG} -L info -N -z localhost:${ZEEK_PORT} >output
+# @TEST-EXEC: btest-bg-run agent zeek-agent -c ${CONFIG} -L info -N -z localhost:${ZEEK_WEBSOCKET_LISTEN_PORT}
 # @TEST-EXEC: btest-bg-wait 30
 # @TEST-EXEC: cat zeek/.stdout | sed 's/version=[0-9]\{1,\}/version=<version>/g' >zeek/output
 # @TEST-EXEC: btest-diff zeek/output
@@ -39,5 +41,5 @@ event zeek_init()
 	{
 	query_id = ZeekAgent::query([
 	    $sql_stmt="SELECT id, agent_version FROM zeek_agent",
-	    $event_=got_result, $cookie="Hurz", $schedule_=3secs ]);
+	    $event_=got_result, $cookie="Hurz", $schedule_=3secs]);
 	}

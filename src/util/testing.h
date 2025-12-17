@@ -3,14 +3,16 @@
 #pragma once
 
 // clang-format off
+#define DOCTEST_CONFIG_VOID_CAST_EXPRESSIONS
 #include <doctest/doctest.h>
 // clang-format on
 
 #include "core/configuration.h"
 #include "core/database.h"
-#include "core/logger.h"
 #include "core/scheduler.h"
 
+#include <chrono>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -54,10 +56,10 @@ public:
      */
     query::Result query(std::string stmt) {
         std::optional<query::Result> result;
-        Query q = {.sql_stmt = std::move(stmt),
-                   .subscription = {},
-                   .cookie = "",
-                   .callback_result = [&](query::ID id, query::Result result_) { result = std::move(result_); }};
+        const Query q = {.sql_stmt = std::move(stmt),
+                         .subscription = {},
+                         .cookie = "",
+                         .callback_result = [&](query::ID id, query::Result result_) { result = std::move(result_); }};
 
         auto rc = db.query(q);
         REQUIRE_MESSAGE(rc, rc.error());

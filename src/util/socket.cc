@@ -4,8 +4,17 @@
 
 #include "socket.h"
 
+#include "core/logger.h"
 #include "util/fmt.h"
 #include "util/testing.h"
+
+#include <filesystem>
+#include <memory>
+#include <ostream>
+
+#ifdef HAVE_POSIX
+#include <unistd.h>
+#endif
 
 using namespace zeek::agent;
 
@@ -20,7 +29,7 @@ socket::SocketBuffer& socket::SocketBuffer::operator=(const SocketBuffer& other)
 
 int socket::SocketBuffer::sync() {
     if ( auto rc = _socket->write(str(), *_remote); ! rc ) {
-        logger()->debug("failed to send message to socket: {}", rc.error());
+        logger()->debug("failed to send message to socket: {}", rc.error().description());
         _remote->setError(rc.error());
     }
 
@@ -40,8 +49,8 @@ socket::Remote& socket::Remote::operator=(const Remote& other) noexcept {
 
 TEST_SUITE("socket") {
     TEST_CASE("read-and-write") {
-        auto path1 = filesystem::path(frmt("/tmp/zeek-agent-test-socket.{}.1", getpid()));
-        auto path2 = filesystem::path(frmt("/tmp/zeek-agent-test-socket.{}.2", getpid()));
+        auto path1 = std::filesystem::path(frmt("/tmp/zeek-agent-test-socket.{}.1", getpid()));
+        auto path2 = std::filesystem::path(frmt("/tmp/zeek-agent-test-socket.{}.2", getpid()));
 
         Socket socket1;
         REQUIRE(! socket1);
@@ -76,12 +85,12 @@ TEST_SUITE("socket") {
     }
 
     TEST_CASE("unknown-remote") {
-        auto path = filesystem::path(frmt("/tmp/zeek-agent-test-socket.{}", getpid()));
+        auto path = std::filesystem::path(frmt("/tmp/zeek-agent-test-socket.{}", getpid()));
 
         Socket socket;
         REQUIRE(socket.bind(path));
 
-        socket::Remote remote(&socket, filesystem::path("/DOES-NOT-EXIST"));
+        socket::Remote remote(&socket, std::filesystem::path("/DOES-NOT-EXIST"));
         remote << "xyz" << std::flush;
 
         CHECK(! remote);

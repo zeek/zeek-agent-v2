@@ -9,7 +9,14 @@
 #include "util/fmt.h"
 #include "util/helpers.h"
 
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <optional>
+#include <string>
+#include <utility>
 #include <variant>
+#include <vector>
 
 #include <regex.h>
 
@@ -38,8 +45,9 @@ database::RegisterTable<FilesLinesPosix> _2;
 database::RegisterTable<FilesColumnsPosix> _3;
 } // namespace
 
-std::pair<std::string, std::vector<filesystem::path>> FilesBase::expandPaths(const std::vector<table::Argument>& args) {
-    std::pair<std::string, std::vector<filesystem::path>> result;
+std::pair<std::string, std::vector<std::filesystem::path>> FilesBase::expandPaths(
+    const std::vector<table::Argument>& args) {
+    std::pair<std::string, std::vector<std::filesystem::path>> result;
 
     auto pattern = Table::getArgument<std::string>(args, "_pattern");
     result.first = pattern;
@@ -104,7 +112,7 @@ std::vector<std::vector<Value>> FilesLinesPosix::snapshot(const std::vector<tabl
         if ( in.fail() ) {
             // If file simply doesn't exist, we silently ignore the error.
             // Otherwise we add one row with `line` unset as an error indicator.
-            if ( filesystem::exists(p) )
+            if ( std::filesystem::exists(p) )
                 rows.push_back({p, {}, "<failed to open file>"});
 
             continue;

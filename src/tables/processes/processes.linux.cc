@@ -3,6 +3,14 @@
 #include "processes.h"
 
 #include "autogen/config.h"
+
+#ifdef HAVE_POSIX
+// Need this defined for pfs.
+#ifndef _LARGEFILE64_SOURCE
+#define _LARGEFILE64_SOURCE
+#endif
+#endif
+
 #include "core/configuration.h"
 #include "core/database.h"
 #include "core/logger.h"

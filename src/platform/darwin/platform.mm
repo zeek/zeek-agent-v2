@@ -5,6 +5,7 @@
 #include "autogen/config.h"
 #include "core/logger.h"
 #include "endpoint-security.h"
+#include "platform/darwin/platform.h"
 #include "xpc.h"
 
 #include <libproc.h>
@@ -36,20 +37,20 @@ Result<Nothing> platform::setenv(const char* name, const char* value, int overwr
         return result::Error(strerror(errno));
 }
 
-std::optional<filesystem::path> platform::configurationFile() {
+std::optional<std::filesystem::path> platform::configurationFile() {
     if ( auto dir = getApplicationSupport() )
         return *dir / "zeek-agent.cfg";
     else
         return {};
 }
 
-std::optional<filesystem::path> platform::dataDirectory() { return getApplicationSupport(); }
+std::optional<std::filesystem::path> platform::dataDirectory() { return getApplicationSupport(); }
 
-std::optional<filesystem::path> platform::darwin::getApplicationSupport() {
+std::optional<std::filesystem::path> platform::darwin::getApplicationSupport() {
     auto domain = platform::runningAsAdmin() ? NSLocalDomainMask : NSUserDomainMask;
     auto paths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, domain, YES);
     auto dir = [paths firstObject];
-    return filesystem::path([dir UTF8String]) / "ZeekAgent";
+    return std::filesystem::path([dir UTF8String]) / "ZeekAgent";
 }
 
 void platform::init(Configuration* cfg) {

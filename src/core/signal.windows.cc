@@ -4,6 +4,7 @@
 
 #include "logger.h"
 #include "util/fmt.h"
+#include "util/helpers.h"
 #include "util/testing.h"
 
 #include <algorithm>
@@ -91,7 +92,7 @@ void SignalManager::Implementation::stop() const {
 
 SignalManager::SignalManager(const std::vector<Signal>& signals_to_handle) {
     ZEEK_AGENT_DEBUG("signal manager", "creating instance, handling signals: {}",
-                     join(transform(signals_to_handle, [](auto i) { return std::to_string(i); }), ", "));
+                     join(transform_(signals_to_handle, [](auto i) { return std::to_string(i); }), ", "));
 
     pimpl()->blockSignals(signals_to_handle);
     pimpl()->start();

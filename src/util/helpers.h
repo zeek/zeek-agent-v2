@@ -3,23 +3,31 @@
 #pragma once
 
 #include "autogen/config.h"
-#include "util/filesystem.h"
-#include "util/fmt.h"
 #include "util/result.h"
 
 #include <algorithm>
 #include <chrono>
-#include <codecvt>
+#include <cstddef>
+#include <cstdint>
+#include <ctime>
+#include <filesystem>
 #include <functional>
 #include <iomanip>
 #include <memory>
-#include <optional>
+#include <ostream>
 #include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
+
+#include <fmt/base.h>
+
+#ifdef HAVE_POSIX
+#include <sys/time.h>
+#endif
 
 #ifdef HAVE_WINDOWS
 #include <Winsock2.h>
@@ -37,7 +45,7 @@ class ScopeGuard {
 public:
     using Callback = std::function<void()>;
     ScopeGuard(Callback cb) : _callback(std::move(cb)) {}
-    ~ScopeGuard() { _callback(); } // NOLINT(bugprone-exception-escape)
+    ~ScopeGuard() { _callback(); }
 
     ScopeGuard(const ScopeGuard& other) = delete;
     ScopeGuard(ScopeGuard&& other) = delete;
@@ -112,7 +120,7 @@ constexpr Time operator""_time(unsigned long long int t) { return to_time(t); }
 
 /** Render a time value as a readable string. */
 inline std::string to_string(Time t) {
-    std::time_t teatime = std::chrono::system_clock::to_time_t(t);
+    const std::time_t teatime = std::chrono::system_clock::to_time_t(t);
     auto tm = std::localtime(&teatime);
 
     std::stringstream b;
@@ -170,7 +178,7 @@ namespace detail {
  * container of the same type class as `C` but with element type `Y`. */
 template<typename C, typename Y>
 constexpr auto transform_result_value(const C&) {
-    using X = typename C::value_type;
+    using X = C::value_type;
 
     if constexpr ( std::is_same_v<C, std::vector<X>> ) {
         return std::vector<Y>();
@@ -185,13 +193,16 @@ constexpr auto transform_result_value(const C&) {
 
 } // namespace detail
 
-/** Applies a function to each element of container. */
+/**
+ * Applies a function to each element of container.
+ * Names with trailing underscore to avoid cpplint treating it as std::transform.
+ */
 template<typename C, typename F>
-auto transform(const C& x, F f) {
+auto transform_(const C& x, F f) {
     using Y = std::invoke_result_t<F, typename C::value_type>;
 
     auto y = detail::transform_result_value<C, Y>(x);
-    std::transform(std::begin(x), std::end(x), std::inserter(y, std::end(y)), f);
+    std::ranges::transform(x, std::inserter(y, y.end()), f);
 
     return y;
 }
@@ -207,7 +218,7 @@ extern std::string toupper(const std::string& s);
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string rtrim(const std::string& s, const std::string& chars) noexcept {
+inline std::string rtrim(const std::string& s, const std::string& chars) {
     auto p = [](size_t pos) { return pos != std::string::npos ? pos + 1 : 0; }(s.find_last_not_of(chars));
     return s.substr(0, p);
 }
@@ -217,7 +228,7 @@ inline std::string rtrim(const std::string& s, const std::string& chars) noexcep
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string ltrim(const std::string& s, const std::string& chars) noexcept {
+inline std::string ltrim(const std::string& s, const std::string& chars) {
     return s.substr(std::min(s.find_first_not_of(chars), s.size()));
     return s;
 }
@@ -228,9 +239,7 @@ inline std::string ltrim(const std::string& s, const std::string& chars) noexcep
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string trim(const std::string& s, const std::string& chars) noexcept {
-    return ltrim(rtrim(s, chars), chars);
-}
+inline std::string trim(const std::string& s, const std::string& chars) { return ltrim(rtrim(s, chars), chars); }
 
 namespace detail {
 constexpr char whitespace_chars[] = " \t\f\v\n\r";
@@ -241,21 +250,21 @@ constexpr char whitespace_chars[] = " \t\f\v\n\r";
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string rtrim(const std::string& s) noexcept { return rtrim(s, detail::whitespace_chars); }
+inline std::string rtrim(const std::string& s) { return rtrim(s, detail::whitespace_chars); }
 
 /**
  * Returns a string view with all leading white space removed.
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string ltrim(const std::string& s) noexcept { return ltrim(s, detail::whitespace_chars); }
+inline std::string ltrim(const std::string& s) { return ltrim(s, detail::whitespace_chars); }
 
 /**
  * Returns a string view with all leading & trailing white space removed.
  *
  * \note This function is not UTF8-aware.
  */
-inline std::string trim(const std::string& s) noexcept { return trim(s, detail::whitespace_chars); }
+inline std::string trim(const std::string& s) { return trim(s, detail::whitespace_chars); }
 
 /**
  * Splits a string at all occurrences of a delimiter. Successive occurrences
@@ -278,7 +287,7 @@ std::vector<T> split(T s, const T& delim) {
     const bool ends_in_delim = (s.substr(s.size() - delim.size()) == delim);
 
     do {
-        size_t p = s.find(delim);
+        const size_t p = s.find(delim);
         l.push_back(s.substr(0, p));
         if ( p == std::string::npos )
             break;
@@ -292,9 +301,9 @@ std::vector<T> split(T s, const T& delim) {
     return l;
 }
 
-template<typename T, typename U = typename T::value_type*>
+template<typename T, typename U = T::value_type*>
 std::vector<T> split(T s, const U delim) {
-    return split(s, T(delim));
+    return split(std::move(s), T(delim));
 }
 
 inline std::vector<std::string> split(const char* s, const char* delim) {
@@ -356,20 +365,17 @@ extern std::string replace(const std::string& s, const std::string& o, const std
  *
  * \note This function is not UTF8-aware.
  */
-inline bool startsWith(const std::string& s, const std::string& prefix) { return s.find(prefix) == 0; }
+inline bool startsWith(const std::string& s, const std::string& prefix) { return s.starts_with(prefix); }
 
 /**
  * Returns true if a string ends with another.
  *
  * \note This function is not UTF8-aware.
  */
-inline bool endsWith(const std::string& s, const std::string& suffix) {
-    return s.rfind(suffix) == s.size() - suffix.size();
-}
+inline bool endsWith(const std::string& s, const std::string& suffix) { return s.ends_with(suffix); }
 
 /**
- * Makes a unique_ptr containing an array. Useful for RAII on dynamically-allocated arrays. There's no
- * need to include a custom deleter here, as unique_ptr handles that on its own.
+ * Makes a unique_ptr containing an array. Useful for RAII on dynamically-allocated arrays.
  *
  * @param len the length of the array to build. If this is zero, the array is created set to
  * nullptr. It does not create a zero-length array in this instance.
@@ -380,10 +386,10 @@ auto makeUniqueArray(size_t len = 0, bool init = true) {
     if ( len == 0 )
         return std::unique_ptr<C[]>{nullptr};
 
-    auto arr = std::unique_ptr<C[]>{new C[len]};
     if ( init )
-        memset(arr.get(), 0, sizeof(C) * len);
-    return arr;
+        return std::make_unique<C[]>(len);
+    else
+        return std::make_unique_for_overwrite<C[]>(len);
 }
 
 /** Parsed a version string of the form `x.y.z-<N>` into a numerical number suitable for ordering. */
@@ -399,11 +405,11 @@ std::string randomUUID();
  * @param pattern pattern for the path, containing globs
  * @param max maximum number of matches to return
  */
-extern std::vector<filesystem::path> glob(const filesystem::path& pattern, size_t max = 100);
+extern std::vector<std::filesystem::path> glob(const std::filesystem::path& pattern, size_t max = 100);
 
 } // namespace zeek::agent
 
-namespace std::chrono { // NOLINT(cert-dcl58-cpp)
+namespace std::chrono { // NOLINT(cert-dcl58-cpp,bugprone-std-namespace-modification)
 
 inline std::ostream& operator<<(std::ostream& out, const zeek::agent::Time& t) {
     out << zeek::agent::to_string(t);

@@ -1,18 +1,30 @@
 
 #include "table.h"
 
+#include "core/configuration.h"
 #include "database.h"
 #include "logger.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
+#include "util/result.h"
 #include "util/testing.h"
 
 #include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cstdint>
+#include <mutex>
+#include <optional>
 #include <set>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include <nlohmann/json.hpp>
+
+#include "nlohmann/json_fwd.hpp"
 
 using namespace zeek::agent;
 
@@ -228,7 +240,7 @@ Value zeek::agent::from_json_string(const std::string_view& data, value::Type ty
 }
 
 std::string zeek::agent::to_string(const std::vector<Value>& values) {
-    return join(transform(values, [](const auto& x) { return to_string(x); }), " ");
+    return join(transform_(values, [](const auto& x) { return to_string(x); }), " ");
 }
 
 std::string zeek::agent::to_string(const Port& v) {
@@ -243,19 +255,26 @@ std::string zeek::agent::to_string(const Port& v) {
     return frmt("{}/{}", v.port, proto);
 }
 
+bool zeek::agent::Record::operator<(const Record& other) const {
+    const auto& a = static_cast<const std::vector<std::pair<Value, value::Type>>&>(*this);
+    const auto& b = static_cast<const std::vector<std::pair<Value, value::Type>>&>(other);
+
+    return std::ranges::lexicographical_compare(a, b, [](const auto& x, const auto& y) { return x.first < y.first; });
+}
+
 std::string zeek::agent::to_string(const Record& v) {
     const std::vector<std::pair<Value, value::Type>>& base = v;
-    return std::string("[") + join(transform(base, [](const auto& x) { return to_string(x.first); }), ", ") + "]";
+    return std::string("[") + join(transform_(base, [](const auto& x) { return to_string(x.first); }), ", ") + "]";
 }
 
 std::string zeek::agent::to_string(const Set& v) {
     const std::set<Value>& base = v;
-    return std::string("{") + join(transform(base, [](const auto& x) { return to_string(x); }), ", ") + "}";
+    return std::string("{") + join(transform_(base, [](const auto& x) { return to_string(x); }), ", ") + "}";
 }
 
 std::string zeek::agent::to_string(const Vector& v) {
     const std::vector<Value>& base = v;
-    return std::string("[") + join(transform(base, [](const auto& x) { return to_string(x); }), ", ") + "]";
+    return std::string("[") + join(transform_(base, [](const auto& x) { return to_string(x); }), ", ") + "]";
 }
 
 std::optional<schema::Column> Schema::column(const std::string_view& name) {
@@ -270,7 +289,7 @@ std::optional<schema::Column> Schema::column(const std::string_view& name) {
 std::string schema::Column::str() const { return frmt("{}: {}", name, type); }
 
 std::string zeek::agent::to_string(const std::vector<schema::Column>& values) {
-    return join(transform(values, [](const auto& x) { return zeek::agent::to_string(x); }), ", ");
+    return join(transform_(values, [](const auto& x) { return zeek::agent::to_string(x); }), ", ");
 }
 
 std::string zeek::agent::table::to_string(const Argument& arg) {
@@ -421,7 +440,7 @@ std::vector<std::vector<Value>> EventTable::rows(Time t, const std::vector<table
             result.push_back(generateMockRow(_mock_seed));
     }
     else {
-        auto begin = std::lower_bound(_events.begin(), _events.end(), Event{.time = t, .row = {}});
+        auto begin = std::lower_bound(_events.begin(), _events.end(), Event{.time = t, .row = {}}); // NOLINT
         for ( auto i = begin; i != _events.end(); i++ )
             result.push_back(i->row);
     }
@@ -432,7 +451,7 @@ std::vector<std::vector<Value>> EventTable::rows(Time t, const std::vector<table
 void EventTable::expire(Time t) {
     const std::scoped_lock lock(_events_mutex);
 
-    auto end = std::lower_bound(_events.begin(), _events.end(), Event{.time = t, .row = {}});
+    auto end = std::lower_bound(_events.begin(), _events.end(), Event{.time = t, .row = {}}); // NOLINT
     _events.erase(_events.begin(), end);
 }
 

@@ -1,9 +1,11 @@
 # @TEST-DOC: Test a query to the agent that requires a non-existent table. Should not generate an error.
 #
-# @TEST-PORT: ZEEK_PORT
+# @TEST-PORT: ZEEK_WEBSOCKET_LISTEN_PORT
+# @TEST-PORT: XPUB_PORT
+# @TEST-PORT: XSUB_PORT
 #
 # @TEST-EXEC: btest-bg-run zeek  zeek ${FRAMEWORK} %INPUT
-# @TEST-EXEC: btest-bg-run agent zeek-agent -c ${CONFIG} -L debug -N -z localhost:${ZEEK_PORT}
+# @TEST-EXEC: btest-bg-run agent zeek-agent -c ${CONFIG} -L info -N -z localhost:${ZEEK_WEBSOCKET_LISTEN_PORT}
 # @TEST-EXEC: btest-bg-wait 30
 # @TEST-EXEC: test '!' -f reporter.log
 # @TEST-EXEC: btest-diff zeek/.stdout
@@ -21,8 +23,8 @@ event got_result()
 
 event zeek_init()
 	{
-	ZeekAgent::query([ $sql_stmt="SELECT foo FROM bar", $event_=got_result,
-	    $requires_tables=set("bar") ]);
+	ZeekAgent::query([$sql_stmt="SELECT foo FROM bar", $event_=got_result,
+	    $requires_tables=set("bar")]);
 	schedule 5secs { do_terminate() };
 	}
 

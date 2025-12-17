@@ -35,14 +35,14 @@ static inline auto error(std::string_view name, std::string_view msg) {
 }
 
 static int libbpf_print_fn(enum libbpf_print_level level, const char* format, va_list args) {
-    char buffer[1024];
+    char buffer[102400]; // we need this large; eBPF programs can generate big logs
     auto i = vsnprintf(buffer, sizeof(buffer), format, args);
     auto msg = trim(buffer);
 
     switch ( level ) {
         case LIBBPF_WARN: logger()->warn(msg); break;
-        case LIBBPF_INFO: ZEEK_AGENT_DEBUG("bpf", msg); break;
-        case LIBBPF_DEBUG: ZEEK_AGENT_TRACE("bpf", msg); break;
+        case LIBBPF_INFO: ZEEK_AGENT_DEBUG("bpf", "{}", msg); break;
+        case LIBBPF_DEBUG: ZEEK_AGENT_TRACE("bpf", "{}", msg); break;
     }
 
     return i;
@@ -69,8 +69,7 @@ bool BPF::isAvailable() const {
     auto kernel = platform::linux::kernelVersion();
 
     if ( kernel < 508 ) {
-        ZEEK_AGENT_DEBUG("bpf",
-                         frmt("BPF support disabled; kernel version is too old (need at least 508, have {})", kernel));
+        ZEEK_AGENT_DEBUG("bpf", "BPF support disabled; kernel version is too old (need at least 508, have {})", kernel);
         return false;
     }
 
@@ -100,7 +99,7 @@ Result<void*> BPF::load(Skeleton skel) {
 Result<Nothing> BPF::init(const std::string& name, void* ring_buffer) {
     std::unique_lock lock(_skeletons_mutex);
 
-    if ( _skeletons.find(name) == _skeletons.end() )
+    if ( ! _skeletons.contains(name) )
         return error(name, "unknown skeleton");
 
     const auto& skel = _skeletons.at(name);
@@ -129,7 +128,7 @@ Result<Nothing> BPF::init(const std::string& name, void* ring_buffer) {
 Result<Nothing> BPF::attach(const std::string& name) const {
     const std::unique_lock lock(_skeletons_mutex);
 
-    if ( _skeletons.find(name) == _skeletons.end() )
+    if ( ! _skeletons.contains(name) )
         return error(name, "unknown skeleton");
 
     const auto& skel = _skeletons.at(name);
@@ -144,7 +143,7 @@ Result<Nothing> BPF::attach(const std::string& name) const {
 Result<Nothing> BPF::detach(const std::string& name) const {
     const std::unique_lock lock(_skeletons_mutex);
 
-    if ( _skeletons.find(name) == _skeletons.end() )
+    if ( ! _skeletons.contains(name) )
         return error(name, "unknown skeleton");
 
     const auto& skel = _skeletons.at(name);
@@ -157,7 +156,7 @@ Result<Nothing> BPF::detach(const std::string& name) const {
 Result<Nothing> BPF::destroy(const std::string& name) {
     const std::unique_lock lock(_skeletons_mutex);
 
-    if ( _skeletons.find(name) == _skeletons.end() )
+    if ( ! _skeletons.contains(name) )
         return error(name, "unknown skeleton");
 
     const auto& skel = _skeletons.at(name);

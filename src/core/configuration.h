@@ -2,17 +2,21 @@
 
 #pragma once
 
-#include "spdlog/common.h"
-#include "util/filesystem.h"
+#include "util/fmt.h"
 #include "util/helpers.h"
 #include "util/pimpl.h"
 #include "util/result.h"
 
+#include <chrono>
+#include <cstdint>
+#include <filesystem>
+#include <istream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
-#include <spdlog/spdlog.h>
+#include <spdlog/common.h>
 
 namespace zeek::agent {
 
@@ -88,8 +92,8 @@ inline Result<LogType> from_str(const std::string_view& t) {
 // Default log options for new configuration objects.
 extern LogLevel default_log_level;
 extern LogType default_log_type;
-extern filesystem::path default_log_path;
-extern filesystem::path default_socket_file_name;
+extern std::filesystem::path default_log_path;
+extern std::filesystem::path default_socket_file_name;
 
 } // namespace options
 
@@ -121,7 +125,7 @@ struct Options {
      * Configuration file to load at startup (which will update options in
      * turn).
      */
-    std::optional<filesystem::path> config_file;
+    std::optional<std::filesystem::path> config_file;
 
     /** Console statement/command to execute at startup, and then terminate */
     std::string execute;
@@ -134,7 +138,7 @@ struct Options {
      * remote agent. If set to an empty path, expect remote at default socket
      * location.
      */
-    std::optional<filesystem::path> interactive_remote;
+    std::optional<std::filesystem::path> interactive_remote;
 
     /** The agent's level of logging. Default is `warn` and worse. */
     std::optional<options::LogLevel> log_level;
@@ -143,10 +147,10 @@ struct Options {
     std::optional<options::LogType> log_type;
 
     /** File path associated with logger, if current type needs one. */
-    std::optional<filesystem::path> log_path = {};
+    std::optional<std::filesystem::path> log_path;
 
     /** Default socket for remote console. */
-    std::optional<filesystem::path> socket;
+    std::optional<std::filesystem::path> socket;
 
     /** True to have any tables only report mock data for testing. */
     bool use_mock_data = false;
@@ -184,7 +188,7 @@ struct Options {
      * the communication will always be encrypted (but not authenticated in that
      * case).
      */
-    bool zeek_ssl_disable = false;
+    bool zeek_ssl_disable = true;
 
     /**
      * Path to a file containing concatenated trusted certificates in PEM
@@ -274,7 +278,7 @@ public:
      * @param path file to read
      * @return result will flag any errors that occurred
      **/
-    Result<Nothing> read(const filesystem::path& path);
+    Result<Nothing> read(const std::filesystem::path& path);
 
     /**
      * Parses an agent configuration file from already open input stream. This
@@ -286,7 +290,7 @@ public:
      * @param path path associated with input (for error messages)
      * @return result will flag any errors that occurred
      **/
-    Result<Nothing> read(std::istream& in, const filesystem::path& path);
+    Result<Nothing> read(std::istream& in, const std::filesystem::path& path);
 };
 
 } // namespace zeek::agent

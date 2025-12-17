@@ -2,6 +2,7 @@
 
 #include "xpc.h"
 
+#include "autogen/config.h"
 #include "core/logger.h"
 #include "endpoint-security.h"
 #include "network-extension.h"
@@ -21,17 +22,20 @@ using namespace zeek::agent;
 }
 
 - (instancetype)init {
-    [super init];
-    _defaults = [[NSUserDefaults alloc] initWithSuiteName:@"group.org.zeek.zeek-agent"];
-    _listener = [[NSXPCListener alloc] initWithMachServiceName:@"org.zeek.zeek-agent.agent"];
-    _listener.delegate = self;
-    [_listener resume];
-
+    self = [super init];
+    if ( self ) {
+        _defaults = [[NSUserDefaults alloc] initWithSuiteName:@"group.org.zeek.zeek-agent"];
+        _listener = [[NSXPCListener alloc] initWithMachServiceName:@"org.zeek.zeek-agent.agent"];
+        _listener.delegate = self;
+        [_listener resume];
+    }
     return self;
 }
 
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [_defaults release];
+    [_listener release];
     [super dealloc];
 }
 
@@ -44,15 +48,20 @@ using namespace zeek::agent;
     if ( log_level ) {
         if ( [log_level isEqual:@""] )
             options.log_level = options::default_log_level;
-        else if ( auto rc = options::log_level::from_str([log_level UTF8String]) )
-            options.log_level = *rc;
-        else
-            logger()->warn("invalid log level: {}", [log_level UTF8String]);
+        else if ( const char* log_level_str = [log_level UTF8String] ) {
+            if ( auto rc = options::log_level::from_str(log_level_str) )
+                options.log_level = *rc;
+            else
+                logger()->warn("invalid log level: {}", log_level_str);
+        }
     }
 
     auto zeek_destination = [_defaults stringForKey:@"zeek.destination"];
-    if ( zeek_destination )
-        options.zeek_destinations = {[zeek_destination UTF8String]};
+    if ( zeek_destination ) {
+        const char* dest_str = [zeek_destination UTF8String];
+        if ( dest_str )
+            options.zeek_destinations = {dest_str};
+    }
 
     if ( auto rc = _configuration->setOptions(options); ! rc )
         logger()->warn("error applying new options: {}", rc.error());

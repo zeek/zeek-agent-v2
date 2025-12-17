@@ -2,32 +2,41 @@
 
 #include "zeek.h"
 
-#include "autogen/config.h"
 #include "core/configuration.h"
 #include "core/database.h"
 #include "core/logger.h"
 #include "core/scheduler.h"
 #include "core/table.h"
+#include "ixwebsocket/IXWebSocketMessage.h"
+#include "ixwebsocket/IXWebSocketMessageType.h"
 #include "platform/platform.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
+#include "util/pimpl.h"
+#include "util/result.h"
 #include "util/testing.h"
 
-#include <algorithm>
+#include <cassert>
 #include <chrono>
-#include <functional>
-#include <iostream>
+#include <cstdint>
+#include <ctime>
+#include <exception>
+#include <iomanip>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
 
-#ifndef HAVE_WINDOWS
+#include "nlohmann/json_fwd.hpp"
+
+#ifdef HAVE_POSIX
 #include <unistd.h>
 #endif
 
@@ -64,6 +73,14 @@ class ZeekConnection;
 
 // Abstract base class encapsulating event exchange wity a Zeek endpoint,
 // implementing connection setup/tear down and message encoding/decoding.
+//
+// Historical note: originally, this agent used Broker for communication with
+// Zeek, then WebSocket support was added later. To support either, we have
+// this TransportProtocol abstraction that allows to plug in different
+// transport mechanisms. Eventually, however, Broker got deprecated in Zeek,
+// and we're now moving fully to WebSocket. Still, we keep this abstraction
+// layer to allow for future extensions and to separate transport-specific code
+// from the Zeek communication logic.
 class TransportProtocol {
 public:
     virtual ~TransportProtocol() {}
@@ -73,10 +90,10 @@ public:
     // will be continiously retried).
     virtual void connect(const std::string& host, unsigned int port, const std::vector<std::string>& topics) = 0;
 
-    // Shutsdown current connection.
+    // Shuts down current connection.
     virtual void disconnect() = 0;
 
-    // Sends an event to endpint.
+    // Sends an event to endpoint.
     virtual void transmitEvent(const std::string& topic, const std::string& name, Record args) = 0;
 
     // Will be called regularly to perform periodic operations.
@@ -88,7 +105,7 @@ public:
     // Returns the default remote port to connect to if not specified otherwise.
     virtual unsigned int defaultPort() = 0;
 
-    // Returns a name for the transport prototoc suitable for debug messages.
+    // Returns a name for the transport prototol suitable for debug messages.
     virtual const char* name() const = 0;
 
     // Returns the connection associated with this transport protocol.
@@ -114,7 +131,7 @@ enum class ConnectivityChange {
 };
 
 // Manages the connection to one external Zeek endpoint. Usually that's
-// actually a Zeek insteance, but it can an also be another process acting as a
+// actually a Zeek instance, but it can an also be another process acting as a
 // relay to Zeek instances not directly connected to the agent themselves. Note
 // that in the latter case, more than one Zeek instance may be visible on this
 // connection. The class handles that correctly by tracking which Zeek
@@ -124,7 +141,7 @@ class ZeekConnection {
 public:
     ZeekConnection(Database* db, Scheduler* scheduler) : _db(db), _scheduler(scheduler) {}
 
-    ~ZeekConnection() {} // NOLINT(bugprone-exception-escape)
+    ~ZeekConnection() {}
 
     void addTransport(std::unique_ptr<TransportProtocol> transport) {
         _transports.emplace_back(std::move(transport));
@@ -225,7 +242,6 @@ private:
 
 ///// WebSocket transport.
 
-// Transport implementation using the Broker library for communication.
 class WebSocketTransport : public TransportProtocol {
 public:
     WebSocketTransport(const zeek::agent::Configuration& config) : _config(config) {}
@@ -233,7 +249,7 @@ public:
 
     void connect(const std::string& host, unsigned int port, const std::vector<std::string>& topics) override;
     void disconnect() override;
-    bool isShutdown() override { return ! (_connected && _socket.getReadyState() == ix::ReadyState::Open); }
+    bool isShutdown() override { return ! _connected || _socket.getReadyState() != ix::ReadyState::Open; }
     unsigned int defaultPort() override { return 9997; /* Zeek's default WebSocket port */ }
     void transmitEvent(const std::string& topic, const std::string& name, Record args) override;
     void poll() override;
@@ -571,7 +587,7 @@ void WebSocketTransport::connect(const std::string& host, unsigned int port, con
                                 std::get<Record>(event[1].first);
 
                             connection()->processEvent(event_name,
-                                                       transform(event_args, [](auto i) { return i.first; }));
+                                                       transform_(event_args, [](const auto& i) { return i.first; }));
                         }
 
                         else if ( json["type"] == "error" ) {
@@ -643,319 +659,6 @@ void WebSocketTransport::transmitEvent(const std::string& topic, const std::stri
     msg["topic"] = topic;
     _socket.send(msg.dump());
 }
-
-#ifdef HAVE_BROKER
-///// Native Broker transport (legacy only)
-
-#include <broker/address.hh>
-#include <broker/configuration.hh>
-#include <broker/data.hh>
-#include <broker/endpoint.hh>
-#include <broker/enum_value.hh>
-#include <broker/fwd.hh>
-#include <broker/none.hh>
-#include <broker/topic.hh>
-#include <broker/zeek.hh>
-
-// Transport implementation using the Broker library for communication.
-class NativeBrokerTransport : public TransportProtocol {
-public:
-    NativeBrokerTransport(const zeek::agent::Configuration& config) : _config(config) {}
-    ~NativeBrokerTransport() override {}
-
-    void connect(const std::string& host, unsigned int port, const std::vector<std::string>& topics) override;
-    void disconnect() override;
-    bool isShutdown() override { return ! _endpoint || _endpoint->is_shutdown(); }
-    unsigned int defaultPort() override { return 9998; /* default port used by the zeek-agent package  */ }
-    void transmitEvent(const std::string& topic, const std::string& name, Record args) override;
-    const char* name() const override { return "Broker"; }
-
-private:
-    // Helper to prepare Broker config object
-    broker::configuration brokerConfig();
-
-    void processEvent(const broker::data_message& msg);
-    void processError(const broker::error& err);
-    void processConnectivityChange(const broker::status& status);
-
-    const zeek::agent::Configuration& _config;        // as passed into constructor
-    std::unique_ptr<broker::endpoint> _endpoint;      // Broker state
-    std::optional<broker::network_info> _destination; // parsed destination
-};
-
-static broker::data to_broker(const Value& v, const value::Type& t) {
-    broker::data value;
-    if ( std::get_if<std::monostate>(&v) == nullptr ) {
-        switch ( t ) {
-            case value::Type::Count: value = static_cast<uint64_t>(std::get<int64_t>(v)); break;
-            case value::Type::Integer: value = std::get<int64_t>(v); break;
-            case value::Type::Blob:
-            case value::Type::Text: value = std::get<std::string>(v); break;
-            case value::Type::Bool: value = (std::get<bool>(v) != 0); break;
-            case value::Type::Double: value = std::get<double>(v); break;
-            case value::Type::Enum: value = broker::enum_value(std::get<std::string>(v)); break;
-
-            case value::Type::Interval:
-                value = std::chrono::duration_cast<broker::timespan>(std::get<Interval>(v));
-                break;
-
-            case value::Type::Null: value = broker::data(); break;
-            case value::Type::Time: value = broker::timestamp(std::get<Time>(v).time_since_epoch()); break;
-
-            case value::Type::Address: {
-                broker::address addr;
-                if ( addr.convert_from(std::get<std::string>(v)) )
-                    value = addr;
-                break;
-            }
-
-            case value::Type::Port: {
-                const auto& p = std::get<Port>(v);
-                broker::port::protocol proto;
-                switch ( p.protocol ) {
-                    case port::Protocol::ICMP: proto = broker::port::protocol::icmp; break;
-                    case port::Protocol::TCP: proto = broker::port::protocol::tcp; break;
-                    case port::Protocol::UDP: proto = broker::port::protocol::udp; break;
-                    case port::Protocol::Unknown: proto = broker::port::protocol::unknown; break;
-                }
-
-                value = broker::port(p.port, proto);
-                break;
-            }
-
-            case value::Type::Record: {
-                broker::vector br;
-                for ( const auto& [x, t] : std::get<Record>(v) )
-                    br.emplace_back(to_broker(x, t));
-
-                value = std::move(br);
-                break;
-            }
-
-            case value::Type::Set: {
-                const auto& set = std::get<Set>(v);
-                broker::set bs;
-                for ( const auto& x : set )
-                    bs.insert(to_broker(x, set.type));
-
-                value = std::move(bs);
-                break;
-            }
-
-            case value::Type::Vector: {
-                const auto& vec = std::get<Vector>(v);
-                broker::vector bv;
-                for ( const auto& x : vec )
-                    bv.emplace_back(to_broker(x, vec.type));
-
-                value = std::move(bv);
-                break;
-            }
-        }
-    }
-
-    return value;
-}
-
-// Best effort type guessing.
-static std::pair<Value, value::Type> from_broker(const broker::data& v) {
-    if ( auto x = broker::get_if<broker::none>(&v) )
-        return {{}, value::Type::Null};
-
-    if ( auto x = broker::get_if<broker::boolean>(&v) )
-        return {*x, value::Type::Bool};
-
-    if ( auto x = broker::get_if<broker::count>(&v) )
-        return {static_cast<int64_t>(*x), value::Type::Count};
-
-    if ( auto x = broker::get_if<broker::integer>(&v) )
-        return {static_cast<int64_t>(*x), value::Type::Integer};
-
-    if ( auto x = broker::get_if<broker::real>(&v) )
-        return {*x, value::Type::Double};
-
-    if ( auto x = broker::get_if<std::string>(&v) )
-        return {*x, value::Type::Text};
-
-    if ( auto x = broker::get_if<broker::enum_value>(&v) )
-        return {x->name, value::Type::Enum};
-
-    if ( auto x = broker::get_if<broker::set>(&v) ) {
-        auto type = value::Type::Null;
-        if ( ! x->empty() )
-            type = from_broker(*x->begin()).second;
-
-        Set y(type);
-        for ( const auto& i : *x )
-            y.insert(from_broker(i).first);
-
-        return {y, value::Type::Set};
-    }
-
-    if ( auto x = broker::get_if<broker::vector>(&v) ) {
-        // We can't distinguish vectors from records, but we only need the
-        // latter right now ...
-        Record y;
-        for ( const auto& i : *x )
-            y.emplace_back(from_broker(i));
-
-        return {y, value::Type::Record};
-    }
-
-    if ( auto x = broker::get_if<broker::timespan>(&v) )
-        return {std::chrono::duration_cast<Interval>(*x), value::Type::Interval};
-
-    /* Not supported, don't need these.
-     *
-     * if ( auto x = broker::get_if<broker::address>(&v) )
-     * else if ( auto x = broker::get_if<broker::subnet>(&v) )
-     * else if ( auto x = broker::get_if<broker::port>(&v) )
-     * else if ( auto x = broker::get_if<broker::table>(&v) )
-     * else if ( auto x = broker::get_if<broker::timestamp>(&v) )
-     */
-
-    throw InternalError(frmt("unsupported Broker data type received ({})", broker::to_string(v)));
-}
-
-broker::configuration NativeBrokerTransport::brokerConfig() {
-    const auto& options = _config.options();
-    // Configure Broker/CAF for lower resource consumption.
-    broker::broker_options broker_options;
-    broker_options.forward = false;
-    broker_options.ignore_broker_conf = true;
-    broker_options.disable_ssl = options.zeek_ssl_disable;
-
-    broker::configuration broker_config(broker_options);
-    broker_config.openssl_cafile(options.zeek_ssl_cafile);
-    broker_config.openssl_capath(options.zeek_ssl_capath);
-    broker_config.openssl_certificate(options.zeek_ssl_certificate);
-    broker_config.openssl_key(options.zeek_ssl_keyfile);
-    broker_config.openssl_passphrase(options.zeek_ssl_passphrase);
-
-#if 1
-    broker_config.set("caf.scheduler.policy", "sharing");
-    broker_config.set("caf.scheduler.max-threads", 1);
-    broker_config.set("caf.middleman.workers", 0);
-#else
-    // Use Zeek's stealing configuration.
-    broker_config.set("caf.work-stealing.moderate-sleep-duration", broker::timespan{16'000});
-    broker_config.set("caf.work-stealing.relaxed-sleep-duration", broker::timespan{64'000});
-    broker_config.set("caf.work-stealing.aggressive-poll-attempts", 5);
-    broker_config.set("caf.work-stealing.moderate-poll-attempts", 5);
-    broker_config.set("caf.work-stealing.aggressive-steal-interval", 4);
-    broker_config.set("caf.work-stealing.moderate-steal-interval", 2);
-    broker_config.set("caf.work-stealing.relaxed-steal-interval", 1);
-#endif
-
-    return broker_config;
-}
-
-void NativeBrokerTransport::connect(const std::string& host, unsigned int port,
-                                    const std::vector<std::string>& topics) {
-    auto broker_topics = transform(topics, [](const auto& t) { return broker::topic(t); });
-    broker_topics.emplace_back(std::string(broker::topic::errors_str));
-    broker_topics.emplace_back(std::string(broker::topic::statuses_str));
-
-    _endpoint = std::make_unique<broker::endpoint>(brokerConfig());
-    _endpoint->subscribe_nosync(
-        std::move(broker_topics), []() { /* nop */ },
-        [this](const broker::data_message& msg) {
-            connection()->scheduler()->schedule([this, msg]() { // process message on the main thread
-                if ( broker::get_topic(msg) == broker::topic::statuses_str ) {
-                    auto x = broker::to<broker::status>(broker::get_data(msg));
-                    assert(x); // NOLINT(bugprone-lambda-function-name)
-                    processConnectivityChange(*x);
-                }
-                else if ( broker::get_topic(msg) == broker::topic::errors_str ) {
-                    auto x = broker::to<broker::error>(broker::get_data(msg));
-                    assert(x); // NOLINT(bugprone-lambda-function-name)
-                    processError(*x);
-                }
-                else
-                    processEvent(msg);
-            });
-        },
-        [](const broker::error&) { /* nop */ });
-
-    _destination = broker::network_info(host, port,
-                                        std::chrono::duration_cast<broker::timeout::seconds>(
-                                            _config.options().zeek_reconnect_interval));
-
-    // Broker's peer_nosync() has not version taking netinfo directly
-    _endpoint->peer_nosync(_destination->address, _destination->port, _destination->retry);
-}
-
-void NativeBrokerTransport::disconnect() {
-    if ( ! _endpoint )
-        return;
-
-    if ( ! _endpoint->unpeer(_destination->address, _destination->port) )
-        logger()->warn("failed disconnect from {}", connection()->endpoint());
-
-    _endpoint->shutdown();
-    _endpoint = nullptr;
-}
-
-void NativeBrokerTransport::transmitEvent(const std::string& topic, const std::string& event_name, Record args) {
-    if ( ! _endpoint )
-        return;
-
-    broker::zeek::Event event(event_name, broker::get<broker::vector>(to_broker(std::move(args), value::Type::Record)));
-    _endpoint->publish(topic, std::move(event));
-}
-
-void NativeBrokerTransport::processEvent(const broker::data_message& msg) {
-    broker::zeek::Event event(std::get<1>(msg.data()));
-
-    std::vector<Value> args;
-    for ( const auto& a : event.args() )
-        args.push_back(from_broker(a).first);
-
-    connection()->processEvent(event.name(), args);
-}
-
-void NativeBrokerTransport::processError(const broker::error& err) {
-    std::string msg = "<no error message>";
-    if ( err.message() )
-        msg = *err.message();
-
-    switch ( static_cast<broker::ec>(err.code()) ) {
-        // Prettyify some common errors.
-        case broker::ec::peer_invalid:
-        case broker::ec::peer_unavailable:
-            logger()->debug("cannot connect to Zeek endpoint via Broker at {}", connection()->endpoint());
-            connection()->connectionAttemptFailed(this, msg);
-            break;
-
-        default: connection()->processError(frmt("{} for {}", msg, connection()->endpoint()));
-    }
-}
-
-void NativeBrokerTransport::processConnectivityChange(const broker::status& status) {
-    ConnectivityChange change = ConnectivityChange::Other;
-    auto msg = (status.message() ? *status.message() : std::string("<no status description from broker>"));
-
-    switch ( static_cast<broker::sc>(status.code()) ) {
-        // Prettyify some common messages.
-        case broker::sc::peer_added:
-            connection()->connectionEstablished(this, _destination.value().address, _destination.value().port);
-            change = ConnectivityChange::Added;
-            msg = frmt("connected to Zeek endpoint at {}", connection()->endpoint());
-            break;
-        case broker::sc::peer_lost:
-            change = ConnectivityChange::Lost;
-            msg = frmt("lost connection to Zeek endpoint at {}", connection()->endpoint());
-            break;
-        case broker::sc::peer_removed:
-            change = ConnectivityChange::Removed;
-            msg = frmt("disconnected from Zeek endpoint at {}", connection()->endpoint());
-            break;
-        default: break;
-    }
-
-    connection()->processConnectivityChange(change, msg);
-}
-#endif
 
 ///// Transport-indenpendent Zeek communication code.
 
@@ -1481,9 +1184,6 @@ void Zeek::Implementation::start(const std::vector<std::string>& zeeks) {
     for ( const auto& z : zeeks ) {
         auto conn = std::make_unique<ZeekConnection>(_db, _scheduler);
         conn->addTransport(std::make_unique<WebSocketTransport>(_db->configuration()));
-#ifdef HAVE_BROKER
-        conn->addTransport(std::make_unique<NativeBrokerTransport>(_db->configuration()));
-#endif
 
         if ( auto rc = conn->connect(z) )
             _connections.push_back(std::move(conn));
@@ -1529,107 +1229,4 @@ void Zeek::stop() {
 void Zeek::poll() {
     ZEEK_IO_DEBUG("polling");
     pimpl()->poll();
-}
-
-TEST_SUITE("Zeek") {
-#ifdef HAVE_BROKER
-    TEST_CASE("connect/hello/disconnect/reconnect - native Broker" * doctest::timeout(10.0)) {
-        Configuration cfg;
-        Scheduler tmgr;
-        Database db(&cfg, &tmgr);
-        auto agent_table = Database::findRegisteredTable("zeek_agent");
-        db.addTable(agent_table);
-        Zeek zeek(&db, &tmgr);
-
-        // Shorten reconnect interval.
-        std::stringstream options{"[zeek]\nreconnect_interval = 1"};
-        cfg.read(options, "-");
-
-        broker::endpoint receiver;
-        auto subscriber = receiver.make_subscriber({"/zeek-agent/response/"});
-        auto status_subscriber = receiver.make_status_subscriber(true);
-        auto port = receiver.listen("127.0.0.1", 0);
-
-        // Initiate connection.
-        zeek.start({frmt("localhost:{}", port)});
-
-        auto wait_for_connect_and_hello = [&]() {
-            // Wait for agent connecting.
-            auto x = status_subscriber.get();
-            auto status = broker::get_if<broker::status>(x);
-            CHECK_EQ(status->code(), broker::sc::peer_added);
-
-            broker::zeek::Event hello{{}};
-            do {
-                // Wait for agent hello to arrive.
-                auto time_ = 0_time;
-                while ( ! subscriber.available() ) {
-                    time_ += 10s;
-                    tmgr.advance(time_);
-                    std::this_thread::sleep_for(0.1s);
-                }
-
-                auto msg = subscriber.get();
-                CHECK_EQ(get_topic(msg), broker::topic(frmt("/zeek-agent/response/all/{}", cfg.options().agent_id)));
-
-                hello = broker::zeek::Event(broker::move_data(msg));
-            } while ( hello.name() == "ZeekAgentAPI::agent_shutdown_v1" ); // ignore shutdown event
-
-            CHECK_EQ(hello.name(), "ZeekAgentAPI::agent_hello_v1");
-            CHECK_EQ(hello.args().size(), 2); // context plus columns record
-            CHECK_EQ(broker::get<broker::vector>(hello.args()[1]).size(),
-                     13); // zeek_agent table has 12 columns
-
-            return hello;
-        };
-
-        auto wait_for_disconnect = [&]() {
-            // Wait for disconnect.
-            auto x = status_subscriber.get();
-            auto status = broker::get_if<broker::status>(x);
-
-            bool is_disconnect =
-                (status->code() == broker::sc::peer_lost) || (status->code() == broker::sc::peer_removed);
-            CHECK(is_disconnect);
-        };
-
-        auto hello = wait_for_connect_and_hello();
-
-        // Kill connection.
-        for ( auto p : receiver.peers() ) {
-            // GCC may report "p.peer.network->port" as potentially
-            // uninitialized. Not under our control so ignore. Note that this
-            // needs to work with clang-tidy too even when compiler is GCC.
-
-#ifndef HAVE_WINDOWS
-#if ! defined(__has_warning) // Clang always has this
-#define __suppress_warning
-#elif __has_warning("-Wmaybe-uninitialized")
-#define __suppress_warning
-#endif
-
-#ifdef __suppress_warning
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#endif
-#endif
-            receiver.unpeer(p.peer.network->address, p.peer.network->port);
-#ifndef HAVE_WINDOWS
-#ifdef __suppress_warning
-#pragma GCC diagnostic pop
-#undef __suppress_warning
-#endif
-#endif
-        }
-
-        wait_for_disconnect();
-
-        auto hello2 = wait_for_connect_and_hello();
-        CHECK_NE(broker::get<broker::vector>(hello.args()[0]).at(2),
-                 broker::get<broker::vector>(hello2.args()[0]).at(2)); // must have different query ID
-
-        // Tear connection down.
-        zeek.stop();
-        wait_for_disconnect();
-    }
-#endif
 }

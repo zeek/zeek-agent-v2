@@ -3,9 +3,12 @@
 #include "platform/platform.h"
 
 #include "autogen/config.h"
+#include "platform/linux/platform.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
 #include "util/testing.h"
+
+#include <string>
 
 #include <pathfind.hpp>
 
@@ -37,23 +40,23 @@ Result<Nothing> platform::setenv(const char* name, const char* value, int overwr
         return result::Error(strerror(errno));
 }
 
-std::optional<filesystem::path> platform::configurationFile() {
+std::optional<std::filesystem::path> platform::configurationFile() {
     // TODO: These paths aren't necessarily right yet.
-    filesystem::path exec = PathFind::FindExecutable();
-    return filesystem::weakly_canonical(exec.parent_path() / "../etc" / "zeek-agent.conf");
+    std::filesystem::path exec = PathFind::FindExecutable();
+    return std::filesystem::weakly_canonical(exec.parent_path() / "../etc" / "zeek-agent.conf");
 }
 
-std::optional<filesystem::path> platform::dataDirectory() {
+std::optional<std::filesystem::path> platform::dataDirectory() {
     // TODO: These paths aren't necessarily right yet.
-    filesystem::path dir;
+    std::filesystem::path dir;
 
     if ( auto home = platform::getenv("HOME") )
-        dir = filesystem::path(*home) / ".cache" / "zeek-agent";
+        dir = std::filesystem::path(*home) / ".cache" / "zeek-agent";
     else
         dir = "/var/run/zeek-agent";
 
     std::error_code ec;
-    filesystem::create_directories(dir, ec);
+    std::filesystem::create_directories(dir, ec);
     if ( ec )
         throw FatalError(frmt("cannot create path '{}'", dir.native()));
 

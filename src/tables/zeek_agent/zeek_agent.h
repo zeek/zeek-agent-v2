@@ -36,7 +36,6 @@ public:
                         {.name = "kernel_version", .type = value::Type::Text, .summary = "version of OS kernel"},
                         {.name = "kernel_arch", .type = value::Type::Text, .summary = "build architecture"},
                         {.name = "agent_version", .type = value::Type::Count, .summary = "agent version"},
-                        {.name = "broker", .type = value::Type::Text, .summary = "Broker version"},
                         {.name = "uptime", .type = value::Type::Interval, .summary = "agent uptime"},
                         {.name = "tables", .type = value::Type::Set, .summary = "tables available to queries"}},
         };

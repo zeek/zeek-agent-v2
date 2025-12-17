@@ -10,15 +10,21 @@
 #include "io/console.h"
 #include "io/zeek.h"
 #include "platform/platform.h"
-#include "spdlog/common.h"
-#include "util/fmt.h"
 #include "util/helpers.h"
 #include "util/socket.h"
 
+#include <cassert>
 #include <csignal>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include <spdlog/common.h>
 
 #ifdef HAVE_DARWIN
 #include "platform/darwin/network-extension.h"
@@ -31,7 +37,7 @@
 
 namespace zeek::agent {
 SignalManager* signal_mgr = nullptr;
-signal::Handler* sigint = nullptr;
+static signal::Handler* sigint = nullptr;
 
 static void log_termination() { logger()->info("process terminated", VersionLong); }
 static int main(const std::vector<std::string>& argv);
@@ -108,7 +114,7 @@ int main(int argc, char** argv) {
             // our main logic into a new thread. Also note that the network extension
             // needs to start up as early as possible, in particular (it appears)
             // before we start using the configuration system.
-            auto _ = std::make_unique<std::thread>([argv_]() {
+            [[maybe_unused]] auto _ = std::make_unique<std::thread>([argv_]() {
                 int rc = zeek::agent::main(argv_);
                 delete signal_mgr;
                 exit(rc);
@@ -187,9 +193,9 @@ int zeek::agent::main(const std::vector<std::string>& argv) {
         std::unique_ptr<ConsoleClient> client;
 
 #ifdef HAVE_WINDOWS
-        filesystem::path socket = "/zeek-agent"; // dummy name used just internally
+        std::filesystem::path socket = "/zeek-agent"; // dummy name used just internally
 #else
-        filesystem::path socket;
+        std::filesystem::path socket;
         if ( auto s = cfg.options().socket )
             socket = *s;
 

@@ -56,7 +56,7 @@ void AsciiTable::printRow(std::ostream& out, const std::vector<std::string>& row
 }
 
 void AsciiTable::print(std::ostream& out, bool include_header) {
-    auto border = transform(_column_widths, [](auto i) { return std::string(i, '-'); });
+    auto border = transform_(_column_widths, [](auto i) { return std::string(i, '-'); });
 
     for ( const auto& r : _rows ) {
         if ( r.first && ! include_header )

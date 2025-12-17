@@ -33,7 +33,7 @@ public:
     void stopProcess();
     void parseJSON(const std::string& object);
 
-    std::optional<filesystem::path> journalctl;
+    std::optional<std::filesystem::path> journalctl;
     std::unique_ptr<reproc::process> process;
     std::string buffer;
 };
@@ -42,10 +42,10 @@ database::RegisterTable<SystemLogsLinux> _;
 
 Table::Init SystemLogsLinux::init() {
     // See if we find 'journalctl'
-    std::set<filesystem::path> candidates = {"/usr/bin/journalctl", "/usr/local/sbin/journalctl"};
+    std::set<std::filesystem::path> candidates = {"/usr/bin/journalctl", "/usr/local/sbin/journalctl"};
 
     for ( const auto& p : candidates ) {
-        if ( ! filesystem::is_regular_file(p) )
+        if ( ! std::filesystem::is_regular_file(p) )
             continue;
 
         // See if we can execute it.

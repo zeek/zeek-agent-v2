@@ -93,7 +93,7 @@ if ( HAVE_LINUX )
     set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "" FORCE)
     add_subdirectory(pfs EXCLUDE_FROM_ALL)
     target_include_directories(pfs PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/pfs/include>")
-    target_compile_definitions(pfs PRIVATE preadv64=preadv) # work-around preadv64 not being defined on Alpine 3.19.
+    target_compile_definitions(pfs PRIVATE _LARGEFILE64_SOURCE)
 endif()
 
 if ( NOT HAVE_GETOPT_LONG )

@@ -4,13 +4,16 @@
 
 #include "util/filesystem.h"
 
+#include <filesystem>
 #include <string>
-#include <type_traits>
 #include <utility>
 
+#include <fmt/base.h>
 #include <fmt/core.h>
+#include <fmt/format.h>
 #include <fmt/xchar.h>
 #include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 
 namespace zeek::agent {
 
@@ -34,7 +37,7 @@ std::string to_string(const T& t) {
 
 /** Renders class instances through their `str()` method. */
 template<>
-inline std::string to_string(const filesystem::path& t) {
+inline std::string to_string(const std::filesystem::path& t) {
     return zeek::agent::path_to_string(t);
 }
 
@@ -51,8 +54,8 @@ struct fmt::formatter<nlohmann::json> : fmt::formatter<std::string> {
 };
 
 template<>
-struct fmt::formatter<filesystem::path> : fmt::formatter<std::string> {
-    auto format(const filesystem::path& p, format_context& ctx) const -> decltype(ctx.out()) {
+struct fmt::formatter<std::filesystem::path> : fmt::formatter<std::string> {
+    auto format(const std::filesystem::path& p, format_context& ctx) const -> decltype(ctx.out()) {
         return fmt::format_to(ctx.out(), "{}", zeek::agent::path_to_string(p));
     }
 };

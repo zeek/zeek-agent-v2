@@ -5,14 +5,15 @@
 
 #pragma once
 
-#include "util/fmt.h"
-
-#include <exception>
 #include <optional>
 #include <ostream>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
+
+#include <fmt/base.h>
 
 namespace zeek::agent {
 
@@ -39,7 +40,6 @@ inline std::ostream& operator<<(std::ostream& out, const Error& error) {
 }
 
 inline bool operator==(const Error& a, const Error& b) { return a.description() == b.description(); }
-inline bool operator!=(const Error& a, const Error& b) { return ! (a == b); }
 
 /** Exception indicating that no result is available if though one was requested. */
 class NoResult : public std::runtime_error {
@@ -61,7 +61,6 @@ public:
 struct Nothing {};
 
 inline bool operator==(const Nothing&, const Nothing&) { return true; }
-inline bool operator!=(const Nothing&, const Nothing&) { return false; }
 
 /**
  * Represents either a successful result from function if it returned one, or
@@ -70,16 +69,16 @@ inline bool operator!=(const Nothing&, const Nothing&) { return false; }
 template<typename T>
 class Result {
 public:
-    Result() : _value(std::in_place_type_t<result::Error>(), result::Error("<result not initialized>")) {}
+    Result() : _value(std::in_place_type<result::Error>, result::Error("<result not initialized>")) {}
 
     /** Creates a successful result from a value. */
-    Result(const T& t) : _value(std::in_place_type_t<T>(), t) {}
+    Result(const T& t) : _value(std::in_place_type<T>, t) {}
     /** Creates a successful result from a value. */
-    Result(T&& t) : _value(std::in_place_type_t<T>(), std::move(t)) {}
+    Result(T&& t) : _value(std::in_place_type<T>, std::move(t)) {}
     /** Creates an result reflecting an error. */
-    Result(const result::Error& e) : _value(std::in_place_type_t<result::Error>(), e) {}
+    Result(const result::Error& e) : _value(std::in_place_type<result::Error>, e) {}
     /** Creates an result reflecting an error. */
-    Result(result::Error&& e) : _value(std::in_place_type_t<result::Error>(), std::move(e)) {}
+    Result(result::Error&& e) : _value(std::in_place_type<result::Error>, std::move(e)) {}
 
     Result(const Result& o) = default;
     Result(Result&& o) = default; // NOLINT (hicpp-noexcept-move)
@@ -178,8 +177,6 @@ public:
         else
             return a.error() == b.error();
     }
-
-    friend bool operator!=(const Result& a, const Result& b) { return ! (a == b); }
 
 private:
     std::variant<T, result::Error> _value;

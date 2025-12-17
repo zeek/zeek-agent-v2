@@ -3,17 +3,24 @@
 #pragma once
 
 #include "configuration.h"
-#include "scheduler.h"
+#include "util/fmt.h"
+#include "util/helpers.h"
+#include "util/result.h"
 #include "util/variant.h"
 
-#include <functional>
-#include <memory>
+#include <cstdint>
+#include <mutex>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
+
+#include <fmt/base.h>
+#include <fmt/format.h>
 
 namespace zeek::agent {
 
@@ -113,7 +120,6 @@ struct Port {
         return port < other.port || (port == other.port && protocol < other.protocol);
     }
     bool operator==(const Port& other) const { return port == other.port && protocol == other.protocol; }
-    bool operator!=(const Port& other) const { return port != other.port || protocol != other.protocol; }
 };
 
 /** Returns a human-readable represenation of the value. */
@@ -125,6 +131,8 @@ extern std::string Xto_json(const Port& v);
 /** Represents a record (struct) of values. */
 struct Record : public std::vector<std::pair<Value, value::Type>> {
     using std::vector<std::pair<Value, value::Type>>::vector;
+
+    bool operator<(const Record& other) const;
 };
 
 /** Returns a human-readable represenation of the value. */
@@ -195,7 +203,7 @@ struct Column {
     bool is_parameter = false;
 
     /** For paramters, a default value if not specified. */
-    std::optional<Value> default_ = {};
+    std::optional<Value> default_;
 
     /** Returns a human-readable representation of the column definition. */
     std::string str() const;
@@ -448,7 +456,7 @@ protected:
 private:
     Database* _db = nullptr;      // database set through `setDatabase()`
     int _current_connections = 0; // counter of active queries against this table
-    mutable Time _last_time = {};
+    mutable Time _last_time;
     bool _use_mock_data = false; // if true, have table return mock data for testing
 };
 
@@ -541,7 +549,7 @@ inline auto ValueVectorCompare = [](const std::vector<Value>& a, const std::vect
     if ( a_size != b.size() )
         return a_size < b.size();
 
-    for ( auto i = 0; i < a_size; i++ ) {
+    for ( auto i = 0U; i < a_size; i++ ) {
         if ( a[i] != b[i] )
             return a[i] < b[i];
     }

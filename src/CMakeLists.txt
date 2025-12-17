@@ -2,16 +2,11 @@
 
 ### Setup compiler
 
-if ( HAVE_WINDOWS )
-    # We require C++20 on MSVC because designated-initializers don't exist in C++17 mode.
-    set(CMAKE_CXX_STANDARD 20)
-else()
-    set(CMAKE_CXX_STANDARD 17)
-endif()
-
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_C_STANDARD 11)
 
 include(CheckCompiler)
 include(CheckFunctions)
@@ -28,15 +23,9 @@ add_subdirectory(platform)
 add_subdirectory(tables)
 add_subdirectory(util)
 
-if ( USE_BROKER )
-    # Ensure that we include our Broker version even if existing includes may lead us elswhere.
-    target_include_directories(zeek-agent PRIVATE $<TARGET_PROPERTY:broker_static,INCLUDE_DIRECTORIES>)
-endif ()
-
 target_link_libraries(zeek-agent PRIVATE ${CMAKE_DL_LIBS})
 target_link_libraries(zeek-agent PRIVATE doctest::doctest)
 target_link_libraries(zeek-agent PRIVATE fmt::fmt)
-target_link_libraries(zeek-agent PRIVATE ghcFilesystem::ghc_filesystem)
 target_link_libraries(zeek-agent PRIVATE nlohmann_json)
 target_link_libraries(zeek-agent PRIVATE ixwebsocket::ixwebsocket)
 target_link_libraries(zeek-agent PRIVATE pathfind::pathfind)
@@ -48,10 +37,6 @@ target_link_libraries(zeek-agent PRIVATE stduuid)
 target_link_libraries(zeek-agent PRIVATE tomlplusplus::tomlplusplus)
 target_link_libraries(zeek-agent PRIVATE ztd::out_ptr)
 target_link_libraries(zeek-agent PRIVATE Glob)
-
-if ( USE_BROKER )
-    target_link_libraries(zeek-agent PRIVATE broker_static)
-endif ()
 
 if ( NOT HAVE_GETOPT_LONG )
     target_link_libraries(zeek-agent PRIVATE 3rdparty:3rdparty)

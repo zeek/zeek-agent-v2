@@ -2,26 +2,42 @@
 
 #include "console.h"
 
+#include "core/configuration.h"
 #include "core/database.h"
 #include "core/logger.h"
 #include "core/signal.h"
+#include "core/table.h"
+#include "platform/platform.h"
 #include "util/ascii-table.h"
 #include "util/color.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
+#include "util/pimpl.h"
 #include "util/socket.h"
 #include "util/testing.h"
 
-#include <algorithm>
+#include <atomic>
+#include <cerrno>
+#include <chrono>
 #include <condition_variable>
 #include <csignal>
+#include <filesystem>
 #include <list>
 #include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <ostream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #include <replxx.hxx>
+
+#ifdef HAVE_POSIX
+#include <unistd.h>
+#endif
 
 using namespace zeek::agent;
 
@@ -67,9 +83,9 @@ struct Pimpl<ConsoleServer>::Implementation {
     void query(const socket::Remote& remote, const std::string& stmt,
                std::optional<query::SubscriptionType> subscription, bool terminate = false);
 
-    filesystem::path _socket_path;   // as passed into constructor
-    Database* _db = nullptr;         // as passed into constructor
-    Scheduler* _scheduler = nullptr; // as passed into constructor
+    std::filesystem::path _socket_path; // as passed into constructor
+    Database* _db = nullptr;            // as passed into constructor
+    Scheduler* _scheduler = nullptr;    // as passed into constructor
 
     Socket _socket;                                            // IPC socket for communicating with console clients
     std::map<std::string, Schema> _tables;                     // copy of table schema for thread-safety
@@ -89,7 +105,7 @@ void ConsoleServer::Implementation::init() {
 }
 
 void ConsoleServer::Implementation::done() {
-    filesystem::remove(_socket_path);
+    std::filesystem::remove(_socket_path);
 
     for ( auto& p : _pending_queries ) {
         p->done_cv.notify_all();
@@ -159,16 +175,16 @@ void ConsoleServer::Implementation::execute(socket::Remote remote, const std::st
     else if ( cmd == ".terminate" )
         _scheduler->terminate();
 
-    else if ( cmd.substr(0, 7) == ".diffs " )
+    else if ( cmd.starts_with(".diffs ") )
         query(remote, cmd.substr(7), query::SubscriptionType::Differences);
 
-    else if ( cmd.substr(0, 21) == ".snapshot-plus-diffs " )
+    else if ( cmd.starts_with(".snapshot-plus-diffs ") )
         query(remote, cmd.substr(21), query::SubscriptionType::SnapshotPlusDifferences);
 
-    else if ( cmd.substr(0, 8) == ".events " )
+    else if ( cmd.starts_with(".events ") )
         query(remote, cmd.substr(8), query::SubscriptionType::Events);
 
-    else if ( cmd.substr(0, 8) == ".schema " ) {
+    else if ( cmd.starts_with(".schema ") ) {
         if ( auto m = split(trim(cmd.substr(8))); m.size() == 1 && ! m[0].empty() ) {
             auto t = _tables.find(m[0]);
             if ( t != _tables.end() )
@@ -180,7 +196,7 @@ void ConsoleServer::Implementation::execute(socket::Remote remote, const std::st
             sendError(remote, "cannot parse table name");
     }
 
-    else if ( cmd.substr(0, 11) == ".snapshots " )
+    else if ( cmd.starts_with(".snapshots ") )
         query(remote, cmd.substr(11), query::SubscriptionType::Snapshots);
 
     else if ( cmd == ".ctrlc" ) {
@@ -227,7 +243,7 @@ void ConsoleServer::Implementation::query(const socket::Remote& remote, const st
 
                    .callback_done =
                        [pending](query::ID id, bool regular_shutdown) {
-                           std::unique_lock<std::mutex> lock(pending->done_mutex);
+                           const std::unique_lock<std::mutex> lock(pending->done_mutex);
                            pending->remote << std::endl;
                            sendEndOfMessage(pending->remote);
                            pending->done_cv.notify_all();
@@ -242,7 +258,7 @@ void ConsoleServer::Implementation::query(const socket::Remote& remote, const st
             std::unique_lock<std::mutex> lock(pending->done_mutex);
 
             scheduler->schedule([this, pending, &query]() {
-                std::unique_lock<std::mutex> lock(pending->done_mutex);
+                const std::unique_lock<std::mutex> lock(pending->done_mutex);
 
                 if ( auto id = _db->query(query) )
                     pending->query_id = *id;
@@ -269,7 +285,7 @@ void ConsoleServer::Implementation::query(const socket::Remote& remote, const st
         });
 }
 
-ConsoleServer::ConsoleServer(const filesystem::path& socket_path, Database* db, Scheduler* scheduler) {
+ConsoleServer::ConsoleServer(const std::filesystem::path& socket_path, Database* db, Scheduler* scheduler) {
     ZEEK_AGENT_DEBUG("console-server", "creating instance");
     pimpl()->_socket_path = socket_path;
     pimpl()->_db = db;
@@ -341,7 +357,7 @@ static void sendResult(socket::Remote& remote, const query::Result& result, bool
 
     AsciiTable table;
 
-    auto columns = transform(result.columns, [](const auto& c) { return c.name; });
+    auto columns = transform_(result.columns, [](const auto& c) { return c.name; });
 
     if ( include_type )
         columns.insert(columns.begin(), 1, "   ");
@@ -349,7 +365,7 @@ static void sendResult(socket::Remote& remote, const query::Result& result, bool
     table.addHeader(std::move(columns));
 
     for ( const auto& row : result.rows ) {
-        auto values = transform(row.values, [](const auto& v) { return to_string(v); });
+        auto values = transform_(row.values, [](const auto& v) { return to_string(v); });
 
         if ( include_type ) {
             std::string prefix = "  ";
@@ -440,7 +456,7 @@ struct Pimpl<ConsoleClient>::Implementation {
     // Executes a command or query, returns output
     std::optional<std::string> execute(const std::string& cmd, bool echo = true);
 
-    filesystem::path _socket_path;        // as passed into constructor
+    std::filesystem::path _socket_path;   // as passed into constructor
     Scheduler* _scheduler = nullptr;      // as passed into constructor
     SignalManager* _signal_mgr = nullptr; // as passed into constructor
 
@@ -457,7 +473,7 @@ struct Pimpl<ConsoleClient>::Implementation {
 };
 
 void ConsoleClient::Implementation::init() {
-    filesystem::path client_socket = frmt("{}.client", _socket_path);
+    std::filesystem::path client_socket = frmt("{}.client", _socket_path);
     if ( auto rc = _socket.bind(client_socket); ! rc ) {
         logger()->error("console client: {}", rc.error());
         return;
@@ -480,7 +496,7 @@ void ConsoleClient::Implementation::done() { _sigint.reset(); }
 void ConsoleClient::Implementation::repl() {
     // Runs in its own thread.
 
-    filesystem::path history_path;
+    std::filesystem::path history_path;
     if ( auto dir = platform::dataDirectory() ) {
         history_path = *dir / "history";
         _rx.history_load(history_path.string());
@@ -556,7 +572,7 @@ std::optional<std::string> ConsoleClient::Implementation::execute(const std::str
     return output;
 }
 
-ConsoleClient::ConsoleClient(const filesystem::path& socket, Scheduler* scheduler, SignalManager* signal_mgr) {
+ConsoleClient::ConsoleClient(const std::filesystem::path& socket, Scheduler* scheduler, SignalManager* signal_mgr) {
     ZEEK_AGENT_DEBUG("console-client", "creating instance");
     pimpl()->_socket_path = socket;
     pimpl()->_scheduler = scheduler;
@@ -617,8 +633,8 @@ void ConsoleClient::stop() {
 }
 
 TEST_SUITE("console") {
-    Configuration cfg;
-    auto socket = filesystem::path(frmt("/tmp/zeek-agent-test-socket.{}", getpid()));
+    const Configuration cfg;
+    const auto socket = std::filesystem::path(frmt("/tmp/zeek-agent-test-socket.{}", ::getpid()));
 
     TEST_CASE("client/server") {
         Scheduler scheduler;

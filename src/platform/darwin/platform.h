@@ -3,10 +3,13 @@
 #pragma once
 
 #include "core/table.h"
+#include "util/result.h"
 
+#include <filesystem>
 #include <optional>
 #include <vector>
 
+#include <sys/_types/_pid_t.h>
 #include <util/filesystem.h>
 
 namespace zeek::agent::platform::darwin {
@@ -15,7 +18,7 @@ namespace zeek::agent::platform::darwin {
  * Returns the path to the `App[lication Support` directory appropiate for the
  * user running the agent (which might be the system-wide one for root).
  */
-extern std::optional<filesystem::path> getApplicationSupport();
+extern std::optional<std::filesystem::path> getApplicationSupport();
 
 struct ProcessInfo {
     Value name;

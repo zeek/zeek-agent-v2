@@ -4,6 +4,8 @@
 
 #include "platform.h"
 
+#include <optional>
+
 using namespace zeek::agent;
 
 TEST_SUITE("Platform") {

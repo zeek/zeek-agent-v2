@@ -26,7 +26,6 @@ enable_language(CXX)
 ### Initialize defaults & global options
 
 # Defaults here should match 'configure'.
-option(USE_BROKER "" "no")
 option(USE_CCACHE "" "no")
 option(USE_SANITIZERS "" "")
 option(USE_WERROR "" "no")
@@ -127,19 +126,26 @@ if(NUM_CPUS EQUAL 0)
     set(NUM_CPUS 1)
 endif()
 
-# Create a target for running clang-tidy through our helper script.
-add_custom_target(tidy COMMAND ${CMAKE_SOURCE_DIR}/auxil/run-clang-tidy -j ${NUM_CPUS} ${CMAKE_BINARY_DIR})
-
 ### Add subdirectories.
 
 add_subdirectory(3rdparty)
 add_subdirectory(src)
 add_subdirectory(packaging)
 
+### Patch up CTest to skip 3rdpar. This follows https://stackoverflow.com/a/63641367.
+configure_file(${CMAKE_SOURCE_DIR}/cmake/CTestCustom.cmake ${CMAKE_BINARY_DIR}/CTestCustom.cmake @ONLY)
+
 ### Emit configuration summary.
 
-if ( NOT "${USE_SANITIZERS}" )
+if ( USE_SANITIZERS )
+    set(USE_SANITIZERS_DISPLAY "${USE_SANITIZERS}")
+else ()
     set(USE_SANITIZERS_DISPLAY "no")
+endif ()
+
+set(USE_CLANG_TIDY "no")
+if (CMAKE_CXX_CLANG_TIDY)
+    set(USE_CLANG_TIDY "yes (${CMAKE_CXX_CLANG_TIDY})")
 endif ()
 
 message(
@@ -156,8 +162,8 @@ message(
     "\nC++ Compiler:          ${CMAKE_CXX_COMPILER} (${CMAKE_CXX_COMPILER_VERSION})"
     "\n"
     "\nBuild with tests:      ${USE_DOCTEST}"
-    "\nBuild with Broker:     ${USE_BROKER}"
     "\nUse ccache:            ${USE_CCACHE}"
+    "\nUse clang-tidy:        ${USE_CLANG_TIDY}"
     "\nUse sanitizers:        ${USE_SANITIZERS_DISPLAY}"
     "\nLink statically:       ${USE_STATIC_LINKING}"
     "\n"

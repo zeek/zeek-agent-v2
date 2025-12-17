@@ -17,7 +17,7 @@
 
 using namespace zeek::agent;
 
-socket::Address socket::Remote::pathToDestination(const filesystem::path& path) { return to_string(path); }
+socket::Address socket::Remote::pathToDestination(const std::filesystem::path& path) { return to_string(path); }
 
 // Global map of messages queued for each path/address.
 using Message = std::pair<std::string, socket::Address>;
@@ -29,7 +29,7 @@ std::mutex mutex;
 template<>
 struct Pimpl<Socket>::Implementation {
     // Binds the socket to a local path, setting it up for communication.
-    Result<Nothing> bind(const filesystem::path& path);
+    Result<Nothing> bind(const std::filesystem::path& path);
 
     // Reads one message from the socket. If no input is currently available,
     Result<Socket::ReadResult> read();
@@ -37,12 +37,12 @@ struct Pimpl<Socket>::Implementation {
     // Sends one message to the currently active destination. This will fail
     Result<Nothing> write(const std::string& data, const socket::Remote& dst);
 
-    Socket* _socket = nullptr; // socket that this implementation belongs to
-    filesystem::path _path;    // path the socket is bound to
-    socket::Address _idx;      // map into messages
+    Socket* _socket = nullptr;   // socket that this implementation belongs to
+    std::filesystem::path _path; // path the socket is bound to
+    socket::Address _idx;        // map into messages
 };
 
-Result<Nothing> Socket::Implementation::bind(const filesystem::path& path) {
+Result<Nothing> Socket::Implementation::bind(const std::filesystem::path& path) {
     const std::scoped_lock lock(mutex);
 
     _path = path;
@@ -84,7 +84,7 @@ Socket::~Socket() {}
 
 bool Socket::isActive() const { return ! pimpl()->_path.empty(); };
 
-Result<Nothing> Socket::bind(const filesystem::path& path) { return pimpl()->bind(path); }
+Result<Nothing> Socket::bind(const std::filesystem::path& path) { return pimpl()->bind(path); }
 
 Result<Socket::ReadResult> Socket::read() { return pimpl()->read(); }
 

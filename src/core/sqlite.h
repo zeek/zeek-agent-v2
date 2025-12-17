@@ -2,13 +2,14 @@
 
 #pragma once
 
-#include "scheduler.h"
 #include "table.h"
+#include "util/helpers.h"
 #include "util/pimpl.h"
 #include "util/result.h"
 
 #include <cassert>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>

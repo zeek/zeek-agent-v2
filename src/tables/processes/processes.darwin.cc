@@ -12,6 +12,11 @@
 #include "util/fmt.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <utility>
+#include <vector>
 
 #include <bsm/libbsm.h>
 

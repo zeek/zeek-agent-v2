@@ -5,9 +5,22 @@
 #include "socket.h"
 
 #include "core/logger.h"
+#include "util/fmt.h"
 #include "util/helpers.h"
+#include "util/pimpl.h"
+#include "util/result.h"
+
+#include <cerrno>
+#include <cstring>
+#include <filesystem>
+#include <optional>
+#include <string>
+#include <utility>
+
+#include <unistd.h>
 
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 
 using namespace zeek::agent;
@@ -26,13 +39,13 @@ static socket::Address sock2dst(const struct sockaddr_un& dst) {
     return {reinterpret_cast<const char*>(&dst), sizeof(dst)};
 }
 
-socket::Address socket::Remote::pathToDestination(const filesystem::path& path) {
+socket::Address socket::Remote::pathToDestination(const std::filesystem::path& path) {
     struct sockaddr_un dst;
 
     if ( strlen(path.c_str()) >= sizeof(dst.sun_path) )
         throw FatalError(frmt("socket path too long: {}", path.native()));
 
-    bzero(&dst, sizeof(dst));
+    memset(&dst, 0, sizeof(dst));
     dst.sun_family = AF_UNIX;
     strncpy(dst.sun_path, path.c_str(), sizeof(dst.sun_path) - 1);
     dst.sun_path[sizeof(dst.sun_path) - 1] = '\0';
@@ -48,7 +61,7 @@ struct Pimpl<Socket>::Implementation {
     void done();
 
     // Binds the socket to a local path, setting it up for communication.
-    Result<Nothing> bind(const filesystem::path& path);
+    Result<Nothing> bind(const std::filesystem::path& path);
 
     // Reads one message from the socket. If no input is currently available,
     Result<Socket::ReadResult> read();
@@ -56,9 +69,9 @@ struct Pimpl<Socket>::Implementation {
     // Sends one message to the currently active destination. This will fail
     Result<Nothing> write(const std::string& data, const socket::Remote& dst);
 
-    Socket* _socket = nullptr; // socket that this implementation belongs to
-    int _fd = -1;              // socket's fd
-    filesystem::path _path;    // path the socket is bound to
+    Socket* _socket = nullptr;   // socket that this implementation belongs to
+    int _fd = -1;                // socket's fd
+    std::filesystem::path _path; // path the socket is bound to
 };
 
 void Socket::Implementation::init() {}
@@ -71,7 +84,7 @@ void Socket::Implementation::done() {
         unlink(_path.c_str());
 }
 
-Result<Nothing> Socket::Implementation::bind(const filesystem::path& path) {
+Result<Nothing> Socket::Implementation::bind(const std::filesystem::path& path) {
     if ( _fd >= 0 )
         return result::Error("socket already bound");
 
@@ -105,7 +118,7 @@ Result<Nothing> Socket::Implementation::bind(const filesystem::path& path) {
     if ( setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0 )
         return result::Error(frmt("cannot set socket timeout: {}", strerror(errno)));
 
-    bzero(&local, sizeof(local));
+    memset(&local, 0, sizeof(local));
     local.sun_family = AF_UNIX;
     strncpy(local.sun_path, path.c_str(), sizeof(local.sun_path) - 1);
     local.sun_path[sizeof(local.sun_path) - 1] = '\0';
@@ -116,7 +129,7 @@ Result<Nothing> Socket::Implementation::bind(const filesystem::path& path) {
         auto old_umask = umask(0077);
         ScopeGuard _([&]() { umask(old_umask); });
 
-        if ( ::bind(fd, (struct sockaddr*)&local, sizeof(local)) < 0 )
+        if ( ::bind(fd, reinterpret_cast<struct sockaddr*>(&local), sizeof(local)) < 0 )
             return result::Error(frmt("cannot bind to socket: {}", strerror(errno)));
     }
 
@@ -135,7 +148,7 @@ Result<Socket::ReadResult> Socket::Implementation::read() {
     socklen_t sender_size = sizeof(sender);
 
     char buffer[SocketBufferSize];
-    auto len = recvfrom(_fd, buffer, sizeof(buffer), 0, (struct sockaddr*)&sender, &sender_size);
+    auto len = recvfrom(_fd, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&sender), &sender_size);
     if ( len < 0 ) {
         if ( errno != EAGAIN || errno != EWOULDBLOCK )
             return result::Error(strerror(errno));
@@ -156,7 +169,8 @@ Result<Nothing> Socket::Implementation::write(const std::string& data, const soc
     int attempts = 0;
     while ( attempts++ < 50 ) {
         struct sockaddr_un sockaddr = dst2sock(dst.destination());
-        auto len = sendto(_fd, data.data(), data.size(), 0, (struct sockaddr*)&sockaddr, sizeof(sockaddr));
+        auto len =
+            sendto(_fd, data.data(), data.size(), 0, reinterpret_cast<struct sockaddr*>(&sockaddr), sizeof(sockaddr));
         if ( len >= 0 )
             return Nothing();
 
@@ -183,7 +197,7 @@ Socket::~Socket() { pimpl()->done(); }
 
 bool Socket::isActive() const { return pimpl()->_fd >= 0; };
 
-Result<Nothing> Socket::bind(const filesystem::path& path) { return pimpl()->bind(path); }
+Result<Nothing> Socket::bind(const std::filesystem::path& path) { return pimpl()->bind(path); }
 
 Result<Socket::ReadResult> Socket::read() { return pimpl()->read(); }
 

@@ -7,8 +7,15 @@
 #include "util/testing.h"
 
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
+#include <fstream>
+#include <string>
 #include <variant>
+
+#ifdef HAVE_POSIX
+#include <unistd.h>
+#endif
 
 using namespace zeek::agent;
 

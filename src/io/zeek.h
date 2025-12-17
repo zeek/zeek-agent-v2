@@ -4,9 +4,7 @@
 
 #include "util/pimpl.h"
 
-#include <memory>
 #include <string>
-#include <thread>
 #include <vector>
 
 namespace zeek::agent {
