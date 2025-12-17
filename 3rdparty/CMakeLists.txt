@@ -1,4 +1,7 @@
 
+set(CMAKE_C_CLANG_TIDY "")
+set(CMAKE_CXX_CLANG_TIDY "")
+
 if ( USE_STATIC_LINKING )
     set(OPENSSL_USE_STATIC_LIBS on)
 
@@ -33,10 +36,6 @@ add_subdirectory(stduuid EXCLUDE_FROM_ALL)
 add_subdirectory(tomlplusplus EXCLUDE_FROM_ALL)
 add_subdirectory(out_ptr EXCLUDE_FROM_ALL)
 
-option(GHC_FILESYSTEM_WITH_INSTALL "With install target" ON)
-add_subdirectory(filesystem EXCLUDE_FROM_ALL)
-
-option(GLOB_USE_GHC_FILESYSTEM "Use ghc::filesystem instead of std::filesystem" ON)
 add_subdirectory(glob EXCLUDE_FROM_ALL)
 
 set(SPDLOG_FMT_EXTERNAL ON)
