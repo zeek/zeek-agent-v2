@@ -1,3 +1,21 @@
+2.3.0-23 | 2026-01-21 09:51:31 -0700
+
+  * Bump actions/upload-artifact from 4 to 5
+
+    Bumps [actions/upload-artifact](https://github.com/actions/upload-artifact) from 4 to 5.
+    - [Release notes](https://github.com/actions/upload-artifact/releases)
+    - [Commits](https://github.com/actions/upload-artifact/compare/v4...v5)
+
+    ---
+    updated-dependencies:
+    - dependency-name: actions/upload-artifact
+      dependency-version: '5'
+      dependency-type: direct:production
+      update-type: version-update:semver-major
+    ...
+
+    Signed-off-by: dependabot[bot] <support@github.com>
+
 2.3.0-21 | 2026-01-21 09:51:15 -0700
 
   * Bump actions/checkout from 4 to 6
