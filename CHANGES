@@ -1,3 +1,22 @@
+2.3.0-21 | 2026-01-21 09:51:15 -0700
+
+  * Bump actions/checkout from 4 to 6
+
+    Bumps [actions/checkout](https://github.com/actions/checkout) from 4 to 6.
+    - [Release notes](https://github.com/actions/checkout/releases)
+    - [Changelog](https://github.com/actions/checkout/blob/main/CHANGELOG.md)
+    - [Commits](https://github.com/actions/checkout/compare/v4...v6)
+
+    ---
+    updated-dependencies:
+    - dependency-name: actions/checkout
+      dependency-version: '6'
+      dependency-type: direct:production
+      update-type: version-update:semver-major
+    ...
+
+    Signed-off-by: dependabot[bot] <support@github.com>
+
 2.3.0-19 | 2025-04-21 15:51:46 -0700
 
   * Expand possible size of UUIDs in test canonifier
