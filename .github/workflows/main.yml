@@ -66,7 +66,7 @@ jobs:
           # TODO: tidy fails in Broker currently
           # ninja -C build tidy
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: Test output
@@ -122,7 +122,7 @@ jobs:
           ninja -C build package
           (cd build/dist && echo "ZA_DIST=$(echo *.tar.gz)" >>$GITHUB_ENV)
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
@@ -248,7 +248,7 @@ jobs:
 
       ### Back to running on all branches
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
@@ -331,7 +331,7 @@ jobs:
           (cd build/dist && echo "ZA_DIST=$(echo *.msi)" >>$GITHUB_ENV)
         shell: bash
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
@@ -375,7 +375,7 @@ jobs:
           cat build/dist/${{env.ZA_DIST}} | (cd ${{ runner.temp }}/test-build && tar xzvf -)
           (cd $(echo ${{ runner.temp }}/test-build/zeek-agent*) && ./configure --generator=Ninja --enable-ccache && ninja -C build && ninja -C build test)
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{env.ZA_DIST}}
           path: build/dist/${{env.ZA_DIST}}
