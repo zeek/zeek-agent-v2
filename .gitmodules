@@ -1,9 +1,6 @@
 [submodule "3rdparty/doctest"]
 	path = 3rdparty/doctest
 	url = https://github.com/onqtam/doctest
-[submodule "3rdparty/filesystem"]
-	path = 3rdparty/filesystem
-	url = https://github.com/gulrak/filesystem.git
 [submodule "3rdparty/spdlog"]
 	path = 3rdparty/spdlog
 	url = https://github.com/gabime/spdlog
