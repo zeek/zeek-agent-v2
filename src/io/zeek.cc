@@ -250,7 +250,7 @@ public:
     void connect(const std::string& host, unsigned int port, const std::vector<std::string>& topics) override;
     void disconnect() override;
     bool isShutdown() override { return ! _connected || _socket.getReadyState() != ix::ReadyState::Open; }
-    unsigned int defaultPort() override { return 9997; /* Zeek's default WebSocket port */ }
+    unsigned int defaultPort() override { return 27759; /* Zeek's default WebSocket port */ }
     void transmitEvent(const std::string& topic, const std::string& name, Record args) override;
     void poll() override;
     const char* name() const override { return "WebSocket"; }

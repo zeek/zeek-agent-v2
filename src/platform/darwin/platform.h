@@ -12,7 +12,19 @@
 #include <sys/_types/_pid_t.h>
 #include <util/filesystem.h>
 
+namespace zeek::agent {
+class Scheduler;
+}
+
 namespace zeek::agent::platform::darwin {
+
+/**
+ * Hands the IPC layer a reference to the running scheduler so that
+ * remotely-requested shutdowns can be performed gracefully (instead of
+ * calling `::exit()` from an XPC dispatch thread, which races with
+ * static-destructor cleanup).
+ */
+extern void setScheduler(zeek::agent::Scheduler* scheduler);
 
 /**
  * Returns the path to the `App[lication Support` directory appropiate for the

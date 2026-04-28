@@ -9,6 +9,17 @@
 
 using namespace zeek::agent;
 
+// Returns a freshly allocated `NSUserDefaults` object bound to our
+// app-group suite. Callers own the returned object and must `release` it.
+//
+// We re-create the suite object on each access (rather than caching one)
+// to avoid stale-cache races with `cfprefsd` on recent macOS versions,
+// where values written by another process in the same app group may
+// otherwise not be visible.
+static NSUserDefaults* makeAppGroupDefaults() {
+    return [[NSUserDefaults alloc] initWithSuiteName:@"group.org.zeek.zeek-agent"];
+}
+
 @implementation IPC
 
 + (IPC*)sharedObject {
@@ -24,8 +35,7 @@ using namespace zeek::agent;
 - (instancetype)init {
     self = [super init];
     if ( self ) {
-        _defaults = [[NSUserDefaults alloc] initWithSuiteName:@"group.org.zeek.zeek-agent"];
-        _listener = [[NSXPCListener alloc] initWithMachServiceName:@"org.zeek.zeek-agent.agent"];
+        _listener = [[NSXPCListener alloc] initWithMachServiceName:@"group.org.zeek.zeek-agent"];
         _listener.delegate = self;
         [_listener resume];
     }
@@ -34,7 +44,6 @@ using namespace zeek::agent;
 
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-    [_defaults release];
     [_listener release];
     [super dealloc];
 }
@@ -44,7 +53,9 @@ using namespace zeek::agent;
 
     auto options = _configuration->options();
 
-    auto log_level = [_defaults stringForKey:@"log.level"];
+    NSUserDefaults* defaults = makeAppGroupDefaults();
+
+    auto log_level = [defaults stringForKey:@"log.level"];
     if ( log_level ) {
         if ( [log_level isEqual:@""] )
             options.log_level = options::default_log_level;
@@ -56,12 +67,14 @@ using namespace zeek::agent;
         }
     }
 
-    auto zeek_destination = [_defaults stringForKey:@"zeek.destination"];
-    if ( zeek_destination ) {
+    auto zeek_destination = [defaults stringForKey:@"zeek.destination"];
+    if ( zeek_destination && [zeek_destination length] > 0 ) {
         const char* dest_str = [zeek_destination UTF8String];
-        if ( dest_str )
+        if ( dest_str && *dest_str )
             options.zeek_destinations = {dest_str};
     }
+
+    [defaults release];
 
     if ( auto rc = _configuration->setOptions(options); ! rc )
         logger()->warn("error applying new options: {}", rc.error());
@@ -95,17 +108,21 @@ using namespace zeek::agent;
 
     auto options = [NSMutableDictionary dictionary];
 
-    auto log_level = [_defaults stringForKey:@"log.level"];
+    NSUserDefaults* defaults = makeAppGroupDefaults();
+
+    auto log_level = [defaults stringForKey:@"log.level"];
     if ( log_level )
         options[@"log.level"] = log_level;
     else
         options[@"log.level"] = @"default";
 
-    auto zeek_destination = [_defaults stringForKey:@"zeek.destination"];
+    auto zeek_destination = [defaults stringForKey:@"zeek.destination"];
     if ( zeek_destination )
         options[@"zeek.destination"] = zeek_destination;
     else
         options[@"zeek.destination"] = @"";
+
+    [defaults release];
 
     reply(options);
 
@@ -115,16 +132,32 @@ using namespace zeek::agent;
 - (void)setOptions:(NSDictionary<NSString*, NSString*>*)options {
     logger()->debug("[IPC] remote call: setOptions");
 
+    NSUserDefaults* defaults = makeAppGroupDefaults();
+
     for ( id key in options ) {
         auto value = [options objectForKey:key];
-        [_defaults setObject:value forKey:key];
+        [defaults setObject:value forKey:key];
     }
+
+    // Force flush to cfprefsd so the next reader (possibly in another
+    // process) sees the new values reliably.
+    [defaults synchronize];
+    [defaults release];
 
     [self updateOptions];
 }
 
 - (void)exit {
     logger()->debug("[IPC] remote call: exit");
-    exit(0);
+
+    // Trigger a graceful shutdown via the scheduler instead of calling
+    // `::exit()` directly: the latter runs C++ static destructors on the
+    // XPC dispatch thread, which races with the still-running agent
+    // threads (logger sinks, tables, scheduler) and reliably crashes
+    // (e.g. inside `~Table()` -> spdlog after the global logger has gone).
+    if ( _scheduler )
+        _scheduler->terminate();
+    else
+        ::exit(0);
 }
 @end

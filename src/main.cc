@@ -28,6 +28,7 @@
 
 #ifdef HAVE_DARWIN
 #include "platform/darwin/network-extension.h"
+#include "platform/darwin/platform.h"
 #endif
 
 #define DOCTEST_CONFIG_NO_UNPREFIXED_OPTIONS
@@ -184,6 +185,12 @@ int zeek::agent::main(const std::vector<std::string>& argv) {
 
         Scheduler scheduler;
         sigint = new signal::Handler(signal_mgr, SIGINT, [&]() { scheduler.terminate(); });
+
+#ifdef HAVE_DARWIN
+        // Hand the IPC layer a reference to the scheduler so that an
+        // app-initiated `exit` request can shut us down gracefully.
+        platform::darwin::setScheduler(&scheduler);
+#endif
 
         Database db(&cfg, &scheduler);
         for ( const auto& t : Database::registeredTables() )

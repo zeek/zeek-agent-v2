@@ -78,7 +78,7 @@ class XPC {
     // up, returns directly without doing anything.
     private func connectXPC() -> IPCProtocol? {
         if connection == nil {
-            connection = NSXPCConnection(machServiceName: "org.zeek.zeek-agent.agent")
+            connection = NSXPCConnection(machServiceName: "group.org.zeek.zeek-agent")
             if connection == nil {
                 logger.error("Failed to create XPC connection")
                 return nil

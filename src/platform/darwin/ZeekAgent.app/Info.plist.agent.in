@@ -13,7 +13,7 @@
     <key>CFBundleExecutable</key>
     <string>zeek-agent</string>
     <key>CFBundleShortVersionString</key>
-    <string>${ZEEK_AGENT_VERSION}></string>
+    <string>${ZEEK_AGENT_VERSION}</string>
     <key>CFBundleIconFile</key>
     <string>ZeekAgent</string>
     <key>LSMinimumSystemVersion</key>
@@ -25,21 +25,18 @@
     <string>Endpoint agent forwarding host activity to Zeek</string>
 
     <key>NSEndpointSecurityMachServiceName</key>
-    <string>org.zeek.zeek-agent.agent</string>
+    <string>group.org.zeek.zeek-agent</string>
 
-    <key>NSSystemExtensionUsageDescription</key>
-    <string>Endpoint agent forwarding host activity to Zeek</string>
+    <key>NetworkExtension</key>
+    <dict>
+        <key>NEMachServiceName</key>
+        <string>group.org.zeek.zeek-agent</string>
 
-     <key>NetworkExtension</key>
+        <key>NEProviderClasses</key>
         <dict>
-                <key>NEMachServiceName</key>
-                <string>org.zeek.zeek-agent.agent</string>
-
-                <key>NEProviderClasses</key>
-                <dict>
-                        <key>com.apple.networkextension.filter-data</key>
-                        <string>FilterDataProvider</string>
-                </dict>
+            <key>com.apple.networkextension.filter-data</key>
+            <string>FilterDataProvider</string>
         </dict>
+    </dict>
 </dict>
 </plist>

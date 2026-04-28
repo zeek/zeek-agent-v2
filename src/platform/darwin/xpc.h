@@ -6,6 +6,7 @@
 #pragma once
 
 #include "core/configuration.h"
+#include "core/scheduler.h"
 
 #include <Foundation/Foundation.h>
 
@@ -21,7 +22,7 @@
 - (id)init;
 - (const zeek::agent::Options&)options;
 - (void)updateOptions;
-@property(strong) NSUserDefaults* defaults;
 @property(strong) NSXPCListener* listener;
 @property zeek::agent::Configuration* configuration;
+@property zeek::agent::Scheduler* scheduler;
 @end

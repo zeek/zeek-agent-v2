@@ -47,10 +47,30 @@ std::optional<std::filesystem::path> platform::configurationFile() {
 std::optional<std::filesystem::path> platform::dataDirectory() { return getApplicationSupport(); }
 
 std::optional<std::filesystem::path> platform::darwin::getApplicationSupport() {
+    // Prefer the App Group container shared between the container app and
+    // the system extension. This location is writable from both, persists
+    // across extension reinstalls, and is unaffected by the per-extension
+    // sandbox redirection of `NSApplicationSupportDirectory` on recent
+    // macOS versions. Requires the `com.apple.security.application-groups`
+    // entitlement on the calling executable, declared on both the app and
+    // the agent.
+    NSURL* container =
+        [[NSFileManager defaultManager] containerURLForSecurityApplicationGroupIdentifier:@"group.org.zeek.zeek-agent"];
+    if ( container ) {
+        // Mirror Apple's convention for App Group containers, putting our
+        // data under `Library/Application Support/ZeekAgent`.
+        NSURL* dir = [[[container URLByAppendingPathComponent:@"Library"]
+            URLByAppendingPathComponent:@"Application Support"] URLByAppendingPathComponent:@"ZeekAgent"];
+        if ( const char* p = [[dir path] UTF8String] )
+            return std::filesystem::path(p);
+    }
+
+    // Fallback for unsandboxed invocations (e.g., command-line use outside
+    // the bundle, tests) where no app-group container is available.
     auto domain = platform::runningAsAdmin() ? NSLocalDomainMask : NSUserDomainMask;
     auto paths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, domain, YES);
-    auto dir = [paths firstObject];
-    return std::filesystem::path([dir UTF8String]) / "ZeekAgent";
+    auto fallback = [paths firstObject];
+    return std::filesystem::path([fallback UTF8String]) / "ZeekAgent";
 }
 
 void platform::init(Configuration* cfg) {
@@ -68,6 +88,8 @@ void platform::init(Configuration* cfg) {
 }
 
 void platform::done() {}
+
+void platform::darwin::setScheduler(zeek::agent::Scheduler* scheduler) { [[IPC sharedObject] setScheduler:scheduler]; }
 
 void platform::initializeOptions(Options* options) {
     if ( auto service = platform::getenv("XPC_SERVICE_NAME"); service && *service != "0" )

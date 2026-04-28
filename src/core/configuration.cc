@@ -278,11 +278,22 @@ Options Options::default_() {
         if ( env && *env )
             options.socket = env;
         else {
+            // Place the socket under the data directory by default, but
+            // fall back to `/tmp` if the resulting path would not fit
+            // into `sockaddr_un::sun_path` (104 bytes on macOS, 108 on
+            // Linux). On Darwin, the data directory lives inside the
+            // app-group container, whose path alone already exceeds the
+            // limit.
             std::filesystem::path socket_dir = "/tmp";
             if ( auto d = platform::dataDirectory() )
                 socket_dir = *d;
 
-            options.socket = socket_dir / replace(options::default_socket_file_name, "$$", frmt("{}", getuid()));
+            auto socket_path = socket_dir / replace(options::default_socket_file_name, "$$", frmt("{}", getuid()));
+            if ( socket_path.string().size() >= 104 )
+                socket_path = std::filesystem::path("/tmp") /
+                              replace(options::default_socket_file_name, "$$", frmt("{}", getuid()));
+
+            options.socket = socket_path;
         }
     }
 #endif
