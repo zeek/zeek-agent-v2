@@ -13,8 +13,8 @@ public:
     Pimpl() : _pimpl(std::make_unique<Implementation>()) {}
     ~Pimpl() {}
 
-    inline const auto* pimpl() const { return _pimpl.get(); }
-    inline auto* pimpl() { return _pimpl.get(); }
+    const auto* pimpl() const { return _pimpl.get(); }
+    auto* pimpl() { return _pimpl.get(); }
 
     Pimpl(const Pimpl& other) = delete;
     Pimpl(Pimpl&& other) = delete;

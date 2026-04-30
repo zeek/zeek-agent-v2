@@ -2,13 +2,10 @@
 
 #pragma once
 
-#include "util/filesystem.h"
 #include "util/pimpl.h"
 
-#include <memory>
+#include <filesystem>
 #include <string>
-#include <thread>
-#include <vector>
 
 namespace zeek::agent {
 
@@ -32,7 +29,7 @@ public:
      * @param database database to use for queries; observer only, doesn't take ownership
      * @param scheduler scheduler to use for any timers; observer only, doesn't take ownership
      */
-    ConsoleServer(const filesystem::path& socket, Database* db, Scheduler* scheduler);
+    ConsoleServer(const std::filesystem::path& socket, Database* db, Scheduler* scheduler);
     ~ConsoleServer();
 
     /** Starts a console server thread. */
@@ -52,7 +49,7 @@ public:
      * @param signal_mgr signal manager to install handlers with; observer only, doesn't take ownership; can be left
      * null for testing purposes (will prevent aborting with SIGINT)
      */
-    ConsoleClient(const filesystem::path& socket, Scheduler* scheduler, SignalManager* signal_mgr);
+    ConsoleClient(const std::filesystem::path& socket, Scheduler* scheduler, SignalManager* signal_mgr);
     ~ConsoleClient();
 
     /**

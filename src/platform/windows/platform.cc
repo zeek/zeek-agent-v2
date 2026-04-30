@@ -24,27 +24,27 @@ void platform::done() { windows::WMIManager::Get().Shutdown(); }
 
 std::string platform::name() { return "Windows"; }
 
-std::optional<filesystem::path> platform::configurationFile() {
-    filesystem::path dir;
+std::optional<std::filesystem::path> platform::configurationFile() {
+    std::filesystem::path dir;
     if ( auto programdata = platform::getenv("PROGRAMDATA") )
-        dir = filesystem::path(*programdata);
+        dir = std::filesystem::path(*programdata);
     else
-        dir = filesystem::path("c:") / "ProgramData";
+        dir = std::filesystem::path("c:") / "ProgramData";
 
     return dir / "ZeekAgent" / "zeek-agent.cfg";
 }
 
-std::optional<filesystem::path> platform::dataDirectory() {
-    filesystem::path dir;
+std::optional<std::filesystem::path> platform::dataDirectory() {
+    std::filesystem::path dir;
     if ( auto programdata = platform::getenv("PROGRAMDATA") )
-        dir = filesystem::path(*programdata);
+        dir = std::filesystem::path(*programdata);
     else
-        dir = filesystem::path("c:") / "ProgramData";
+        dir = std::filesystem::path("c:") / "ProgramData";
 
     dir = dir / "ZeekAgent" / ".cache";
 
     std::error_code ec;
-    filesystem::create_directories(dir, ec);
+    std::filesystem::create_directories(dir, ec);
     if ( ec )
         throw FatalError(frmt("cannot create path '{}'", dir.string()));
 

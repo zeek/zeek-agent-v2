@@ -14,10 +14,6 @@
 #include <winternl.h>
 #include <ws2ipdef.h>
 
-#ifdef HAVE_BROKER
-#include <broker/version.hh>
-#endif
-
 using namespace zeek::agent;
 using namespace zeek::agent::platform::windows;
 using namespace zeek::agent::table;
@@ -111,16 +107,11 @@ std::vector<std::vector<Value>> ZeekAgentWindows::snapshot(const std::vector<tab
     Value platform = platform::name();
     Value os_name = distribution();
     Value agent = options().version_number;
-#ifdef HAVE_BROKER
-    Value broker = broker::version::string();
-#else
-    Value broker = "n/a";
-#endif
     Value uptime = std::chrono::system_clock::now() - startupTime();
     Value tables =
-        Set(value::Type::Text, transform(database()->tables(), [](const auto* t) { return Value(t->name()); }));
+        Set(value::Type::Text, transform_(database()->tables(), [](const auto* t) { return Value(t->name()); }));
 
     // Kernel information doesn't really exist for windows so those columns are returned as nulls.
-    return {{id, instance, hostname, address, platform, os_name, {}, {}, {}, agent, broker, uptime, tables}};
+    return {{id, instance, hostname, address, platform, os_name, {}, {}, {}, agent, uptime, tables}};
 }
 } // namespace

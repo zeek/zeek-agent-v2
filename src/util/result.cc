@@ -29,7 +29,8 @@ TEST_SUITE("Result") {
     }
 
     TEST_CASE("errorOrThrow") {
-        CHECK_THROWS_WITH_AS(Result<int>(42).errorOrThrow(), "<no error>", const result::NoError&);
+        CHECK_THROWS_WITH_AS(Result<int>(42).errorOrThrow(), "<no error>", // NOLINT(modernize-type-traits)
+                             const result::NoError&);
         CHECK_EQ(Result<int>().errorOrThrow(), result::Error("<result not initialized>"));
         CHECK_EQ(Result<int>(result::Error("foo")).errorOrThrow(), result::Error("foo"));
     }
@@ -52,8 +53,9 @@ TEST_SUITE("Result") {
             const auto r3 = Result<int>(result::Error("foo"));
 
             CHECK_EQ(r1.valueOrThrow(), 0);
-            CHECK_THROWS_WITH_AS(r2.valueOrThrow(), "<result not initialized>", const result::NoResult&);
-            CHECK_THROWS_WITH_AS(r3.valueOrThrow(), "foo", const result::NoResult&);
+            CHECK_THROWS_WITH_AS(r2.valueOrThrow(), "<result not initialized>", // NOLINT(modernize-type-traits)
+                                 const result::NoResult&);
+            CHECK_THROWS_WITH_AS(r3.valueOrThrow(), "foo", const result::NoResult&); // NOLINT(modernize-type-traits)
         }
 
         SUBCASE("non const") {
@@ -62,8 +64,9 @@ TEST_SUITE("Result") {
             auto r3 = Result<int>(result::Error("foo"));
 
             CHECK_EQ(r1.valueOrThrow(), 0);
-            CHECK_THROWS_WITH_AS(r2.valueOrThrow(), "<result not initialized>", const result::NoResult&);
-            CHECK_THROWS_WITH_AS(r3.valueOrThrow(), "foo", const result::NoResult&);
+            CHECK_THROWS_WITH_AS(r2.valueOrThrow(), "<result not initialized>", // NOLINT(modernize-type-traits)
+                                 const result::NoResult&);
+            CHECK_THROWS_WITH_AS(r3.valueOrThrow(), "foo", const result::NoResult&); // NOLINT(modernize-type-traits)
 
             r1.valueOrThrow() += 42;
             CHECK_EQ(r1, Result(42));

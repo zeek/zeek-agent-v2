@@ -9,8 +9,13 @@
 
 #include <random>
 
+#ifdef HAVE_POSIX
+#include <unistd.h>
+#endif
+
 #ifndef HAVE_WINDOWS
 #include <netinet/in.h>
+#include <sys/stat.h>
 #endif
 
 using namespace zeek::agent;
@@ -37,6 +42,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables"))
         // Listen on a random port, then check if we can see it.
         fd = socket(AF_INET, SOCK_STREAM, 0);
         REQUIRE(fd >= 0);
+        assert(fd >= 0); // for clang-tidy
 
 #ifndef HAVE_WINDOWS
         fchmod(fd, 0777);
@@ -50,7 +56,7 @@ TEST_CASE_FIXTURE(test::TableFixture, "sockets" * doctest::test_suite("Tables"))
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
         addr.sin_port = htons(port);
-        if ( bind(fd, (const struct sockaddr*)&addr, sizeof(addr)) != 0 )
+        if ( bind(fd, reinterpret_cast<const struct sockaddr*>(&addr), sizeof(addr)) != 0 )
             // port presumably already in use, try another one
             continue;
 

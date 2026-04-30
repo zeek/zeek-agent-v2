@@ -9,6 +9,12 @@
 #ifndef ActivityStreamSPI_h
 #define ActivityStreamSPI_h
 
+#include <cstddef>
+#include <cstdint>
+
+#include <sys/_types/_pid_t.h>
+#include <sys/_types/_timeval.h>
+#include <sys/syslimits.h>
 #include <sys/time.h>
 #include <xpc/xpc.h>
 

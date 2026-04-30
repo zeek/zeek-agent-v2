@@ -3,7 +3,10 @@
 #pragma once
 
 #include "core/configuration.h"
-#include "util/filesystem.h"
+#include "util/result.h"
+
+#include <filesystem>
+
 
 #ifdef HAVE_DARWIN
 #include "darwin/platform.h"
@@ -19,7 +22,6 @@
 
 #include <optional>
 #include <string>
-#include <vector>
 
 namespace zeek::agent::platform {
 
@@ -33,10 +35,10 @@ extern void done();
 extern std::string name();
 
 /** Returns the path to the default configuration file. */
-extern std::optional<filesystem::path> configurationFile();
+extern std::optional<std::filesystem::path> configurationFile();
 
 /** Returns the directory path where to store dynamic, persistent state. */
-extern std::optional<filesystem::path> dataDirectory();
+extern std::optional<std::filesystem::path> dataDirectory();
 
 /** Returns true if stdin is a terminal. */
 extern bool isTTY();

@@ -1,9 +1,9 @@
 // Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 
-#include "util/pimpl.h"
 #include "util/result.h"
 
 #include <atomic>
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <mutex>

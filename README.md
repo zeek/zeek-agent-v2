@@ -465,7 +465,6 @@ Agent process and the endpoint it's running on.
 | `kernel_version` | text | version of OS kernel |
 | `kernel_arch` | text | build architecture |
 | `agent_version` | count | agent version |
-| `broker` | text | Broker version |
 | `uptime` | interval | agent uptime |
 | `tables` | set | tables available to queries |
 </details>

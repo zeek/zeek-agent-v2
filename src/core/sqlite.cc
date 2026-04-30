@@ -2,17 +2,31 @@
 
 #include "core/sqlite.h"
 
+#include "core/table.h"
 #include "logger.h"
 #include "util/fmt.h"
 #include "util/helpers.h"
+#include "util/pimpl.h"
+#include "util/result.h"
 #include "util/testing.h"
+#include "util/variant.h"
 
 #include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <list>
 #include <map>
 #include <memory>
+#include <mutex>
+#include <optional>
+#include <set>
+#include <string>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #define SQLITE_ENABLE_COLUMN_METADATA
 #include <sqlite3.h>
@@ -108,15 +122,15 @@ static Result<Value> sqliteConvertValue(const std::string& name, ::sqlite3_value
                 case value::Type::Count:
                 case value::Type::Integer: return {i};
                 case value::Type::Bool: return {i != 0};
-                case value::Type::Interval: return {Interval(i)};
-                case value::Type::Time: return {std::chrono::system_clock::time_point(std::chrono::microseconds(i))};
+                case value::Type::Interval: return {{Interval(i)}};
+                case value::Type::Time: return {{std::chrono::system_clock::time_point(std::chrono::microseconds(i))}};
                 default: throw InternalError("unexpected type for integer in sqliteConvertValue");
             }
 
             cannot_be_reached();
         }
 
-        case SQLITE_NULL: return {std::monostate{}};
+        case SQLITE_NULL: return {{std::monostate{}}};
         case SQLITE_BLOB: {
             auto blob = std::string(reinterpret_cast<const char*>(::sqlite3_value_blob(v)), ::sqlite3_value_bytes(v));
             if ( ! type )
@@ -169,9 +183,10 @@ static int sqliteAuthorizer(void* user, int action, const char* arg3, const char
     if ( action != SQLITE_READ )
         return SQLITE_OK;
 
-    if ( auto t = impl->_tables_by_name.find(arg3); t != impl->_tables_by_name.end() ) {
-        ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] authorizer: read for column {}", t->second->name(), arg4);
-        impl->_stmt_tables.insert(t->second);
+    if ( impl->_tables_by_name.contains(arg3) ) {
+        auto t = impl->_tables_by_name[arg3];
+        ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] authorizer: read for column {}", t->name(), arg4);
+        impl->_stmt_tables.insert(t);
     }
 
     return SQLITE_OK;
@@ -183,32 +198,32 @@ static int onTableConnect(::sqlite3* db, void* paux, int argc, const char* const
     const auto* cookie = reinterpret_cast<const Cookie*>(paux);
     auto table_name = cookie->table->name();
     auto stmt = frmt("CREATE TABLE {} ({})", table_name,
-                     join(transform(cookie->table->schema().columns,
-                                    [&table_name](const auto& c) -> std::string {
-                                        std::string name = c.name + " ";
-                                        std::string hidden = (c.is_parameter ? " HIDDEN" : "");
+                     join(transform_(cookie->table->schema().columns,
+                                     [&table_name](const auto& c) -> std::string {
+                                         std::string name = c.name + " ";
+                                         std::string hidden = (c.is_parameter ? " HIDDEN" : "");
 
-                                        switch ( c.type ) {
-                                            case value::Type::Bool:
-                                            case value::Type::Count:
-                                            case value::Type::Interval:
-                                            case value::Type::Time:
-                                            case value::Type::Integer: return name + "INTEGER" + hidden;
-                                            case value::Type::Double: return name + "REAL" + hidden;
-                                            case value::Type::Address:
-                                            case value::Type::Enum: return name + "TEXT" + hidden;
-                                            case value::Type::Text: return name + "TEXT" + hidden;
-                                            case value::Type::Port:
-                                            case value::Type::Record:
-                                            case value::Type::Set:
-                                            case value::Type::Vector:
-                                            case value::Type::Blob: return name + "BLOB" + hidden;
-                                            case value::Type::Null:
-                                                logger()->error("table {} uses NULL in schema", table_name);
-                                                return name + "NULL";
-                                        }
-                                        cannot_be_reached(); // thanks GCC
-                                    }),
+                                         switch ( c.type ) {
+                                             case value::Type::Bool:
+                                             case value::Type::Count:
+                                             case value::Type::Interval:
+                                             case value::Type::Time:
+                                             case value::Type::Integer: return name + "INTEGER" + hidden;
+                                             case value::Type::Double: return name + "REAL" + hidden;
+                                             case value::Type::Address:
+                                             case value::Type::Enum:;
+                                             case value::Type::Text: return name + "TEXT" + hidden;
+                                             case value::Type::Port:
+                                             case value::Type::Record:
+                                             case value::Type::Set:
+                                             case value::Type::Vector:
+                                             case value::Type::Blob: return name + "BLOB" + hidden;
+                                             case value::Type::Null:
+                                                 logger()->error("table {} uses NULL in schema", table_name);
+                                                 return name + "NULL";
+                                         }
+                                         cannot_be_reached(); // thanks GCC
+                                     }),
                           ", "));
 
     ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] connect: \"{}\"", cookie->table->name(), stmt);
@@ -228,12 +243,12 @@ static int onTableConnect(::sqlite3* db, void* paux, int argc, const char* const
 
 // SQLite "disconnect" callback.
 static int onTableDisconnect(::sqlite3_vtab* pvtab) {
+#ifndef NDEBUG
     auto vtab = reinterpret_cast<VTab*>(pvtab);
     auto cookie = &vtab->cookie;
-
     ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] disconnect", cookie->table->name());
-
     delete vtab;
+#endif
 
     return SQLITE_OK;
 }
@@ -285,10 +300,10 @@ static int onxBestIndexCallback(::sqlite3_vtab* pvtab, ::sqlite3_index_info* inf
     }
 
     // The following is bit long-winded because we use vector (instead of sets)
-    // to maintain the order of paramters in the resulting error message.
+    // to maintain the order of parameters in the resulting error message.
     std::vector<std::string> missing_parameters;
     for ( const auto& p : need_parameters ) {
-        if ( std::find(have_parameters.begin(), have_parameters.end(), p) != have_parameters.end() )
+        if ( std::ranges::find(have_parameters.begin(), have_parameters.end(), p) != have_parameters.end() )
             continue;
 
         // See if we have a default.
@@ -332,12 +347,14 @@ static int onTableOpen(::sqlite3_vtab* pvtab, ::sqlite3_vtab_cursor** ppcursor) 
 
 // SQLite "close" callback.
 static int onTableClose(::sqlite3_vtab_cursor* pcursor) {
+#ifndef NDEBUG
     const auto cursor = reinterpret_cast<Cursor*>(pcursor);
     auto cookie = &cursor->cookie;
 
     ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] close", cookie->table->name());
 
     delete cursor;
+#endif
 
     return SQLITE_OK;
 }
@@ -429,9 +446,11 @@ static int onTableFilter(::sqlite3_vtab_cursor* pcursor, int idxnum, const char*
 // SQLite "next" callback.
 static int onNext(::sqlite3_vtab_cursor* pcursor) {
     const auto cursor = reinterpret_cast<Cursor*>(pcursor);
-    auto cookie = &cursor->cookie;
 
+#ifndef NDEBUG
+    auto cookie = &cursor->cookie;
     ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] next", cookie->table->name());
+#endif
 
     ++cursor->current;
 
@@ -441,9 +460,11 @@ static int onNext(::sqlite3_vtab_cursor* pcursor) {
 // SQLite "eof" callback.
 static int onEof(::sqlite3_vtab_cursor* pcursor) {
     const auto cursor = reinterpret_cast<Cursor*>(pcursor);
-    auto cookie = &cursor->cookie;
 
+#ifndef NDEBUG
+    auto cookie = &cursor->cookie;
     ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] eof?", cookie->table->name());
+#endif
 
     return cursor->current < cursor->rows.size() ? 0 : 1;
 }
@@ -451,10 +472,13 @@ static int onEof(::sqlite3_vtab_cursor* pcursor) {
 // SQLite "column" callback.
 static int onColumn(::sqlite3_vtab_cursor* pcursor, ::sqlite3_context* context, int i) {
     const auto cursor = reinterpret_cast<Cursor*>(pcursor);
+
+#ifndef NDEBUG
     auto cookie = &cursor->cookie;
+#endif
 
     assert(cursor->current < cursor->rows.size());
-    assert(i >= 0 && i < static_cast<int>(cursor->rows[cursor->current].size()));
+    assert(i >= 0 && std::cmp_less(i, cursor->rows[cursor->current].size()));
 
     const auto& column = cursor->schema.columns[i];
     const auto& value = cursor->rows[cursor->current][i];
@@ -507,9 +531,11 @@ static int onColumn(::sqlite3_vtab_cursor* pcursor, ::sqlite3_context* context, 
 // SQLite "rowid" callback.
 static int onRowid(::sqlite3_vtab_cursor* pcursor, ::sqlite3_int64* prowid) {
     const auto cursor = reinterpret_cast<Cursor*>(pcursor);
-    auto cookie = &cursor->cookie;
 
+#ifndef NDEBUG
+    auto cookie = &cursor->cookie;
     ZEEK_AGENT_TRACE("sqlite", "[{}] [callback] get-rowid", cookie->table->name());
+#endif
 
     *prowid = static_cast<int64_t>(cursor->current) + 1;
 
@@ -607,10 +633,11 @@ Result<std::unique_ptr<sqlite::PreparedStatement>> SQLite::Implementation::prepa
         auto column_name = sqlite3_column_origin_name(prepared_stmt, i);
 
         if ( table_name && column_name ) {
-            if ( auto t = _tables_by_name.find(table_name); t != _tables_by_name.end() ) {
-                auto column = t->second->schema().column(column_name);
+            if ( _tables_by_name.contains(table_name) ) {
+                auto t = _tables_by_name[table_name];
+                auto column = t->schema().column(column_name);
                 assert(column);
-                columns.emplace_back(sqlite::Column{.name = column_name, .type = column->type, .table = t->second});
+                columns.emplace_back(sqlite::Column{.name = column_name, .type = column->type, .table = t});
                 continue;
             }
         }
@@ -693,7 +720,7 @@ Result<sqlite::Result> SQLite::Implementation::runStatement(const sqlite::Prepar
     switch ( rc ) {
         case SQLITE_DONE:
             ZEEK_AGENT_DEBUG("sqlite", "statement result has {} rows", result.rows.size());
-            std::sort(result.rows.begin(), result.rows.end(), ValueVectorCompare);
+            std::ranges::sort(result.rows, ValueVectorCompare);
             return result;
 
         case SQLITE_ERROR: return result::Error(frmt("SQL statement failed, {}", ::sqlite3_errmsg(_sqlite_db)));
@@ -745,7 +772,7 @@ Result<Nothing> SQLite::addTable(Table* table) {
 
 TEST_SUITE("SQLite") {
     template<typename T>
-    inline std::string str(const T& t) {
+    static inline std::string str(const T& t) {
         using namespace table;
         return to_string(t);
     }

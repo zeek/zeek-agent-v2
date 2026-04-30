@@ -3,19 +3,23 @@
 #pragma once
 
 #include "core/configuration.h"
+#include "util/result.h"
 
-#include <spdlog/spdlog.h>
+#include <filesystem>
+#include <optional>
+
+#include <spdlog/logger.h>
 
 namespace zeek::agent {
 
 Result<Nothing> setGlobalLogger(options::LogType type, options::LogLevel level,
-                                const std::optional<filesystem::path>& path = {});
+                                const std::optional<std::filesystem::path>& path = {});
 
 /** Returns the global logger instance. Use of the logger is thread-safe. */
 extern spdlog::logger* logger();
 
-#define __ZEEK_AGENT_LOG(level, component, ...) /* NOLINT */                                                           \
-    logger()->log(level, frmt("[{}] ", component) + frmt(__VA_ARGS__))
+#define __ZEEK_AGENT_LOG(level, component, ...)                        /* NOLINT */                                    \
+    logger()->log(level, frmt("[{}] ", component) + frmt(__VA_ARGS__)) // NOLINT
 
 #ifndef NDEBUG
 #define ZEEK_AGENT_DEBUG(component, ...) __ZEEK_AGENT_LOG(spdlog::level::debug, component, __VA_ARGS__)

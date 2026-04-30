@@ -13,10 +13,6 @@
 #include <SystemConfiguration/SCDynamicStore.h>
 #include <sys/utsname.h>
 
-#ifdef HAVE_BROKER
-#include <broker/version.hh>
-#endif
-
 using namespace zeek::agent;
 using namespace zeek::agent::table;
 
@@ -32,24 +28,33 @@ database::RegisterTable<ZeekAgentDarwin> _;
 Value addresses() {
     // Adapted from: SCDynamicStoreRef storeRef = SCDynamicStoreCreate(NULL, (CFStringRef)@"FindCurrentInterfaceIpMac",
     // NULL, NULL);
-    SCDynamicStoreRef storeRef = SCDynamicStoreCreate(nullptr, (CFStringRef) @"FindCurrentInterfaceIpMac", NULL, NULL);
+    SCDynamicStoreRef storeRef =
+        SCDynamicStoreCreate(nullptr, (CFStringRef) @"FindCurrentInterfaceIpMac", nullptr, nullptr);
     if ( ! storeRef )
         return {};
 
     CFPropertyListRef global = SCDynamicStoreCopyValue(storeRef, CFSTR("State:/Network/Global/IPv4"));
-    if ( ! global )
+    if ( ! global ) {
+        CFRelease(storeRef);
         return {};
+    }
 
     NSString* primaryInterface = [(__bridge NSDictionary*)global valueForKey:@"PrimaryInterface"];
-    if ( ! primaryInterface )
+    if ( ! primaryInterface ) {
+        CFRelease(global);
+        CFRelease(storeRef);
         return {};
+    }
 
     auto addrs = Set(value::Type::Address);
 
     if ( auto interfaceState = [NSString stringWithFormat:@"State:/Network/Interface/%@/IPv4", primaryInterface] ) {
         if ( CFPropertyListRef state = SCDynamicStoreCopyValue(storeRef, (CFStringRef)interfaceState) ) {
-            if ( NSString* ip = [(__bridge NSDictionary*)state valueForKey:@"Addresses"][0] )
-                addrs.insert([ip UTF8String]);
+            if ( NSString* ip = [(__bridge NSDictionary*)state valueForKey:@"Addresses"][0] ) {
+                const char* utf8_str = [ip UTF8String];
+                if ( utf8_str )
+                    addrs.insert(utf8_str);
+            }
 
             CFRelease(state);
         }
@@ -57,13 +62,17 @@ Value addresses() {
 
     if ( auto interfaceState = [NSString stringWithFormat:@"State:/Network/Interface/%@/IPv6", primaryInterface] ) {
         if ( CFPropertyListRef state = SCDynamicStoreCopyValue(storeRef, (CFStringRef)interfaceState) ) {
-            if ( NSString* ip = [(__bridge NSDictionary*)state valueForKey:@"Addresses"][0] )
-                addrs.insert([ip UTF8String]);
+            if ( NSString* ip = [(__bridge NSDictionary*)state valueForKey:@"Addresses"][0] ) {
+                const char* utf8_str = [ip UTF8String];
+                if ( utf8_str )
+                    addrs.insert(utf8_str);
+            }
 
             CFRelease(state);
         }
     }
 
+    CFRelease(global);
     CFRelease(storeRef);
     return addrs;
 }
@@ -80,16 +89,12 @@ std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<tabl
     Value hostname = hostname_buffer.data();
     Value addrs = addresses();
     Value platform = platform::name();
-    Value os_name = std::string("macOS ") + std::string([version UTF8String]);
+    const char* version_str = [version UTF8String];
+    Value os_name = (version_str ? std::string("macOS ") + std::string(version_str) : std::string("macOS"));
     Value agent = options().version_number;
-#ifdef HAVE_BROKER
-    Value broker = broker::version::string();
-#else
-    Value broker = "n/a";
-#endif
     Value uptime = std::chrono::system_clock::now() - startupTime();
     Value tables =
-        Set(value::Type::Text, transform(database()->tables(), [](const auto* t) { return Value(t->name()); }));
+        Set(value::Type::Text, transform_(database()->tables(), [](const auto* t) { return Value(t->name()); }));
 
     Value kernel_name, kernel_release, kernel_arch;
     struct utsname uname_info {};
@@ -99,7 +104,7 @@ std::vector<std::vector<Value>> ZeekAgentDarwin::snapshot(const std::vector<tabl
         kernel_arch = uname_info.machine;
     }
 
-    return {{id, instance, hostname, addrs, platform, os_name, kernel_name, kernel_release, kernel_arch, agent, broker,
-             uptime, tables}};
+    return {{id, instance, hostname, addrs, platform, os_name, kernel_name, kernel_release, kernel_arch, agent, uptime,
+             tables}};
 }
 } // namespace

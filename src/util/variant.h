@@ -28,6 +28,22 @@ struct BetterVariant : public std::variant<Types...> {
         Base::operator=(std::string(s));
         return *this;
     }
+
+    bool operator<(const BetterVariant& other) const {
+        return std::visit(
+            [](const auto& a, const auto& b) -> bool {
+                using AType = std::decay_t<decltype(a)>;
+                using BType = std::decay_t<decltype(b)>;
+
+                if constexpr ( std::is_same_v<AType, BType> ) {
+                    return a < b;
+                }
+                else {
+                    return typeid(AType).before(typeid(BType));
+                }
+            },
+            static_cast<const Base&>(*this), static_cast<const Base&>(other));
+    }
 };
 
 } // namespace zeek::agent

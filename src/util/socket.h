@@ -2,11 +2,14 @@
 
 #pragma once
 
-#include "core/logger.h"
-#include "util/helpers.h"
 #include "util/pimpl.h"
+#include "util/result.h"
 
+#include <filesystem>
+#include <ios>
 #include <memory>
+#include <optional>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -31,13 +34,14 @@ using Address = std::string;
  * sends output to a socket.
  **/
 class SocketBuffer : public std::stringbuf {
+protected:
+    int sync() override;
+
 private:
     friend class Remote;
 
     SocketBuffer(Socket* socket = nullptr, Remote* remote = nullptr) : _socket(socket), _remote(remote) {}
     SocketBuffer(const SocketBuffer& other) : _socket(other._socket), _remote(other._remote) {}
-
-    int sync() override;
 
     SocketBuffer& operator=(const SocketBuffer& other);
 
@@ -57,7 +61,7 @@ public:
      * @param local local socket the remote endpoint is associated with
      * @param dst file system path identifying remote endpoint
      */
-    Remote(Socket* local, const filesystem::path& dst)
+    Remote(Socket* local, const std::filesystem::path& dst)
         : _dst(pathToDestination(dst)), _sbuf(local, this), _sout(std::make_unique<std::ostream>(&_sbuf)) {}
 
     /**
@@ -116,9 +120,9 @@ protected:
 
 private:
     // Convert a file system path into an opaque handle identifying the remote endpoint.
-    Address pathToDestination(const filesystem::path& path);
+    Address pathToDestination(const std::filesystem::path& path);
 
-    Address _dst = {};                   // opaque handle of remote endpoint
+    Address _dst;                        // opaque handle of remote endpoint
     socket::SocketBuffer _sbuf;          // stream buffer bound to the remote endpoint
     std::unique_ptr<std::ostream> _sout; // `ostream` using `sbuf` as its buffer
     std::optional<result::Error> _error; // error state
@@ -148,7 +152,7 @@ public:
      * @param path a local file system path identifying the socket; this is
      * what remote endpoints will use to address the socket.
      */
-    Result<Nothing> bind(const filesystem::path& path);
+    Result<Nothing> bind(const std::filesystem::path& path);
 
     /** Result type of `read()`. */
     using ReadResult = std::optional<std::pair<std::string, socket::Remote>>;

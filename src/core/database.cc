@@ -2,22 +2,36 @@
 
 #include "database.h"
 
+#include "core/configuration.h"
+#include "core/scheduler.h"
 #include "core/table.h"
 #include "logger.h"
 #include "sqlite.h"
+#include "util/fmt.h"
 #include "util/helpers.h"
+#include "util/pimpl.h"
+#include "util/result.h"
 #include "util/testing.h"
 
 #include <algorithm>
-#include <iostream>
+#include <cassert>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
 #include <list>
 #include <map>
+#include <memory>
 #include <optional>
 #include <set>
+#include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include <nlohmann/json.hpp>
+
+#include "nlohmann/json_fwd.hpp"
 
 using namespace zeek::agent;
 
@@ -153,8 +167,8 @@ void Database::Implementation::expire() {
         for ( const auto& t : q.prepared_query->tables() ) {
             Time expire_until = (q.previous_execution ? *q.previous_execution : 0_time);
 
-            if ( auto i = expire_times.find(t->name()); i != expire_times.end() )
-                i->second = std::min(i->second, expire_until);
+            if ( expire_times.contains(t->name()) )
+                expire_times[t->name()] = std::min(expire_times[t->name()], expire_until);
             else
                 expire_times[t->name()] = expire_until;
         }
@@ -164,8 +178,8 @@ void Database::Implementation::expire() {
 
     for ( auto& [n, t] : _tables ) {
         auto expire_until = now;
-        if ( auto i = expire_times.find(n); i != expire_times.end() )
-            expire_until = i->second;
+        if ( expire_times.contains(n) )
+            expire_until = expire_times[n];
 
         if ( ! t->usesMockData() ) {
             ZEEK_AGENT_TRACE("database", "[{}] expiring state until t={}", n, to_string(expire_until));
@@ -176,6 +190,7 @@ void Database::Implementation::expire() {
     // Go through pending tables and see if any has become available.
     if ( ! _pending_tables.empty() ) {
         auto pending = std::move(_pending_tables);
+        _pending_tables.clear(); // make clang-tidy happy
         for ( const auto& t : pending )
             addTable(t);
     }
@@ -203,7 +218,7 @@ void Database::Implementation::addTable(Table* t) {
 
             auto schema = t->schema();
 
-            if ( _tables.find(schema.name) != _tables.end() )
+            if ( _tables.contains(schema.name) )
                 throw InternalError(frmt("table {} registered more than once", schema.name));
 
             auto rc = _sqlite->addTable(t);
@@ -229,15 +244,14 @@ void Database::Implementation::addTable(Table* t) {
 }
 
 static auto diffRows(std::vector<std::vector<Value>> old, std::vector<std::vector<Value>> new_) {
-    std::sort(old.begin(), old.end(), ValueVectorCompare);
-    std::sort(new_.begin(), new_.end(), ValueVectorCompare);
+    std::ranges::sort(old, ValueVectorCompare);
+    std::ranges::sort(new_, ValueVectorCompare);
 
     std::vector<std::vector<Value>> deletes;
-    std::set_difference(old.begin(), old.end(), new_.begin(), new_.end(), std::back_inserter(deletes),
-                        ValueVectorCompare);
+    std::ranges::set_difference(old, new_, std::back_inserter(deletes), ValueVectorCompare);
 
     std::vector<std::vector<Value>> adds;
-    std::set_difference(new_.begin(), new_.end(), old.begin(), old.end(), std::back_inserter(adds), ValueVectorCompare);
+    std::ranges::set_difference(new_, old, std::back_inserter(adds), ValueVectorCompare);
 
     std::vector<query::result::Row> diff;
 
@@ -252,11 +266,11 @@ static auto diffRows(std::vector<std::vector<Value>> old, std::vector<std::vecto
 }
 
 static auto newRows(std::vector<std::vector<Value>> old, std::vector<std::vector<Value>> new_) {
-    std::sort(old.begin(), old.end(), ValueVectorCompare);
-    std::sort(new_.begin(), new_.end(), ValueVectorCompare);
+    std::ranges::sort(old, ValueVectorCompare);
+    std::ranges::sort(new_, ValueVectorCompare);
 
     std::vector<std::vector<Value>> adds;
-    std::set_difference(new_.begin(), new_.end(), old.begin(), old.end(), std::back_inserter(adds), ValueVectorCompare);
+    std::ranges::set_difference(new_, old, std::back_inserter(adds), ValueVectorCompare);
 
     std::vector<query::result::Row> diff;
 
@@ -357,20 +371,20 @@ Interval Database::Implementation::timerCallback(timer::ID id) {
 }
 
 std::optional<std::list<ScheduledQuery>::iterator> Database::Implementation::lookupQuery(query::ID id) {
-    if ( auto i = _queries_by_id.find(id); i != _queries_by_id.end() )
-        return i->second;
+    if ( _queries_by_id.contains(id) )
+        return _queries_by_id[id];
     else
         return std::nullopt;
 }
 
 Table* Database::Implementation::table(const std::string& name) {
-    if ( auto i = _tables.find(name); i != _tables.end() )
-        return i->second;
+    if ( _tables.contains(name) )
+        return _tables[name];
 
     return nullptr;
 }
 
-Database::Database(Configuration* configuration, Scheduler* scheduler) {
+Database::Database(const Configuration* configuration, Scheduler* scheduler) {
     ZEEK_AGENT_DEBUG("database", "creating instance");
     pimpl()->_db = this;
     pimpl()->_configuration = configuration;
@@ -425,7 +439,7 @@ Result<std::optional<query::ID>> Database::query(const Query& q) {
 
 void Database::cancel(query::ID id) {
     ZEEK_AGENT_DEBUG("database", "canceling query {}", id);
-    return pimpl()->cancel(id, false);
+    pimpl()->cancel(id, false);
 }
 
 void Database::poll() {
@@ -484,7 +498,7 @@ std::string Database::documentRegisteredTables() {
         nlohmann::json table;
         table["summary"] = trim(schema.summary);
         table["description"] = trim(schema.description);
-        table["platforms"] = transform(schema.platforms, [](auto p) {
+        table["platforms"] = transform_(schema.platforms, [](auto p) {
             switch ( p ) {
                 case Platform::Darwin: return "darwin";
                 case Platform::Linux: return "linux";
@@ -504,7 +518,7 @@ std::string Database::documentRegisteredTables() {
 
 TEST_SUITE("Database") {
     template<typename T>
-    inline std::string str(const T& t) {
+    static inline std::string str(const T& t) {
         using namespace table;
         return to_string(t);
     }
@@ -1143,6 +1157,7 @@ TEST_SUITE("Database") {
     TEST_CASE("virtual methods with mock data") {
         // Check that some of our virtual methods aren't called when using mock data.
         class MockedTestTable : public TestTable {
+        public:
             Init init() override {
                 CHECK(false);
                 cannot_be_reached();
@@ -1179,6 +1194,6 @@ TEST_SUITE("Database") {
         auto zeek_agent = schema["tables"]["zeek_agent"];
 
         // Just a basic check that we it looks right.
-        CHECK_EQ(zeek_agent["columns"].size(), 13);
+        CHECK_EQ(zeek_agent["columns"].size(), 12);
     }
 }

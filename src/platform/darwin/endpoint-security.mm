@@ -35,7 +35,7 @@ EndpointSecurity::EndpointSecurity() {
         _init_result = Nothing();
     }
     else {
-        ZEEK_AGENT_DEBUG("darwin", "[EndpointSecurity] not available: {}", rc.error());
+        ZEEK_AGENT_DEBUG("darwin", "[EndpointSecurity] not available: {}", rc.error().description());
         _init_result = rc.error();
     }
 }

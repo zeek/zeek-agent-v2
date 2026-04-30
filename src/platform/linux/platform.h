@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include <optional>
-
 #include <util/filesystem.h>
 
 namespace zeek::agent::platform::linux {

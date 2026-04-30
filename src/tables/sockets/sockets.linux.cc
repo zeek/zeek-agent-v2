@@ -3,6 +3,14 @@
 #include "sockets.h"
 
 #include "autogen/config.h"
+
+#ifdef HAVE_POSIX
+// Need this defined for pfs.
+#ifndef _LARGEFILE64_SOURCE
+#define _LARGEFILE64_SOURCE
+#endif
+#endif
+
 #include "core/database.h"
 #include "core/logger.h"
 #include "core/table.h"
@@ -39,9 +47,9 @@ static void addSockets(std::vector<std::vector<Value>>* rows, const std::vector<
     for ( const auto& s : sockets ) {
         Value pid;
         Value process;
-        if ( auto x = inodes.find(s.inode); x != inodes.end() ) {
-            pid = x->second.first;
-            process = x->second.second;
+        if ( inodes.contains(s.inode) ) {
+            pid = inodes.at(s.inode).first;
+            process = inodes.at(s.inode).second;
         }
 
         Value fak = family;

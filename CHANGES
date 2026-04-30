@@ -1,3 +1,21 @@
+2.4 | 2026-04-30 14:14:55 +0200
+
+  * Update for macOS 26. Tahoe has become more strict. This remains a
+    bit experimental, but seems to generally work.
+
+  * Perform clean up and modernization.
+    - Remove legacy Broker support.
+    - Switch to C++20.
+    - Update various legacy/deprecated APIs.
+    - Update Linux process BPF code for newer kernels.
+    - Use CMake for running clang-tidy, enabled through `--enable-clang-tidy`
+    - Pacify clang-tidy
+    - Turn SSL off by default because Zeek no longer supports cert-less SSL.
+
+  * Remove `filesystem` submodule.
+
+  * Update 3rdparty modules.
+
 2.3.0-25 | 2026-01-21 09:51:45 -0700
 
   * Bump actions/download-artifact from 4 to 6

@@ -46,8 +46,9 @@ database::RegisterTable<FilesLinesWindows> _2;
 database::RegisterTable<FilesColumnsWindows> _3;
 } // namespace
 
-std::pair<std::string, std::vector<filesystem::path>> FilesBase::expandPaths(const std::vector<table::Argument>& args) {
-    std::pair<std::string, std::vector<filesystem::path>> result;
+std::pair<std::string, std::vector<std::filesystem::path>> FilesBase::expandPaths(
+    const std::vector<table::Argument>& args) {
+    std::pair<std::string, std::vector<std::filesystem::path>> result;
 
     auto glob = Table::getArgument<std::string>(args, "_pattern");
     result.first = glob;
@@ -71,7 +72,7 @@ std::vector<std::vector<Value>> FilesListWindows::snapshot(const std::vector<tab
         Value size;
 
         std::error_code ec;
-        auto status = filesystem::status(p, ec);
+        auto status = std::filesystem::status(p, ec);
         if ( ec ) {
             ZEEK_AGENT_DEBUG("FilesListWindows", "Failed to get file status: {}", ec.message());
             continue;
@@ -79,30 +80,31 @@ std::vector<std::vector<Value>> FilesListWindows::snapshot(const std::vector<tab
 
         mode = frmt("{:o}", static_cast<int64_t>(status.permissions()));
         switch ( status.type() ) {
-            case filesystem::file_type::none:
-            case filesystem::file_type::not_found:
-            case filesystem::file_type::symlink:
-            case filesystem::file_type::unknown: type = "other"; break;
-            case filesystem::file_type::regular:
+            case std::filesystem::file_type::none:
+            case std::filesystem::file_type::not_found:
+            case std::filesystem::file_type::symlink:
+            case std::filesystem::file_type::unknown: type = "other"; break;
+            case std::filesystem::file_type::regular:
                 type = "file";
-                size = static_cast<int64_t>(filesystem::file_size(p, ec));
+                size = static_cast<int64_t>(std::filesystem::file_size(p, ec));
                 if ( ec ) {
                     ZEEK_AGENT_DEBUG("FilesListWindows", "Failed to get file size: {}", ec.message());
                     continue;
                 }
                 break;
-            case filesystem::file_type::directory: type = "dir"; break;
-            case filesystem::file_type::block: type = "block"; break;
-            case filesystem::file_type::character: type = "char"; break;
-            case filesystem::file_type::fifo: type = "fifo"; break;
-            case filesystem::file_type::socket: type = "socket"; break;
+            case std::filesystem::file_type::directory: type = "dir"; break;
+            case std::filesystem::file_type::block: type = "block"; break;
+            case std::filesystem::file_type::character: type = "char"; break;
+            case std::filesystem::file_type::fifo: type = "fifo"; break;
+            case std::filesystem::file_type::socket: type = "socket"; break;
         }
 
-        mtime = filesystem::last_write_time(p, ec);
+        auto ft = std::filesystem::last_write_time(p, ec);
         if ( ec ) {
             ZEEK_AGENT_DEBUG("FilesListWindows", "Failed to get file mtime: {}", ec.message());
             continue;
         }
+        mtime = std::chrono::clock_cast<std::chrono::system_clock>(ft);
 
         rows.push_back({pattern, path, type, {}, {}, mode, mtime, size});
     }
@@ -119,7 +121,7 @@ std::vector<std::vector<Value>> FilesLinesWindows::snapshot(const std::vector<ta
         if ( in.fail() ) {
             // If file simply doesn't exist, we silently ignore the error.
             // Otherwise we add one row with `line` unset as an error indicator.
-            if ( filesystem::exists(p) && ! filesystem::is_directory(p) )
+            if ( std::filesystem::exists(p) && ! std::filesystem::is_directory(p) )
                 // TODO: this error doesn't actually work right. i copied it from the posix file
                 // but i'm not sure it's being tested there either. the table requires 4 columns
                 // but we're only inserting 3.

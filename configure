@@ -9,18 +9,18 @@
 cmake_build_directory="build"
 cmake_build_type="RelWithDebInfo"
 cmake_c_compiler=""
+cmake_clang_tidy=""
 cmake_cxx_compiler=""
 cmake_generator=""
 cmake_install_prefix="/usr/local"
-cmake_use_broker="no"
-cmake_use_ccache="no"
-cmake_use_doctest="yes"
-cmake_use_sanitizers=""
-cmake_use_werror="no"
-cmake_use_static_linking="no"
 cmake_openssl_root=""
 cmake_osx_architectures=""
 cmake_osx_deployment_target=""
+cmake_use_ccache="no"
+cmake_use_doctest="yes"
+cmake_use_sanitizers=""
+cmake_use_static_linking="no"
+cmake_use_werror="no"
 
 display_cmake=0
 cache_entries=""
@@ -36,15 +36,16 @@ command="$0 $*"
 
 cmake_exe="<no cmake>"
 for i in cmake cmake3; do
-    if command -v $i >/dev/null; then
-        $i --version | grep -q "cmake.*version 3" && cmake_exe=$(command -v $i)
+    if which $i >/dev/null; then
+        version="$($i --version 2>&1 | grep "cmake.*version" | awk -F '[ .]' '{print $3}')"
+        test -n "${version}" && test "${version}" -ge 3 && cmake_exe=$(which $i)
         break
     fi
 done
 
-type ${cmake_exe} > /dev/null 2>&1 || {
+which "${cmake_exe}" > /dev/null 2>&1 || {
     echo "\
-This package requires CMake 3.x, please install it first, then you may
+This package requires CMake >= 3, please install it first, then you may
 use this configure script to access CMake equivalent functionality.\
 " >&2;
     exit 1;
@@ -57,8 +58,8 @@ Usage: $0 [OPTION]... [VAR=VALUE]...
     --build-dir=DIR                    Place build files in directory [default: ${cmake_build_directory}]
     --build-type=TYPE                  Set build type (Debug,Release,RelWithDebInfo) [default: ${cmake_build_type}]
     --disable-tests                    Do not include unit tests into build.
-    --enable-broker                    Build in legacy Broker support for connecting to Zeek 4.x [default: ${cmake_use_broker}]
     --enable-ccache                    Build using the compiler cache cache if in PATH [default: ${cmake_use_ccache}]
+    --enable-clang-tidy                Run clang-tidy from PATH during compilation [default: off]
     --enable-debug                     Compile debug version (same as --build-type=Debug) [default: off]
     --enable-osx-universal             Build universal x86/arm64 binary on macOS (will need universal deps too)
     --enable-sanitizer[=<names>]       Enable sanitizer(s), default if not further specified is \"address\"
@@ -67,6 +68,7 @@ Usage: $0 [OPTION]... [VAR=VALUE]...
     --generator=<generator>            CMake generator to use (see cmake --help)
     --prefix=PATH                      Installation prefix [default: ${cmake_install_prefix}]
     --with-c-compiler=<path>           Set C compiler to use [default: ${cmake_c_compiler:-determined by CMake}]
+    --with-clang-tidy=<path>           Set clang-tidy binary and enable use during compilation
     --with-cxx-compiler=<path>         Set C++ compiler to use [default: ${cmake_cxx_compiler:-determined by CMake}]
     --with-openssl=DIR                 Path to OpenSSL installation root
     --osx-deployment-target=VERSION    Minimum macOS version to deploy on
@@ -109,8 +111,16 @@ while [ $# -ne 0 ]; do
         --build-dir=*)                     cmake_build_directory="${optarg}";;
         --build-type=*)                    cmake_build_type="${optarg}";;
         --disable-tests)                   cmake_use_doctest="no";;
-        --enable-broker)                   cmake_use_broker="yes";;
         --enable-ccache)                   cmake_use_ccache="yes";;
+        --enable-clang-tidy)
+            if ! which clang-tidy >/dev/null 2>&1; then
+                echo "Error: clang-tidy not found in PATH" >&2
+                exit 1
+            fi
+
+            cmake_clang_tidy="$(which clang-tidy)"
+        ;;
+
         --enable-debug)                    cmake_build_type="Debug";;
         --enable-osx-universal)            cmake_osx_architectures="'arm64;x86_64'";;
         --enable-sanitizer)                cmake_use_sanitizers="address";;
@@ -128,6 +138,7 @@ while [ $# -ne 0 ]; do
               which "${try_c_compiler}" >/dev/null && cmake_c_compiler="${try_c_compiler}"
             fi
             ;;
+        --with-clang-tidy=*)               cmake_clang_tidy="${optarg}";;
         --with-openssl=*)                  cmake_openssl_root="${optarg}";;
         --osx-deployment-target=*)         cmake_osx_deployment_target="${optarg}";;
 
@@ -141,18 +152,19 @@ done
 
 # Set CMake cache options.
 append_cache_entry CMAKE_BUILD_TYPE             STRING "${cmake_build_type}"
-append_cache_entry CMAKE_C_COMPILER             PATH   "${cmake_c_compiler}"
+append_cache_entry CMAKE_CXX_CLANG_TIDY         PATH   "${cmake_clang_tidy}"
 append_cache_entry CMAKE_CXX_COMPILER           PATH   "${cmake_cxx_compiler}"
+append_cache_entry CMAKE_C_CLANG_TIDY           PATH   "${cmake_clang_tidy}"
+append_cache_entry CMAKE_C_COMPILER             PATH   "${cmake_c_compiler}"
 append_cache_entry CMAKE_INSTALL_PREFIX         PATH   "${cmake_install_prefix}"
 append_cache_entry CMAKE_OSX_ARCHITECTURES      STRING "${cmake_osx_architectures}"
 append_cache_entry CMAKE_OSX_DEPLOYMENT_TARGET  STRING "${cmake_osx_deployment_target}"
-append_cache_entry USE_BROKER                   BOOL   "${cmake_use_broker}"
-append_cache_entry USE_CCACHE                   BOOL   "${cmake_use_ccache}"
-append_cache_entry USE_SANITIZERS               STRING "${cmake_use_sanitizers}"
-append_cache_entry USE_WERROR                   BOOL   "${cmake_use_werror}"
-append_cache_entry USE_DOCTEST                  BOOL   "${cmake_use_doctest}"
-append_cache_entry USE_STATIC_LINKING           BOOL   "${cmake_use_static_linking}"
 append_cache_entry OPENSSL_ROOT_DIR             PATH   "${cmake_openssl_root}"
+append_cache_entry USE_CCACHE                   BOOL   "${cmake_use_ccache}"
+append_cache_entry USE_DOCTEST                  BOOL   "${cmake_use_doctest}"
+append_cache_entry USE_SANITIZERS               STRING "${cmake_use_sanitizers}"
+append_cache_entry USE_STATIC_LINKING           BOOL   "${cmake_use_static_linking}"
+append_cache_entry USE_WERROR                   BOOL   "${cmake_use_werror}"
 
 if [ -n "${cmake_generator}" ]; then
     cmake="${cmake_exe} -G '${cmake_generator}' ${cmake_cache_entries} ${source_dir}"

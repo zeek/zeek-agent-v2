@@ -104,23 +104,26 @@ enum {
     NR_MM_COUNTERS
 };
 
-// From vmlinux.
-struct mm_rss_stat {
-    atomic_long_t count[4];
+// From vmlinux, valid for kernels >= 6.4.
+//
+// Accessed through CO-RE, so only declaring fields we need.
+struct percpu_counter {
+    long long int count;
+    // ...
 };
 
-// From vmlinux.
+// From vmlinux, valid for kernels >= 6.4.
 //
 // Accessed through CO-RE, so only declaring fields we need.
 struct mm_struct {
     struct {
-        struct mm_rss_stat rss_stat;
+        struct percpu_counter rss_stat[4];
         long unsigned int total_vm;
     };
     // ...
 };
 
-// From vmlinux.
+// From vmlinux, valid for kernels >= 5.6
 //
 // Accessed through CO-RE, so only declaring fields we need.
 struct task_struct {
@@ -133,6 +136,41 @@ struct task_struct {
     __u64 utime; // in nsecs since 4.11.0
     __u64 stime; // in nsecs since 4.11.0
     struct mm_struct* mm;
+    // ...
+};
+
+// From vmlinux, valid for kernels < 6.4.
+struct mm_rss_stat___old {
+    atomic_long_t count[4];
+};
+
+// From vmlinux, valid for kernels < 6.4.
+//
+// Accessed through CO-RE, so only declaring fields we need.
+struct mm_struct___old {
+    struct {
+        struct mm_rss_stat___old rss_stat;
+        long unsigned int total_vm;
+    };
+    // ...
+};
+
+// From vmlinux, valid for kernels < 6.4.
+//
+// Accessed through CO-RE, so only declaring fields we need.
+//
+// See https://nakryiko.com/posts/bpf-core-reference-guide/#handling-incompatible-field-and-type-changes
+// on the three underscores.
+struct task_struct___old {
+    pid_t pid;
+    pid_t tgid;
+    int prio;
+    const struct cred* cred;
+    const struct cred* real_cred;
+    struct task_struct* real_parent;
+    __u64 utime; // in nsecs since 4.11.0
+    __u64 stime; // in nsecs since 4.11.0
+    struct mm_struct___old* mm;
     // ...
 };
 
@@ -160,11 +198,26 @@ static void sendProcessEvent(struct bpfProcess* process, struct task_struct* tas
     // This follows:
     // https://elixir.bootlin.com/linux/v5.8/source/fs/proc/task_mmu.c#L82,
     // which is what /proc/<PID>/stat uses as well.
-    __s64 file_pages = BPF_CORE_READ(task, mm, rss_stat.count[MM_FILEPAGES].counter);
-    __s64 shmem_pages = BPF_CORE_READ(task, mm, rss_stat.count[MM_SHMEMPAGES].counter);
-    __s64 anon_pages = BPF_CORE_READ(task, mm, rss_stat.count[MM_ANONPAGES].counter);
-    ev->rsize = (file_pages + shmem_pages + anon_pages);
-    ev->vsize = BPF_CORE_READ(task, mm, total_vm);
+    //
+    // Unfortunately the layout of rss_stat changed in kernel 6.4, so we need to branch.
+    //
+    // TODO: Only the new version is tested so far. The old version used to
+    // work on older kernels, but is not tested inside the new branching mechanism.
+    if ( ! bpf_core_type_exists(struct mm_rss_stat) ) {
+        // Linux >= 6.4
+        __s64 file_pages = BPF_CORE_READ(task, mm, rss_stat[MM_FILEPAGES].count);
+        __s64 shmem_pages = BPF_CORE_READ(task, mm, rss_stat[MM_SHMEMPAGES].count);
+        __s64 anon_pages = BPF_CORE_READ(task, mm, rss_stat[MM_ANONPAGES].count);
+        ev->rsize = (file_pages + shmem_pages + anon_pages);
+    }
+    else {
+        // Linux < 6.4
+        struct task_struct___old* task_old = (void*)task;
+        __s64 file_pages = BPF_CORE_READ(task_old, mm, rss_stat.count[MM_FILEPAGES].counter);
+        __s64 shmem_pages = BPF_CORE_READ(task_old, mm, rss_stat.count[MM_SHMEMPAGES].counter);
+        __s64 anon_pages = BPF_CORE_READ(task_old, mm, rss_stat.count[MM_ANONPAGES].counter);
+        ev->vsize = BPF_CORE_READ(task, mm, total_vm);
+    }
 
     ev->state = state;
     bpf_ringbuf_submit(ev, 0);
@@ -172,7 +225,7 @@ static void sendProcessEvent(struct bpfProcess* process, struct task_struct* tas
 
 SEC("ksyscall/execve")
 int BPF_KSYSCALL(execve, const char* filename, const char* const* argv, const char* const* envp) {
-    struct task_struct* task = (struct task_struct*)bpf_get_current_task();
+    struct task_struct* task = bpf_get_current_task_btf();
 
     char name[BPF_PROCESS_NAME_MAX];
     long name_len = bpf_probe_read_user_str(name, sizeof(name), filename);
@@ -197,7 +250,7 @@ int BPF_KSYSCALL(execve, const char* filename, const char* const* argv, const ch
 
 SEC("kretsyscall/execve")
 int BPF_KSYSCALL(execve_ret, int rc) {
-    struct task_struct* task = (struct task_struct*)bpf_get_current_task();
+    struct task_struct* task = bpf_get_current_task_btf();
 
     struct bpfProcess* process = lookupProcess(task);
     if ( process )
@@ -209,7 +262,7 @@ int BPF_KSYSCALL(execve_ret, int rc) {
 
 SEC("kprobe/do_exit")
 int BPF_KPROBE(do_exit, long code) {
-    struct task_struct* task = (struct task_struct*)bpf_get_current_task();
+    struct task_struct* task = bpf_get_current_task_btf();
 
     struct bpfProcess* process = lookupProcess(task);
     if ( ! process ) {

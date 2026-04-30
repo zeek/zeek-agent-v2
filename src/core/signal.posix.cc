@@ -3,16 +3,23 @@
 #include "./signal.h"
 
 #include "logger.h"
-#include "util/fmt.h"
+#include "util/helpers.h"
+#include "util/pimpl.h"
 #include "util/testing.h"
 
-#include <algorithm>
+#include <atomic>
 #include <condition_variable>
 #include <csignal>
+#include <list>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <utility>
+#include <vector>
+
+#include <pthread.h>
+#include <unistd.h>
 
 using namespace zeek::agent;
 
@@ -40,7 +47,7 @@ struct Pimpl<SignalManager>::Implementation {
 
 signal::Handler::Handler(SignalManager* mgr, Signal sig, Callback cb) : _manager(mgr), _signal(sig) {
     ZEEK_AGENT_DEBUG("signal manager", "installing handler for signal {}", _signal);
-    std::lock_guard<std::mutex> lock(_manager->pimpl()->_handlers_mutex);
+    std::scoped_lock lock(_manager->pimpl()->_handlers_mutex);
 
     auto& list = _manager->pimpl()->_handlers[_signal];
     list.push_back(std::move(cb));
@@ -49,7 +56,7 @@ signal::Handler::Handler(SignalManager* mgr, Signal sig, Callback cb) : _manager
 
 signal::Handler::~Handler() {
     ZEEK_AGENT_DEBUG("signal manager", "uninstalling handler for signal {}", _signal);
-    std::lock_guard<std::mutex> lock(_manager->pimpl()->_handlers_mutex);
+    std::scoped_lock lock(_manager->pimpl()->_handlers_mutex);
 
     _manager->pimpl()->_handlers[_signal].erase(_handler);
 }
@@ -83,7 +90,7 @@ void SignalManager::Implementation::start() {
 
             {
                 ZEEK_AGENT_DEBUG("signal manager", "got signal {}", signal);
-                std::lock_guard<std::mutex> lock(_handlers_mutex);
+                std::scoped_lock lock(_handlers_mutex);
                 if ( const auto& x = _handlers[signal]; x.size() )
                     x.back()(); // keep lock during callback that handler can't go away
             }
@@ -98,13 +105,13 @@ void SignalManager::Implementation::stop() {
         return;
 
     _terminate = true;
-    kill(getpid(), SIGUSR1); // wake up the sigwait()
+    kill(::getpid(), SIGUSR1); // wake up the sigwait()
     _thread->join();
 }
 
 SignalManager::SignalManager(const std::vector<Signal>& signals_to_handle) {
     ZEEK_AGENT_DEBUG("signal manager", "creating instance, handling signals: {}",
-                     join(transform(signals_to_handle, [](auto i) { return std::to_string(i); }), ", "));
+                     join(transform_(signals_to_handle, [](auto i) { return std::to_string(i); }), ", "));
 
     pimpl()->blockSignals(signals_to_handle);
     pimpl()->start();

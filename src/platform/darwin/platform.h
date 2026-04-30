@@ -3,19 +3,34 @@
 #pragma once
 
 #include "core/table.h"
+#include "util/result.h"
 
+#include <filesystem>
 #include <optional>
 #include <vector>
 
+#include <sys/_types/_pid_t.h>
 #include <util/filesystem.h>
 
+namespace zeek::agent {
+class Scheduler;
+}
+
 namespace zeek::agent::platform::darwin {
+
+/**
+ * Hands the IPC layer a reference to the running scheduler so that
+ * remotely-requested shutdowns can be performed gracefully (instead of
+ * calling `::exit()` from an XPC dispatch thread, which races with
+ * static-destructor cleanup).
+ */
+extern void setScheduler(zeek::agent::Scheduler* scheduler);
 
 /**
  * Returns the path to the `App[lication Support` directory appropiate for the
  * user running the agent (which might be the system-wide one for root).
  */
-extern std::optional<filesystem::path> getApplicationSupport();
+extern std::optional<std::filesystem::path> getApplicationSupport();
 
 struct ProcessInfo {
     Value name;

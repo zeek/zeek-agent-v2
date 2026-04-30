@@ -1,9 +1,11 @@
 # @TEST-DOC: Test the `system-logs` table script end-to-end with mock data.
 #
-# @TEST-PORT: ZEEK_PORT
+# @TEST-PORT: ZEEK_WEBSOCKET_LISTEN_PORT
+# @TEST-PORT: XPUB_PORT
+# @TEST-PORT: XSUB_PORT
 #
 # @TEST-EXEC: btest-bg-run zeek  zeek ${FRAMEWORK} ${PACKAGE}/table/system-logs.zeek %INPUT
-# @TEST-EXEC: btest-bg-run agent zeek-agent -c ${CONFIG} -M -N -L info -z localhost:${ZEEK_PORT}
+# @TEST-EXEC: btest-bg-run agent zeek-agent -c ${CONFIG} -M -N -L info -z localhost:${ZEEK_WEBSOCKET_LISTEN_PORT}
 # @TEST-EXEC: btest-bg-wait 30
 # @TEST-EXEC: cat zeek/zeek-agent-system-logs.log | zeek-cut -cn host >tmp && mv tmp zeek/zeek-agent-system-logs.log
 # @TEST-EXEC: btest-diff zeek/zeek-agent-system-logs.log

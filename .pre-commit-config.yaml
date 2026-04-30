@@ -36,6 +36,7 @@ repos:
   hooks:
   - id: cpplint
     args: ["--quiet"]
+    exclude: '\.c$'
 
 - repo: https://github.com/jorisroovers/gitlint
   rev:  v0.17.0

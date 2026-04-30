@@ -3,11 +3,15 @@
 #include "scheduler.h"
 
 #include "logger.h"
-#include "util/fmt.h"
+#include "util/helpers.h"
+#include "util/pimpl.h"
 #include "util/testing.h"
 
 #include <algorithm>
+#include <chrono>
 #include <condition_variable>
+#include <cstddef>
+#include <mutex>
 #include <queue>
 #include <unordered_map>
 #include <utility>
@@ -60,7 +64,7 @@ struct Pimpl<Scheduler>::Implementation {
 
 timer::ID Scheduler::Implementation::schedule(timer::ID id, Time t, timer::Callback cb) {
     {
-        std::scoped_lock lock(_timers_mutex);
+        const std::scoped_lock lock(_timers_mutex);
         auto timer = Timer{.due = t, .id = id, .callback = std::move(cb)};
         auto x = _timers_by_id.emplace(id, std::move(timer));
         _timers.push(&x.first->second);
@@ -71,11 +75,11 @@ timer::ID Scheduler::Implementation::schedule(timer::ID id, Time t, timer::Callb
 }
 
 void Scheduler::Implementation::cancel(timer::ID id) {
-    std::scoped_lock lock(_timers_mutex);
+    const std::scoped_lock lock(_timers_mutex);
 
-    if ( auto t = _timers_by_id.find(id); t != _timers_by_id.end() )
+    if ( _timers_by_id.contains(id) )
         // mark as canceled, expiration will eventually delete it
-        t->second.canceled = true;
+        _timers_by_id[id].canceled = true;
 }
 
 bool Scheduler::Implementation::advance(Time now) {
@@ -110,7 +114,7 @@ bool Scheduler::Implementation::advance(Time now) {
 }
 
 void Scheduler::Implementation::updated() {
-    std::unique_lock<std::mutex> lock(_loop_mutex);
+    const std::unique_lock<std::mutex> lock(_loop_mutex);
     _loop_cv.notify_all();
 }
 
@@ -123,7 +127,7 @@ bool Scheduler::Implementation::loop() {
 
         Interval timeout = 5s; // max timeout, TODO: make configurable
         {
-            std::scoped_lock lock(_timers_mutex);
+            const std::scoped_lock lock(_timers_mutex);
             if ( ! _timers.empty() )
                 timeout =
                     std::min(timeout, std::max(Interval(0s), _timers.top()->due - std::chrono::system_clock::now()));
@@ -187,7 +191,7 @@ bool Scheduler::terminating() const { return pimpl()->_terminating; }
 Time Scheduler::currentTime() const { return pimpl()->_now; }
 
 size_t Scheduler::pendingTimers() const {
-    std::scoped_lock lock(pimpl()->_timers_mutex);
+    const std::scoped_lock lock(pimpl()->_timers_mutex);
     return pimpl()->_timers_by_id.size();
 }
 
@@ -260,12 +264,12 @@ TEST_CASE("timer management") {
         Scheduler scheduler;
         int execs = 0;
 
-        timer::ID id1 = scheduler.schedule(5_time, [&](timer::ID /* id */) {
+        const timer::ID id1 = scheduler.schedule(5_time, [&](timer::ID /* id */) {
             ++execs;
             return 0s;
         });
 
-        timer::ID id2 = scheduler.schedule(10_time, [&](timer::ID /* id */) {
+        const timer::ID id2 = scheduler.schedule(10_time, [&](timer::ID /* id */) {
             ++execs;
             return 0s;
         });

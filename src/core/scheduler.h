@@ -5,6 +5,8 @@
 #include "util/helpers.h"
 #include "util/pimpl.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 
 namespace zeek::agent {
@@ -38,7 +40,7 @@ using Callback = std::function<void()>;
  * for example through a deterministic sequence of fixed steps. The latter is
  * particularly useful for unit testing.
  *
- * Note that methods of this class aren't thread-safe unless stated othewise.
+ * Note that methods of this class aren't thread-safe unless stated otherwise.
  */
 class Scheduler : public Pimpl<Scheduler> {
 public:

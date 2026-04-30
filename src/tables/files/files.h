@@ -1,7 +1,9 @@
 // Copyright (c) 2021-2024 by the Zeek Project. See LICENSE for details.
 
 #include "core/table.h"
+#include "util/result.h"
 
+#include <filesystem>
 #include <string>
 #include <utility>
 #include <vector>
@@ -10,7 +12,7 @@ namespace zeek::agent::table {
 
 class FilesBase : public SnapshotTable {
 protected:
-    std::pair<std::string, std::vector<filesystem::path>> expandPaths(const std::vector<table::Argument>& args);
+    std::pair<std::string, std::vector<std::filesystem::path>> expandPaths(const std::vector<table::Argument>& args);
 };
 
 class FilesListCommon : public FilesBase {

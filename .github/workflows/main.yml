@@ -3,43 +3,36 @@ name: CI pipeline
 on: push
 
 jobs:
-  debug_ubuntu_22:
-    runs-on: ubuntu-22.04
+  debug_ubuntu_24:
+    runs-on: ubuntu-24.04
 
     strategy:
       matrix:
-        zeek: [{version: 6.0.2-0, tag: -lts}]
+        zeek: [{package: "zeek-rc" }]
 
     env:
-      ZEEK_VERSION: ${{ matrix.zeek.version }}
-      ZEEK_TAG: ${{ matrix.zeek.tag }}
+      ZEEK_PACKAGE: ${{ matrix.zeek.package }}
       ZEEK_AGENT_CONFIGURE_ADDL: ${{ matrix.configure }}
-      LD_LIBRARY_PATH: /usr/lib/llvm-17/lib/clang/17/lib/linux
+      LD_LIBRARY_PATH: /usr/lib/llvm-18/lib/clang/18/lib/linux
 
     steps:
       - name: Prepare
         run: |
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update
-          sudo apt-get install -y ninja-build ccache curl ca-certificates
+          sudo apt-get install -y ninja-build ccache curl ca-certificates clang gpg
           sudo pip3 install btest zkg pre-commit
 
-          # LLVM toolchain
-          echo 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main' | sudo tee -a /etc/apt/sources.list.d/llvm17.list
-          echo 'deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main' | sudo tee -a /etc/apt/sources.list.d/llvm17.list
-          sudo curl https://apt.llvm.org/llvm-snapshot.gpg.key -o /etc/apt/trusted.gpg.d/llvm.asc
-          sudo apt-get update
-          sudo apt-get install -y llvm-17-dev clang-17 libclang-17-dev clang-format-17 clang-tidy-17 libclang-rt-17-dev
-
           # for bpftool
-          sudo ln -s $(which llvm-strip-17) /usr/local/bin/llvm-strip
-          sudo apt-get install libelf-dev gcc-multilib
+          sudo apt-get install llvm libelf-dev gcc-multilib
 
       - name: Install Zeek
         run: |
-          (cd /tmp && curl -L -O https://download.zeek.org/binary-packages/xUbuntu_22.04/amd64/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb)
-          sudo apt install -y /tmp/zeek${ZEEK_TAG}-core_${ZEEK_VERSION}_amd64.deb
-          echo "/opt/zeek/bin:$PATH" >> $GITHUB_PATH
+          echo 'deb http://download.opensuse.org/repositories/security:/zeek/xUbuntu_24.04/ /' | sudo tee /etc/apt/sources.list.d/security:zeek.list
+          curl -fsSL https://download.opensuse.org/repositories/security:zeek/xUbuntu_24.04/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/security_zeek.gpg > /dev/null
+          sudo apt update
+          sudo apt install -y ${ZEEK_PACKAGE}
+          echo "/opt/zeek-rc/bin:/opt/zeek/bin:$PATH" >> $GITHUB_PATH
 
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -63,8 +56,6 @@ jobs:
       - name: Check code
         run: |
           pre-commit run -a --show-diff-on-failure
-          # TODO: tidy fails in Broker currently
-          # ninja -C build tidy
 
       - uses: actions/upload-artifact@v5
         if: failure()
@@ -75,12 +66,12 @@ jobs:
             zeek-agent/tests/.tmp
 
   # TODO: Install Zeek and run Zeek tests.
-  release_alpine_3_19_static:
-    runs-on: ubuntu-22.04
+  release_alpine_3_23_static:
+    runs-on: ubuntu-24.04
     environment: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/topic/ci-release-test' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     container:
-      image: alpine:3.19
+      image: alpine:3.23
 
     steps:
       - name: Prepare
@@ -128,11 +119,11 @@ jobs:
           path: build/dist/${{env.ZA_DIST}}
 
   # TODO: Install Zeek and run Zeek tests.
-  release_macos_13:
+  release_macos_15:
     env:
-      MACOS_VERSION: 13.0
+      MACOS_VERSION: 15.0
 
-    runs-on: macos-13
+    runs-on: macos-15
 
     environment: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/topic/ci-release-test' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
@@ -140,15 +131,8 @@ jobs:
       - name: Prepare
         run: |
           brew update
-
-          # This previously updated cmake as well, but homebrew's default CMake is now 4.x
-          # which is unsupported by our doctest submodule. Stay on the old version
-          # (3.31.6) for the time being. If the default on the runner updates to 4.x in
-          # the future we'll have to fix it, but hopefully doctest will get their stuff
-          # fixed before then.
-
-          brew install ninja ccache wget
-          pip3 install btest zkg
+          brew install ninja ccache wget cmake
+          pip3 install --break-system-packages btest zkg
           # time can be off, which confuses codesigning; this host can be accessed from GH actions
           sudo sntp -sS time.windows.com
 
@@ -164,13 +148,14 @@ jobs:
 
       - name: Build universal arch OpenSSL
         env:
+            OPENSSL_URL: https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
             OPENSSL_VERSION: 1.1.1w
         run: |
-            wget https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
+            wget ${OPENSSL_URL}
             tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_x86_64
             tar xvzf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl_arm64
-            (cd openssl_x86_64 && CC="ccache cc" ./Configure darwin64-x86_64-cc no-shared no-tests -mmacosx-version-min=${MACOS_VERSION} && make -j)
-            (cd openssl_arm64 && CC="ccache cc" ./Configure darwin64-arm64-cc no-shared no-tests -mmacosx-version-min=${MACOS_VERSION} && make -j)
+            (cd openssl_x86_64 && CC="ccache cc" ./Configure darwin64-x86_64-cc no-shared no-tests -mmacosx-version-min=${MACOS_VERSION} && make)
+            (cd openssl_arm64 && CC="ccache cc" ./Configure darwin64-arm64-cc no-shared no-tests -mmacosx-version-min=${MACOS_VERSION} && make)
             mkdir -p /tmp/openssl/lib /tmp/openssl/include
             lipo -create openssl_arm64/libcrypto.a openssl_x86_64/libcrypto.a -output /tmp/openssl/lib/libcrypto.a
             lipo -create openssl_arm64/libssl.a openssl_x86_64/libssl.a -output /tmp/openssl/lib/libssl.a
@@ -337,7 +322,7 @@ jobs:
           path: build/dist/${{env.ZA_DIST}}
 
   release_source:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     environment: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/topic/ci-release-test' || startsWith(github.ref, 'refs/tags/v')) && 'release' || '' }}
 
     steps:
@@ -383,9 +368,9 @@ jobs:
   publish_release:
     permissions:
       contents: write
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev'))
-    needs: [debug_ubuntu_22, release_alpine_3_19_static, release_macos_13, release_windows_2022, release_source]
+    needs: [debug_ubuntu_24, release_alpine_3_23_static, release_macos_15, release_windows_2022, release_source]
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

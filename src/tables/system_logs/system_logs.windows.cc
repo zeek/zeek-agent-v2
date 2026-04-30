@@ -9,6 +9,7 @@
 #include "core/logger.h"
 #include "platform/platform.h"
 #include "util/fmt.h"
+#include "util/helpers.h"
 
 #include <iostream>
 #include <map>
@@ -346,7 +347,7 @@ std::optional<LogEntry> SystemLogsWindows::processRecord(char* buffer, PEVENTLOG
     // from the event.
     if ( entry.message.empty() ) {
         auto trans =
-            transform(all_strings, [](const wchar_t* s) -> std::string { return narrowWstring(std::wstring(s)); });
+            transform_(all_strings, [](const wchar_t* s) -> std::string { return narrowWstring(std::wstring(s)); });
         entry.message = join(trans, ", ");
     }
 

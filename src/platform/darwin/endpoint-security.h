@@ -4,10 +4,12 @@
 
 #include "util/result.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include <EndpointSecurity/ESTypes.h>
 #include <EndpointSecurity/EndpointSecurity.h>
 
 namespace zeek::agent::platform::darwin {
