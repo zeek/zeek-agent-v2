@@ -1,4 +1,4 @@
-2.4 | 2026-04-30 14:14:55 +0200
+2.4.0 | 2026-04-30 14:17:24 +0200
 
   * Update for macOS 26. Tahoe has become more strict. This remains a
     bit experimental, but seems to generally work.
